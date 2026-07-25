@@ -1,0 +1,63 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { getCurrentCompany } from "@/lib/auth/current-company";
+
+function amount(value: FormDataEntryValue | null) {
+  const parsed = Number(String(value || "0").replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export async function createIngredient(formData: FormData) {
+  const { supabase, company } = await getCurrentCompany();
+  const name = String(formData.get("name") || "").trim();
+  const unit = String(formData.get("unit") || "un");
+  const currentStock = amount(formData.get("currentStock"));
+  const minimumStock = amount(formData.get("minimumStock"));
+  const unitCost = amount(formData.get("unitCost"));
+  if (name.length < 2 || currentStock < 0 || minimumStock < 0 || unitCost < 0) redirect("/estoque?erro=Confira os dados do insumo.");
+  const { error } = await supabase.from("ingredients").insert({ company_id: company.id, name, unit, current_stock: currentStock, minimum_stock: minimumStock, unit_cost: unitCost });
+  if (error) redirect(`/estoque?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/estoque");
+  redirect("/estoque?sucesso=Insumo cadastrado.");
+}
+
+export async function addInventoryMovement(formData: FormData) {
+  const { supabase, company, user } = await getCurrentCompany();
+  const ingredientId = String(formData.get("ingredientId") || "");
+  const type = String(formData.get("movementType") || "entry");
+  const quantityInput = amount(formData.get("quantity"));
+  const notes = String(formData.get("notes") || "").trim();
+  if (!ingredientId || quantityInput <= 0) redirect("/estoque?erro=Informe o insumo e a quantidade.");
+  const { data: ingredient, error: readError } = await supabase.from("ingredients").select("current_stock,unit_cost").eq("id", ingredientId).eq("company_id", company.id).single();
+  if (readError || !ingredient) redirect("/estoque?erro=Insumo não encontrado.");
+  const signed = type === "entry" || type === "return" ? quantityInput : -quantityInput;
+  const before = Number(ingredient.current_stock || 0);
+  const after = before + signed;
+  const { error: updateError } = await supabase.from("ingredients").update({ current_stock: after, updated_at: new Date().toISOString() }).eq("id", ingredientId).eq("company_id", company.id);
+  if (updateError) redirect(`/estoque?erro=${encodeURIComponent(updateError.message)}`);
+  const { error } = await supabase.from("inventory_movements").insert({ company_id: company.id, ingredient_id: ingredientId, movement_type: type, quantity: signed, stock_before: before, stock_after: after, unit_cost: ingredient.unit_cost, notes: notes || null, created_by: user.id });
+  if (error) redirect(`/estoque?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/estoque");
+  redirect("/estoque?sucesso=Movimentação registrada.");
+}
+
+export async function saveRecipeItem(formData: FormData) {
+  const { supabase, company } = await getCurrentCompany();
+  const productId = String(formData.get("productId") || "");
+  const ingredientId = String(formData.get("ingredientId") || "");
+  const quantity = amount(formData.get("quantity"));
+  if (!productId || !ingredientId || quantity <= 0) redirect("/estoque?erro=Selecione produto, insumo e quantidade.");
+  const { error } = await supabase.from("recipe_items").upsert({ company_id: company.id, product_id: productId, ingredient_id: ingredientId, quantity }, { onConflict: "product_id,ingredient_id" });
+  if (error) redirect(`/estoque?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/estoque");
+  redirect("/estoque?sucesso=Ficha técnica atualizada.");
+}
+
+export async function removeRecipeItem(formData: FormData) {
+  const { supabase, company } = await getCurrentCompany();
+  const id = String(formData.get("recipeItemId") || "");
+  await supabase.from("recipe_items").delete().eq("id", id).eq("company_id", company.id);
+  revalidatePath("/estoque");
+}

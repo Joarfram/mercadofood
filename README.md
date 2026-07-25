@@ -1,0 +1,66 @@
+# MercadoFood v2.5
+
+Sistema multiempresa para pedidos, cozinha, delivery, pagamentos, estoque,
+fidelidade, cardápio público, mesas/comandas, usuários e permissões.
+
+## Requisitos no Windows
+
+- Node.js 20 LTS ou mais recente
+- pnpm 11 (`corepack enable` e `corepack prepare pnpm@11.9.0 --activate`)
+- Um projeto no Supabase
+
+## Instalação
+
+No PowerShell, dentro da pasta do projeto:
+
+```powershell
+pnpm install
+Copy-Item .env.example .env.local
+```
+
+Edite `.env.local` e preencha:
+
+- `NEXT_PUBLIC_SUPABASE_URL`: URL do projeto Supabase.
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: chave pública `anon` do Supabase.
+- `NEXT_PUBLIC_APP_URL`: endereço do aplicativo; localmente, use
+  `http://localhost:3000`.
+- `WHATSAPP_WEBHOOK_URL` e `WHATSAPP_WEBHOOK_TOKEN`: opcionais, usados apenas
+  pela integração de WhatsApp.
+
+Não use a chave `service_role` no frontend e nunca envie `.env.local` ao
+repositório.
+
+## Banco de dados
+
+No Supabase, aplique os arquivos de `supabase/migrations` em ordem crescente
+pelo prefixo numérico, de `0001_initial_schema.sql` até
+`0024_auth_roles_permissions.sql`. A sequência não possui um arquivo `0013`;
+isso é intencional e não impede a execução. Não execute `0024` antes das
+anteriores, pois ela depende das tabelas `companies` e `company_members`.
+
+Configure também no Supabase Authentication:
+
+1. A URL do site (`http://localhost:3000` no desenvolvimento).
+2. A URL de redirecionamento `http://localhost:3000/auth/callback`.
+3. O provedor de e-mail e a política de confirmação desejada.
+
+## Executar
+
+```powershell
+pnpm dev
+```
+
+Abra `http://localhost:3000`. O login real fica em `/login`; a apresentação
+visual de demonstração permanece disponível em `/demonstracao`.
+
+## Validar antes de publicar
+
+```powershell
+pnpm typecheck
+pnpm lint
+pnpm build
+```
+
+O build e os fluxos conectados ao banco exigem valores válidos em `.env.local`.
+As chaves reais e o envio de mensagens pelo provedor de WhatsApp dependem das
+credenciais externas do ambiente de implantação.
