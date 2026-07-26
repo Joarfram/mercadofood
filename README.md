@@ -1,4 +1,11 @@
-# MercadoFood v2.5
+# MercadoFood v2.6
+
+## Gerenciamento de imagens
+
+O painel **Fotos e imagens** administra fotos de produtos, logo, banner,
+promoções e combos com Supabase Storage. Aplique a migration
+`0025_media_management.sql` e consulte
+`docs/ETAPA_GERENCIAMENTO_IMAGENS_V26.md`.
 
 Sistema multiempresa para pedidos, cozinha, delivery, pagamentos, estoque,
 fidelidade, cardápio público, mesas/comandas, usuários e permissões.

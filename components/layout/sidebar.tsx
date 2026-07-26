@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutDashboard, ShoppingBag, Utensils, Settings, Bike, ChefHat, WalletCards, Banknote, BarChart3, PackageOpen, Users, Tags, Armchair, Boxes, UserCog } from "lucide-react";
+import { LayoutDashboard, ShoppingBag, Utensils, Settings, Bike, ChefHat, WalletCards, Banknote, BarChart3, PackageOpen, Users, Tags, Armchair, Boxes, UserCog, Images } from "lucide-react";
 import { getCurrentCompany } from "@/lib/auth/current-company";
 import { canAccess, roleLabels, type ModuleKey } from "@/lib/auth/permissions";
 
@@ -8,6 +8,7 @@ const items: Array<{href:string;label:string;icon:typeof LayoutDashboard;module:
   { href: "/pedidos", label: "Pedidos", icon: ShoppingBag, module: "orders" },
   { href: "/produtos", label: "Produtos", icon: Utensils, module: "products" },
   { href: "/combos", label: "Combos", icon: Boxes, module: "products" },
+  { href: "/midias", label: "Fotos e imagens", icon: Images, module: "products" },
   { href: "/cozinha", label: "Cozinha", icon: ChefHat, module: "kitchen" },
   { href: "/entregadores", label: "Entregadores", icon: Bike, module: "delivery" },
   { href: "/pagamentos", label: "Pagamentos", icon: WalletCards, module: "payments" },
