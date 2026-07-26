@@ -17,7 +17,19 @@ export async function signup(formData: FormData) {
   if (error) redirect(`/cadastro?erro=${encodeURIComponent(error.message)}`);
 
   if (data.user) {
-    await supabase.from("companies").insert({ name: companyName, owner_id: data.user.id });
+    const slugBase = companyName
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "") || "empresa";
+    const slug = `${slugBase}-${data.user.id.slice(0, 8)}`;
+    const { error: companyError } = await supabase
+      .from("companies")
+      .insert({ name: companyName, owner_id: data.user.id, slug });
+    if (companyError) {
+      redirect(`/cadastro?erro=${encodeURIComponent(companyError.message)}`);
+    }
   }
   redirect("/dashboard");
 }

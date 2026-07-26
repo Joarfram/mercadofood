@@ -10,6 +10,12 @@ create table if not exists public.companies (
   created_at timestamptz not null default now()
 );
 
+-- A tabela já existe quando 0001 foi aplicada. CREATE TABLE IF NOT EXISTS não
+-- adiciona colunas a uma tabela existente, portanto a adaptação deve ser
+-- explícita antes de criar políticas que consultam owner_id.
+alter table public.companies
+  add column if not exists owner_id uuid references auth.users(id) on delete cascade;
+
 create table if not exists public.company_members (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies(id) on delete cascade,

@@ -37,6 +37,10 @@ create table if not exists public.table_tabs (
   updated_at timestamptz not null default now()
 );
 
+alter table public.companies
+  add column if not exists dine_in_service_charge_percent numeric(5,2) not null default 0,
+  add column if not exists allow_table_qr_orders boolean not null default true;
+
 alter table public.orders add column if not exists table_id uuid references public.restaurant_tables(id) on delete set null;
 alter table public.orders add column if not exists table_tab_id uuid references public.table_tabs(id) on delete set null;
 alter table public.orders add column if not exists ordering_source text not null default 'staff' check (ordering_source in ('staff','public_menu','table_qr'));
@@ -71,10 +75,10 @@ begin
   from public.orders
   where table_tab_id = p_tab_id and status <> 'canceled';
 
-  select round(greatest(0, v_subtotal - v_discount) * coalesce(mc.dine_in_service_charge_percent,0) / 100, 2)
+  select round(greatest(0, v_subtotal - v_discount) * coalesce(c.dine_in_service_charge_percent,0) / 100, 2)
   into v_service
   from public.table_tabs tt
-  left join public.menu_configurations mc on mc.company_id = tt.company_id
+  join public.companies c on c.id = tt.company_id
   where tt.id = p_tab_id;
 
   update public.table_tabs
@@ -86,9 +90,6 @@ begin
   where id = p_tab_id;
 end;
 $$;
-
-alter table public.menu_configurations add column if not exists dine_in_service_charge_percent numeric(5,2) not null default 0;
-alter table public.menu_configurations add column if not exists allow_table_qr_orders boolean not null default true;
 
 create or replace function public.get_public_table_context(p_token text)
 returns jsonb language plpgsql security definer set search_path = public as $$
@@ -104,8 +105,7 @@ begin
   from public.restaurant_tables t
   join public.companies c on c.id=t.company_id
   left join lateral (select * from public.table_tabs x where x.table_id=t.id and x.status in ('open','requested_closing') order by x.opened_at desc limit 1) tt on true
-  left join public.menu_configurations mc on mc.company_id=t.company_id
-  where t.public_token=upper(p_token) and t.is_active=true and coalesce(mc.allow_table_qr_orders,true)=true;
+  where t.public_token=upper(p_token) and t.is_active=true and c.allow_table_qr_orders=true;
   return v_result;
 end;
 $$;

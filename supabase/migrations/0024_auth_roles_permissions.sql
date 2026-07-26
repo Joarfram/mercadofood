@@ -7,6 +7,13 @@ alter table public.company_members
   add column if not exists is_active boolean not null default true,
   add column if not exists updated_at timestamptz not null default now();
 
+-- Amplia os papéis originalmente definidos em 0003.
+alter table public.company_members
+  drop constraint if exists company_members_role_check;
+alter table public.company_members
+  add constraint company_members_role_check
+  check (role in ('owner','manager','attendant','kitchen','cashier','stock','driver','viewer'));
+
 create table if not exists public.company_invites (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies(id) on delete cascade,
