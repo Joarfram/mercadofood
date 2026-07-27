@@ -76,7 +76,12 @@ export function MediaManager({
   const [message, setMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
   const busy = progress !== null;
   const remaining = Math.max(0, maxFiles - assets.length);
-  const label = useMemo(() => maxFiles === 1 ? "Escolher imagem" : `Adicionar fotos (${remaining} restantes)`, [maxFiles, remaining]);
+  const label = useMemo(
+    () => maxFiles === 1
+      ? (assets.length ? "Trocar imagem" : "Escolher imagem")
+      : `Adicionar fotos (${remaining} restantes)`,
+    [assets.length, maxFiles, remaining]
+  );
 
   async function chooseFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -114,12 +119,7 @@ export function MediaManager({
       const replaced = replacing ? assets.find(asset => asset.id === replacing) : null;
       const sortOrder = replaced?.sort_order ?? assets.length;
 
-      if (replacing) {
-        const { error: removeReferenceError } = await supabase.from("media_assets").delete().eq("id", replacing).eq("company_id", companyId);
-        if (removeReferenceError) throw removeReferenceError;
-      }
-
-      const { data: inserted, error: insertError } = await supabase.from("media_assets").insert({
+      const values = {
         company_id: companyId,
         entity_type: entityType,
         entity_id: entityId,
@@ -131,13 +131,20 @@ export function MediaManager({
         byte_size: file.size,
         sort_order: sortOrder,
         created_by: userId,
-      }).select("id,storage_path,public_url,alt_text,mime_type,byte_size,sort_order").single();
-      if (insertError) throw insertError;
+      };
+
+      const query = replacing
+        ? supabase.from("media_assets").update(values).eq("id", replacing).eq("company_id", companyId)
+        : supabase.from("media_assets").insert(values);
+      const { data: saved, error: saveError } = await query
+        .select("id,storage_path,public_url,alt_text,mime_type,byte_size,sort_order")
+        .single();
+      if (saveError) throw saveError;
 
       if (replaced) await supabase.storage.from("company-media").remove([replaced.storage_path]);
       setAssets(current => replacing
-        ? current.map(asset => asset.id === replacing ? inserted as MediaAsset : asset).sort((a, b) => a.sort_order - b.sort_order)
-        : [...current, inserted as MediaAsset]);
+        ? current.map(asset => asset.id === replacing ? saved as MediaAsset : asset).sort((a, b) => a.sort_order - b.sort_order)
+        : [...current, saved as MediaAsset]);
       setMessage({ type: "success", text: replacing ? "Imagem substituída." : "Imagem adicionada." });
       router.refresh();
     } catch (error) {
@@ -200,7 +207,7 @@ export function MediaManager({
   return <section className="rounded-2xl border bg-white p-5 shadow-sm">
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div><h3 className="font-bold text-gray-900">{title}</h3><p className="mt-1 text-sm text-gray-500">{description}</p></div>
-      {(remaining > 0 || maxFiles === 1) && <button type="button" disabled={busy} onClick={() => openPicker()} className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"><UploadCloud size={18}/>{label}</button>}
+      {(remaining > 0 || maxFiles === 1) && <button type="button" disabled={busy} onClick={() => openPicker(maxFiles === 1 && assets[0] ? assets[0].id : null)} className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{maxFiles === 1 && assets.length ? <Replace size={18}/> : <UploadCloud size={18}/>} {label}</button>}
     </div>
     <input ref={inputRef} onChange={chooseFile} type="file" accept={ACCEPTED_TYPES.join(",")} className="hidden"/>
 
@@ -216,7 +223,7 @@ export function MediaManager({
         <div className={`relative bg-gray-100 ${aspect === "wide" ? "aspect-[16/7]" : "aspect-square"}`}><img src={asset.public_url} alt={asset.alt_text || title} className="h-full w-full object-cover"/>{index === 0 && <span className="absolute left-2 top-2 rounded-full bg-emerald-700 px-2 py-1 text-[10px] font-bold text-white">Principal</span>}</div>
         <div className="flex items-center justify-between gap-1 p-2">
           <div className="flex gap-1"><button type="button" disabled={index === 0 || busy} onClick={() => move(index, -1)} title="Mover para a esquerda" className="rounded-lg border bg-white p-2 disabled:opacity-30"><ArrowLeft size={15}/></button><button type="button" disabled={index === assets.length - 1 || busy} onClick={() => move(index, 1)} title="Mover para a direita" className="rounded-lg border bg-white p-2 disabled:opacity-30"><ArrowRight size={15}/></button></div>
-          <div className="flex gap-1"><button type="button" disabled={busy} onClick={() => openPicker(asset.id)} title="Substituir" className="rounded-lg bg-orange-50 p-2 text-orange-700"><Replace size={15}/></button><button type="button" disabled={busy} onClick={() => remove(asset)} title="Remover" className="rounded-lg bg-red-50 p-2 text-red-600"><Trash2 size={15}/></button></div>
+          <div className="flex gap-1"><button type="button" disabled={busy} onClick={() => openPicker(asset.id)} title="Trocar imagem" className="inline-flex items-center gap-1 rounded-lg bg-orange-50 px-2 py-2 text-xs font-semibold text-orange-700"><Replace size={15}/><span>Trocar</span></button><button type="button" disabled={busy} onClick={() => remove(asset)} title="Remover" className="rounded-lg bg-red-50 p-2 text-red-600"><Trash2 size={15}/></button></div>
         </div>
       </article>)}
       {preview && <div className={`overflow-hidden rounded-xl border-2 border-emerald-500 bg-gray-50 ${aspect === "wide" ? "aspect-[16/7]" : "aspect-square"}`}><img src={preview} alt="Pré-visualização do envio" className="h-full w-full object-cover"/></div>}
