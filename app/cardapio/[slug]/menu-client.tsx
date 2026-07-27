@@ -32,6 +32,7 @@ type MenuData = {
     name: string;
     slug: string;
     logo_url?: string;
+    banner_url?: string;
     primary_color?: string;
     accent_color?: string;
     menu_message?: string;
@@ -40,7 +41,7 @@ type MenuData = {
     is_open: boolean;
   };
   categories: Category[];
-  promotions: { id: string; title: string; description?: string }[];
+  promotions: { id: string; title: string; description?: string; image_url?: string }[];
 };
 type Selection = Record<string, Record<string, number>>;
 type CartChoice = { groupId: string; groupName: string; optionId: string; optionName: string; quantity: number; unitPrice: number; chargedQuantity: number; totalPrice: number };
@@ -232,8 +233,14 @@ export default function MenuClient({ menu }: { menu: MenuData }) {
         </div>
       </header>
 
+      {menu.company.banner_url && <section className="mx-auto max-w-6xl px-4 pt-5 md:px-6">
+        <div className="aspect-[16/7] max-h-[420px] overflow-hidden rounded-3xl border-4 border-white bg-white shadow-lg">
+          <img src={menu.company.banner_url} alt={`Banner da ${menu.company.name}`} className="h-full w-full object-cover"/>
+        </div>
+      </section>}
+
       <section className="mx-auto max-w-6xl p-4 md:p-6">
-        {menu.promotions.length > 0 && <div className="mb-5 flex gap-3 overflow-x-auto pb-2">{menu.promotions.map(promotion => <article key={promotion.id} className="min-w-[260px] rounded-2xl bg-orange-100 p-4"><strong>{promotion.title}</strong><p className="text-sm text-gray-700">{promotion.description}</p></article>)}</div>}
+        {menu.promotions.length > 0 && <div className="mb-5 flex gap-3 overflow-x-auto pb-2">{menu.promotions.map(promotion => <article key={promotion.id} className="min-w-[260px] overflow-hidden rounded-2xl bg-orange-100">{promotion.image_url && <img src={promotion.image_url} alt={promotion.title} className="aspect-[16/7] w-full object-cover"/>}<div className="p-4"><strong>{promotion.title}</strong><p className="text-sm text-gray-700">{promotion.description}</p></div></article>)}</div>}
         <a href={`/cardapio/${menu.company.slug}/combos`} className="mb-5 flex items-center justify-between rounded-2xl bg-gradient-to-r from-orange-500 to-orange-400 p-5 text-white shadow-sm"><div><p className="text-sm font-bold text-white/80">Monte do seu jeito</p><strong className="text-xl">Ver combos completos</strong></div><span className="rounded-xl bg-white/20 px-4 py-2 font-black">Abrir →</span></a>
         <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar no cardápio" className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-4 shadow-sm outline-none focus:ring-2 focus:ring-green-600" />
         <nav className="mt-4 flex gap-2 overflow-x-auto pb-2">
