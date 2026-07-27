@@ -223,8 +223,8 @@ export function MediaManager({
     </div>}
     {message && <p className={`mt-4 rounded-xl p-3 text-sm font-semibold ${message.type === "error" ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-800"}`}>{message.text}</p>}
 
-    <div className={`mt-4 grid gap-3 ${aspect === "wide" ? "sm:grid-cols-2" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"}`}>
-      {!assets.length && !preview && <div className={`flex min-h-36 flex-col items-center justify-center rounded-xl border-2 border-dashed bg-gray-50 p-5 text-center text-gray-400 ${aspect === "wide" ? "sm:col-span-2" : "col-span-2 sm:col-span-3 lg:col-span-4"}`}><ImagePlus/><p className="mt-2 text-sm">Nenhuma imagem. O sistema exibirá a imagem padrão.</p></div>}
+    <div className={`mt-4 grid gap-3 ${maxFiles === 1 ? "grid-cols-1" : aspect === "wide" ? "sm:grid-cols-2" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"}`}>
+      {!assets.length && !preview && <div className={`flex min-h-36 flex-col items-center justify-center rounded-xl border-2 border-dashed bg-gray-50 p-5 text-center text-gray-400 ${maxFiles === 1 ? "" : aspect === "wide" ? "sm:col-span-2" : "col-span-2 sm:col-span-3 lg:col-span-4"}`}><ImagePlus/><p className="mt-2 text-sm">Nenhuma imagem. O sistema exibirá a imagem padrão.</p></div>}
       {assets.map((asset, index) => <article key={asset.id} className="overflow-hidden rounded-xl border bg-gray-50">
         <div className={`relative bg-gray-100 ${aspect === "wide" ? "aspect-[16/7]" : "aspect-square"}`}><img src={asset.public_url} alt={asset.alt_text || title} className="h-full w-full object-cover"/>{index === 0 && <span className="absolute left-2 top-2 rounded-full bg-emerald-700 px-2 py-1 text-[10px] font-bold text-white">Principal</span>}</div>
         <div className="flex items-center justify-between gap-1 p-2">
