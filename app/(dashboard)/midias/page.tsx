@@ -27,8 +27,8 @@ export default async function MidiasPage() {
     {canManageBrand && <section>
       <h2 className="mb-4 text-xl font-bold">Identidade da loja</h2>
       <div className="grid gap-5 lg:grid-cols-2">
-        <MediaManager companyId={company.id} entityType="company" entityId={company.id} kind="logo" initialAssets={forEntity(company.id, "logo")} title="Logomarca" description="Imagem quadrada em JPG, PNG, WebP ou GIF, com até 8 MB." maxFiles={1}/>
-        <MediaManager companyId={company.id} entityType="company" entityId={company.id} kind="banner" initialAssets={forEntity(company.id, "banner")} title="Banner do cardápio" description="Use uma imagem horizontal que funcione bem no celular." maxFiles={1} aspect="wide"/>
+        <MediaManager companyId={company.id} entityType="company" entityId={company.id} kind="logo" initialAssets={forEntity(company.id, "logo")} title="Logomarca" description="Use uma imagem quadrada, centralizada e com pequena margem nas bordas." recommendedSize="800 × 800 px (proporção 1:1)" maxFiles={1}/>
+        <MediaManager companyId={company.id} entityType="company" entityId={company.id} kind="banner" initialAssets={forEntity(company.id, "banner")} title="Banner do cardápio" description="Mantenha textos e elementos importantes no centro para não cortar no celular." recommendedSize="1600 × 700 px (proporção 16:7)" maxFiles={1} aspect="wide"/>
       </div>
     </section>}
 

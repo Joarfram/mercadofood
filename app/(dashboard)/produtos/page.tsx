@@ -20,11 +20,14 @@ export default async function ProdutosPage({ searchParams }: { searchParams: Pro
 
     <section className="grid gap-5 xl:grid-cols-[1fr_2fr]">
       <div className="space-y-5">
-        <form action={createCategory} className="rounded-2xl border bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-bold">Nova categoria</h2>
+        <form action={createCategory} className="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">Organização do cardápio</p>
+          <h2 className="mt-1 text-lg font-bold">Categorias do cardápio</h2>
+          <p className="mt-1 text-sm text-gray-500">Crie categorias como Hambúrgueres, Bebidas, Porções e Sobremesas.</p>
           <label className="mt-4 block text-sm font-semibold">Nome</label>
           <input name="name" required className="mt-1 w-full rounded-xl border px-3 py-3" placeholder="Ex.: Hambúrgueres" />
-          <button className="mt-4 w-full rounded-xl border border-emerald-700 px-4 py-3 font-semibold text-emerald-800">Criar categoria</button>
+          <button className="mt-4 w-full rounded-xl bg-emerald-700 px-4 py-3 font-semibold text-white">Adicionar categoria</button>
+          {!!categories?.length && <div className="mt-4 border-t pt-4"><p className="mb-2 text-xs font-semibold text-gray-500">Categorias cadastradas ({categories.length})</p><div className="flex flex-wrap gap-2">{categories.map(category => <span key={category.id} className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">{category.name}</span>)}</div></div>}
         </form>
 
         <form action={createProduct} className="rounded-2xl border bg-white p-5 shadow-sm">

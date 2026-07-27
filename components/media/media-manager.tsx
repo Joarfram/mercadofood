@@ -19,6 +19,7 @@ type Props = {
   description?: string;
   maxFiles?: number;
   aspect?: "square" | "wide";
+  recommendedSize?: string;
 };
 
 function extension(file: File) {
@@ -66,6 +67,7 @@ export function MediaManager({
   description = "Envie JPG, PNG, WebP ou GIF de até 8 MB.",
   maxFiles = 8,
   aspect = "square",
+  recommendedSize,
 }: Props) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -206,7 +208,11 @@ export function MediaManager({
 
   return <section className="rounded-2xl border bg-white p-5 shadow-sm">
     <div className="flex flex-wrap items-start justify-between gap-3">
-      <div><h3 className="font-bold text-gray-900">{title}</h3><p className="mt-1 text-sm text-gray-500">{description}</p></div>
+      <div>
+        <h3 className="font-bold text-gray-900">{title}</h3>
+        <p className="mt-1 text-sm text-gray-500">{description}</p>
+        {recommendedSize && <p className="mt-2 inline-flex rounded-lg bg-orange-50 px-2.5 py-1 text-xs font-bold text-orange-800">Medida recomendada: {recommendedSize}</p>}
+      </div>
       {(remaining > 0 || maxFiles === 1) && <button type="button" disabled={busy} onClick={() => openPicker(maxFiles === 1 && assets[0] ? assets[0].id : null)} className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{maxFiles === 1 && assets.length ? <Replace size={18}/> : <UploadCloud size={18}/>} {label}</button>}
     </div>
     <input ref={inputRef} onChange={chooseFile} type="file" accept={ACCEPTED_TYPES.join(",")} className="hidden"/>
