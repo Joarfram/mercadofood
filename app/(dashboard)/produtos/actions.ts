@@ -22,7 +22,18 @@ export async function createCategory(formData: FormData) {
   const name = String(formData.get("name") || "").trim();
   if (name.length < 2) redirect("/produtos?erro=Informe%20uma%20categoria%20válida");
   const { supabase, company } = await getCurrentCompany();
-  const { error } = await supabase.from("categories").insert({ company_id: company.id, name });
+  const { data: lastCategory } = await supabase
+    .from("categories")
+    .select("sort_order")
+    .eq("company_id", company.id)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const { error } = await supabase.from("categories").insert({
+    company_id: company.id,
+    name,
+    sort_order: Number(lastCategory?.sort_order ?? -1) + 1,
+  });
   if (error) redirect(`/produtos?erro=${encodeURIComponent(error.message)}`);
   revalidatePath("/produtos");
   redirect("/produtos?sucesso=Categoria%20criada");
@@ -66,15 +77,12 @@ export async function deleteCategory(formData: FormData) {
   const categoryId = String(formData.get("categoryId") || "");
   if (!z.string().uuid().safeParse(categoryId).success) redirect("/produtos?erro=Categoria%20inválida");
   const { supabase, company } = await getCurrentCompany();
-  const { count, error: countError } = await supabase
+  const { error: unlinkError } = await supabase
     .from("products")
-    .select("id", { count: "exact", head: true })
+    .update({ category_id: null, updated_at: new Date().toISOString() })
     .eq("company_id", company.id)
     .eq("category_id", categoryId);
-  if (countError) redirect(`/produtos?erro=${encodeURIComponent(countError.message)}`);
-  if ((count || 0) > 0) {
-    redirect("/produtos?erro=Esta%20categoria%20possui%20produtos.%20Mova%20os%20produtos%20antes%20de%20excluir");
-  }
+  if (unlinkError) redirect(`/produtos?erro=${encodeURIComponent(unlinkError.message)}`);
   const { error } = await supabase
     .from("categories")
     .delete()
@@ -83,7 +91,7 @@ export async function deleteCategory(formData: FormData) {
   if (error) redirect(`/produtos?erro=${encodeURIComponent(error.message)}`);
   revalidatePath("/produtos");
   revalidatePath(`/cardapio/${company.slug}`);
-  redirect("/produtos?sucesso=Categoria%20excluída");
+  redirect("/produtos?sucesso=Categoria%20excluída.%20Os%20produtos%20foram%20mantidos%20sem%20categoria");
 }
 
 export async function createProduct(formData: FormData) {
