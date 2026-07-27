@@ -23,6 +23,64 @@ export async function createCategory(formData: FormData) {
   redirect("/produtos?sucesso=Categoria%20criada");
 }
 
+export async function updateCategory(formData: FormData) {
+  const categoryId = String(formData.get("categoryId") || "");
+  const name = String(formData.get("name") || "").trim();
+  if (!z.string().uuid().safeParse(categoryId).success || name.length < 2) {
+    redirect("/produtos?erro=Informe%20uma%20categoria%20válida");
+  }
+  const { supabase, company } = await getCurrentCompany();
+  const { error } = await supabase
+    .from("categories")
+    .update({ name, updated_at: new Date().toISOString() })
+    .eq("id", categoryId)
+    .eq("company_id", company.id);
+  if (error) redirect(`/produtos?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/produtos");
+  revalidatePath(`/cardapio/${company.slug}`);
+  redirect("/produtos?sucesso=Categoria%20atualizada");
+}
+
+export async function toggleCategory(formData: FormData) {
+  const categoryId = String(formData.get("categoryId") || "");
+  const nextActive = String(formData.get("nextActive") || "") === "true";
+  if (!z.string().uuid().safeParse(categoryId).success) redirect("/produtos?erro=Categoria%20inválida");
+  const { supabase, company } = await getCurrentCompany();
+  const { error } = await supabase
+    .from("categories")
+    .update({ is_active: nextActive, updated_at: new Date().toISOString() })
+    .eq("id", categoryId)
+    .eq("company_id", company.id);
+  if (error) redirect(`/produtos?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/produtos");
+  revalidatePath(`/cardapio/${company.slug}`);
+  redirect(`/produtos?sucesso=Categoria%20${nextActive ? "ativada" : "pausada"}`);
+}
+
+export async function deleteCategory(formData: FormData) {
+  const categoryId = String(formData.get("categoryId") || "");
+  if (!z.string().uuid().safeParse(categoryId).success) redirect("/produtos?erro=Categoria%20inválida");
+  const { supabase, company } = await getCurrentCompany();
+  const { count, error: countError } = await supabase
+    .from("products")
+    .select("id", { count: "exact", head: true })
+    .eq("company_id", company.id)
+    .eq("category_id", categoryId);
+  if (countError) redirect(`/produtos?erro=${encodeURIComponent(countError.message)}`);
+  if ((count || 0) > 0) {
+    redirect("/produtos?erro=Esta%20categoria%20possui%20produtos.%20Mova%20os%20produtos%20antes%20de%20excluir");
+  }
+  const { error } = await supabase
+    .from("categories")
+    .delete()
+    .eq("id", categoryId)
+    .eq("company_id", company.id);
+  if (error) redirect(`/produtos?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/produtos");
+  revalidatePath(`/cardapio/${company.slug}`);
+  redirect("/produtos?sucesso=Categoria%20excluída");
+}
+
 export async function createProduct(formData: FormData) {
   const parsed = productSchema.safeParse({
     name: formData.get("name"),
