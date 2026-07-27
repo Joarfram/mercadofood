@@ -1,12 +1,11 @@
 import Link from "next/link";
+import { BrandMark } from "@/components/brand/brand-mark";
 
 export default function HomePage() {
   return (
     <main className="min-h-screen flex items-center justify-center p-6">
       <section className="max-w-xl w-full bg-white rounded-card shadow-sm border border-gray-200 p-8 text-center">
-        <div className="mx-auto mb-4 h-16 w-16 rounded-2xl bg-mercado-green text-white flex items-center justify-center text-2xl font-bold">
-          MF
-        </div>
+        <div className="mx-auto mb-4 grid h-20 w-20 place-items-center rounded-3xl bg-white shadow-lg ring-1 ring-emerald-100"><BrandMark size={68}/></div>
         <h1 className="text-3xl font-bold text-mercado-ink">MercadoFood</h1>
         <p className="mt-2 text-gray-600">Venda mais. Gerencie melhor.</p>
         <div className="mt-8 flex gap-3 justify-center">
