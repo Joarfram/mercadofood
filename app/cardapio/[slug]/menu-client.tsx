@@ -224,9 +224,9 @@ export default function MenuClient({ menu }: { menu: MenuData }) {
     <main className="min-h-screen bg-[#fffaf5] pb-28">
       <header className="text-white" style={{ backgroundColor: menu.company.primary_color || "#15803D" }}>
         <div className="mx-auto max-w-6xl p-5 md:p-8">
-          <div className="flex items-center gap-4">
-            {menu.company.logo_url ? <img src={menu.company.logo_url} alt="" className="h-16 w-16 rounded-2xl bg-white object-cover" /> : <div className="grid h-16 w-16 place-items-center rounded-2xl bg-white/20 text-3xl">🍔</div>}
-            <div><p className="text-sm text-white/80">Cardápio MercadoFood</p><h1 className="text-3xl font-black">{menu.company.name}</h1><p className="mt-1 text-sm">{menu.company.is_open ? "🟢 Aberto agora" : "🔴 Fechado no momento"}</p></div>
+          <div className="flex items-center gap-5 md:gap-7">
+            {menu.company.logo_url ? <img src={menu.company.logo_url} alt={`Logomarca da ${menu.company.name}`} className="h-28 w-28 shrink-0 rounded-3xl border-4 border-white bg-white object-contain p-1 shadow-xl md:h-36 md:w-36" /> : <div className="grid h-28 w-28 shrink-0 place-items-center rounded-3xl border-4 border-white/30 bg-white/20 text-5xl shadow-xl md:h-36 md:w-36">🍔</div>}
+            <div><p className="text-sm text-white/80">Cardápio MercadoFood</p><h1 className="text-2xl font-black sm:text-3xl md:text-4xl">{menu.company.name}</h1><p className="mt-1 text-sm">{menu.company.is_open ? "🟢 Aberto agora" : "🔴 Fechado no momento"}</p></div>
           </div>
           {menu.company.menu_message && <p className="mt-4 rounded-xl bg-white/10 p-3">{menu.company.menu_message}</p>}
         </div>
