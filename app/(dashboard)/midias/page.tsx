@@ -35,7 +35,7 @@ export default async function MidiasPage() {
     <section>
       <h2 className="mb-4 text-xl font-bold">Produtos</h2>
       <div className="grid gap-5 xl:grid-cols-2">
-        {(products || []).map(product => <MediaManager key={product.id} companyId={company.id} entityType="product" entityId={product.id} initialAssets={forEntity(product.id)} title={product.name} description="Até 8 fotos. A primeira será a capa do produto."/> )}
+        {(products || []).map(product => <MediaManager key={product.id} companyId={company.id} entityType="product" entityId={product.id} initialAssets={forEntity(product.id)} title={product.name} description="Até 8 fotos. A primeira será a capa do produto." recommendedSize="1200 × 600 px (proporção 2:1)"/> )}
         {!products?.length && <Empty text="Cadastre um produto para adicionar fotos."/>}
       </div>
     </section>
@@ -43,7 +43,7 @@ export default async function MidiasPage() {
     <section>
       <h2 className="mb-4 text-xl font-bold">Combos</h2>
       <div className="grid gap-5 xl:grid-cols-2">
-        {(combos || []).map(combo => <MediaManager key={combo.id} companyId={company.id} entityType="combo" entityId={combo.id} initialAssets={forEntity(combo.id)} title={combo.name} description="Fotos do combo exibidas no cardápio público."/> )}
+        {(combos || []).map(combo => <MediaManager key={combo.id} companyId={company.id} entityType="combo" entityId={combo.id} initialAssets={forEntity(combo.id)} title={combo.name} description="Fotos do combo exibidas no cardápio público." recommendedSize="1200 × 600 px (proporção 2:1)"/> )}
         {!combos?.length && <Empty text="Cadastre um combo para adicionar fotos."/>}
       </div>
     </section>

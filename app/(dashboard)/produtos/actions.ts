@@ -16,6 +16,8 @@ const productSchema = z.object({
 const updateProductSchema = productSchema.extend({
   productId: z.string().uuid(),
   promotionalPrice: z.union([z.literal(""), z.coerce.number().min(0.01)]).optional(),
+  imageFit: z.enum(["cover", "contain"]),
+  imagePosition: z.enum(["center", "top", "bottom", "left", "right"]),
 });
 
 export async function createCategory(formData: FormData) {
@@ -129,6 +131,8 @@ export async function updateProduct(formData: FormData) {
     promotionalPrice: formData.get("promotionalPrice") || "",
     categoryId: formData.get("categoryId"),
     preparationTime: formData.get("preparationTime") || 0,
+    imageFit: formData.get("imageFit"),
+    imagePosition: formData.get("imagePosition"),
   });
   if (!parsed.success) {
     redirect(`/produtos?erro=${encodeURIComponent(parsed.error.issues[0]?.message || "Dados inválidos")}`);
@@ -147,6 +151,8 @@ export async function updateProduct(formData: FormData) {
       promotional_price: parsed.data.promotionalPrice || null,
       category_id: parsed.data.categoryId || null,
       preparation_time: parsed.data.preparationTime || null,
+      image_fit: parsed.data.imageFit,
+      image_position: parsed.data.imagePosition,
       updated_at: new Date().toISOString(),
     })
     .eq("id", parsed.data.productId)

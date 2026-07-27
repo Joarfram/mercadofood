@@ -11,7 +11,7 @@ export default async function ProdutosPage({ searchParams }: { searchParams: Pro
   const { supabase, company } = await getCurrentCompany();
   const [{ data: categories }, { data: products }] = await Promise.all([
     supabase.from("categories").select("id, name, is_active, sort_order").eq("company_id", company.id).order("sort_order").order("name"),
-    supabase.from("products").select("id, name, description, base_price, promotional_price, preparation_time, availability_status, category_id, categories(name)").eq("company_id", company.id).order("created_at", { ascending: false }),
+    supabase.from("products").select("id, name, description, base_price, promotional_price, preparation_time, availability_status, category_id, image_fit, image_position, categories(name)").eq("company_id", company.id).order("created_at", { ascending: false }),
   ]);
 
   return <main className="space-y-6">
@@ -70,6 +70,8 @@ export default async function ProdutosPage({ searchParams }: { searchParams: Pro
                   <label className="text-sm font-semibold">Preço normal<input name="basePrice" type="number" step="0.01" min="0.01" required defaultValue={Number(product.base_price)} className="mt-1 w-full rounded-xl border px-3 py-3 font-normal"/></label>
                   <label className="text-sm font-semibold">Preço promocional<input name="promotionalPrice" type="number" step="0.01" min="0.01" defaultValue={product.promotional_price ? Number(product.promotional_price) : ""} className="mt-1 w-full rounded-xl border px-3 py-3 font-normal" placeholder="Opcional"/></label>
                   <label className="text-sm font-semibold">Tempo de preparo (min)<input name="preparationTime" type="number" min="0" max="240" defaultValue={product.preparation_time || 0} className="mt-1 w-full rounded-xl border px-3 py-3 font-normal"/></label>
+                  <label className="text-sm font-semibold">Ajuste da foto<select name="imageFit" defaultValue={product.image_fit || "cover"} className="mt-1 w-full rounded-xl border px-3 py-3 font-normal"><option value="cover">Preencher o espaço (pode cortar)</option><option value="contain">Mostrar a foto inteira</option></select></label>
+                  <label className="text-sm font-semibold">Posição da foto<select name="imagePosition" defaultValue={product.image_position || "center"} className="mt-1 w-full rounded-xl border px-3 py-3 font-normal"><option value="center">Centro</option><option value="top">Topo</option><option value="bottom">Parte inferior</option><option value="left">Esquerda</option><option value="right">Direita</option></select></label>
                   <div className="flex items-end"><button className="w-full rounded-xl bg-emerald-700 px-4 py-3 font-bold text-white">Salvar alterações</button></div>
                 </form>
               </details>
