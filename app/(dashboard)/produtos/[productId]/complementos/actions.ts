@@ -46,6 +46,44 @@ export async function createOptionGroup(formData: FormData) {
   redirect(`/produtos/${parsed.data.productId}/complementos?sucesso=Grupo%20criado`);
 }
 
+export async function updateOptionGroup(formData: FormData) {
+  const groupId = String(formData.get("groupId") || "");
+  const parsed = groupSchema.safeParse({
+    productId: formData.get("productId"),
+    name: formData.get("name"),
+    description: formData.get("description"),
+    groupType: formData.get("groupType"),
+    minSelection: formData.get("minSelection") || 0,
+    maxSelection: formData.get("maxSelection") || 1,
+    freeSelection: formData.get("freeSelection") || 0,
+  });
+  if (!parsed.success || !z.string().uuid().safeParse(groupId).success) redirect("/produtos?erro=Dados%20inválidos");
+  if (parsed.data.minSelection > parsed.data.maxSelection) redirect(`/produtos/${parsed.data.productId}/complementos?erro=${encodeURIComponent("O mínimo não pode ser maior que o máximo")}`);
+  const { supabase, company } = await getCurrentCompany();
+  const { error } = await supabase.from("product_option_groups").update({
+    name: parsed.data.name,
+    description: parsed.data.description || null,
+    group_type: parsed.data.groupType,
+    min_selection: parsed.data.minSelection,
+    max_selection: parsed.data.maxSelection,
+    free_selection: parsed.data.freeSelection,
+  }).eq("id", groupId).eq("product_id", parsed.data.productId).eq("company_id", company.id);
+  if (error) redirect(`/produtos/${parsed.data.productId}/complementos?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath(`/produtos/${parsed.data.productId}/complementos`);
+  redirect(`/produtos/${parsed.data.productId}/complementos?sucesso=Grupo%20atualizado`);
+}
+
+export async function deleteOptionGroup(formData: FormData) {
+  const productId = String(formData.get("productId") || "");
+  const groupId = String(formData.get("groupId") || "");
+  if (!z.string().uuid().safeParse(productId).success || !z.string().uuid().safeParse(groupId).success) redirect("/produtos?erro=Dados%20inválidos");
+  const { supabase, company } = await getCurrentCompany();
+  const { error } = await supabase.from("product_option_groups").delete().eq("id", groupId).eq("product_id", productId).eq("company_id", company.id);
+  if (error) redirect(`/produtos/${productId}/complementos?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath(`/produtos/${productId}/complementos`);
+  redirect(`/produtos/${productId}/complementos?sucesso=Grupo%20excluído`);
+}
+
 export async function createOption(formData: FormData) {
   const productId = String(formData.get("productId") || "");
   const groupId = String(formData.get("groupId") || "");
@@ -67,6 +105,31 @@ export async function createOption(formData: FormData) {
   if (error) redirect(`/produtos/${productId}/complementos?erro=${encodeURIComponent(error.message)}`);
   revalidatePath(`/produtos/${productId}/complementos`);
   redirect(`/produtos/${productId}/complementos?sucesso=Opção%20adicionada`);
+}
+
+export async function updateOption(formData: FormData) {
+  const productId = String(formData.get("productId") || "");
+  const optionId = String(formData.get("optionId") || "");
+  const name = String(formData.get("name") || "").trim();
+  const priceDelta = Number(formData.get("priceDelta") || 0);
+  const maxQuantity = Number(formData.get("maxQuantity") || 1);
+  if (!z.string().uuid().safeParse(productId).success || !z.string().uuid().safeParse(optionId).success || name.length < 2 || !Number.isFinite(priceDelta) || !Number.isInteger(maxQuantity) || maxQuantity < 1) redirect(`/produtos/${productId}/complementos?erro=${encodeURIComponent("Preencha a opção corretamente")}`);
+  const { supabase, company } = await getCurrentCompany();
+  const { error } = await supabase.from("product_options").update({ name, price_delta: priceDelta, max_quantity: maxQuantity }).eq("id", optionId).eq("company_id", company.id);
+  if (error) redirect(`/produtos/${productId}/complementos?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath(`/produtos/${productId}/complementos`);
+  redirect(`/produtos/${productId}/complementos?sucesso=Opção%20atualizada`);
+}
+
+export async function deleteOption(formData: FormData) {
+  const productId = String(formData.get("productId") || "");
+  const optionId = String(formData.get("optionId") || "");
+  if (!z.string().uuid().safeParse(productId).success || !z.string().uuid().safeParse(optionId).success) redirect("/produtos?erro=Dados%20inválidos");
+  const { supabase, company } = await getCurrentCompany();
+  const { error } = await supabase.from("product_options").delete().eq("id", optionId).eq("company_id", company.id);
+  if (error) redirect(`/produtos/${productId}/complementos?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath(`/produtos/${productId}/complementos`);
+  redirect(`/produtos/${productId}/complementos?sucesso=Opção%20excluída`);
 }
 
 export async function toggleGroup(formData: FormData) {
