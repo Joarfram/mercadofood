@@ -1,6 +1,6 @@
 import QRCode from "qrcode";
 import { Armchair, Users, Clock3, ReceiptText } from "lucide-react";
-import { getCurrentCompany } from "@/lib/auth/current-company";
+import { requirePlanModule } from "@/lib/auth/current-company";
 import { createTable, openTab, requestClosing, closeTab } from "./actions";
 
 function money(v: number | string | null) { return new Intl.NumberFormat("pt-BR", { style:"currency", currency:"BRL" }).format(Number(v || 0)); }
@@ -9,7 +9,7 @@ const labels: Record<string,string> = { available:"Livre", occupied:"Ocupada", r
 
 export default async function MesasPage({ searchParams }: { searchParams: Promise<{ erro?:string; sucesso?:string }> }) {
   const query = await searchParams;
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("tables");
   const { data: tables } = await supabase.from("restaurant_tables").select("id,name,code,seats,public_token,status,is_active, table_tabs(id,customer_name,customer_phone,guest_count,status,subtotal,service_charge,total,opened_at)").eq("company_id",company.id).eq("is_active",true).order("code");
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const prepared = await Promise.all((tables || []).map(async (table:any) => {

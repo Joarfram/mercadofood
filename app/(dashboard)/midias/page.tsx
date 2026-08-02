@@ -1,11 +1,11 @@
-import { requireModule } from "@/lib/auth/current-company";
+import { requirePlanModule } from "@/lib/auth/current-company";
 import { MediaManager } from "@/components/media/media-manager";
 import type { MediaAsset } from "@/lib/media/types";
 
 type AssetWithKind = MediaAsset & { kind: "gallery" | "logo" | "banner"; entity_id: string };
 
 export default async function MidiasPage() {
-  const { supabase, company, role } = await requireModule("products");
+  const { supabase, company, role } = await requirePlanModule("products");
   const { data: assets } = await supabase.from("media_assets").select("id,entity_id,kind,storage_path,public_url,alt_text,mime_type,byte_size,sort_order").eq("company_id", company.id).eq("entity_type", "company").order("sort_order");
   const allAssets = (assets || []) as AssetWithKind[];
   const forEntity = (entityId: string, kind = "gallery") =>

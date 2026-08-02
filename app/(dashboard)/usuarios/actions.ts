@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentCompany } from "@/lib/auth/current-company";
 import { companyRoles } from "@/lib/auth/permissions";
+import { isPlanCode, plans } from "@/lib/billing/plans";
 
 function appUrl() {
   return (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
@@ -21,6 +22,16 @@ export async function createInvite(formData: FormData) {
   if (role === "manager" && invitedRole === "manager") {
     redirect("/usuarios?erro=Somente%20o%20proprietário%20pode%20convidar%20gerentes");
   }
+
+  const [{ data: subscription }, { count: activeMembers }, { count: pendingInvites }] = await Promise.all([
+    supabase.from("company_subscriptions").select("subscription_plans(code)").eq("company_id", company.id).maybeSingle(),
+    supabase.from("company_members").select("id", { count: "exact", head: true }).eq("company_id", company.id).eq("is_active", true),
+    supabase.from("company_invites").select("id", { count: "exact", head: true }).eq("company_id", company.id).is("accepted_at", null).gt("expires_at", new Date().toISOString()),
+  ]);
+  const relatedPlan = Array.isArray(subscription?.subscription_plans) ? subscription?.subscription_plans[0] : subscription?.subscription_plans;
+  const planCode = isPlanCode(relatedPlan?.code) ? relatedPlan.code : "premium";
+  const occupiedSeats = 1 + (activeMembers || 0) + (pendingInvites || 0);
+  if (occupiedSeats >= plans[planCode].userLimit) redirect(`/usuarios?erro=${encodeURIComponent(`Seu plano permite até ${plans[planCode].userLimit} usuários. Cancele um convite ou faça upgrade.`)}`);
 
   const { data, error } = await supabase.from("company_invites").insert({
     company_id: company.id,

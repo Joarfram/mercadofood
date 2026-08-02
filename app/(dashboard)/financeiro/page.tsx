@@ -1,4 +1,4 @@
-import { getCurrentCompany } from "@/lib/auth/current-company";
+import { requirePlanModule } from "@/lib/auth/current-company";
 import { addCashMovement, closeCashSession, openCashSession } from "./actions";
 
 function money(value: number | string | null | undefined) {
@@ -15,7 +15,7 @@ const methodLabel: Record<string, string> = {
 
 export default async function FinanceiroPage({ searchParams }: { searchParams: Promise<{ erro?: string; sucesso?: string }> }) {
   const query = await searchParams;
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("finance");
   const { data: session } = await supabase.from("cash_sessions")
     .select("*").eq("company_id", company.id).eq("status", "open").maybeSingle();
 

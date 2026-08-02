@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import QRCode from "qrcode";
-import { getCurrentCompany } from "@/lib/auth/current-company";
+import { requirePlanModule } from "@/lib/auth/current-company";
 import { CopyPixButton } from "./copy-button";
 import { generatePix } from "./actions";
 import { updatePayment } from "../actions";
@@ -13,7 +13,7 @@ function money(value: number | string | null) {
 export default async function PixOrderPage({ params, searchParams }: { params: Promise<{ orderId: string }>; searchParams: Promise<{ erro?: string; sucesso?: string }> }) {
   const { orderId } = await params;
   const query = await searchParams;
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("payments");
   const [{ data: order }, { data: payment }, { data: settings }] = await Promise.all([
     supabase.from("orders").select("id,order_number,customer_name,customer_phone,total,payment_status").eq("id", orderId).eq("company_id", company.id).single(),
     supabase.from("order_payments").select("status,pix_payload,pix_txid,pix_generated_at,pix_expires_at").eq("order_id", orderId).eq("company_id", company.id).maybeSingle(),

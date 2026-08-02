@@ -1,10 +1,10 @@
-import { getCurrentCompany } from "@/lib/auth/current-company";
+import { requirePlanModule } from "@/lib/auth/current-company";
 import { KitchenBoard, KitchenOrder } from "@/components/kitchen/kitchen-board";
 
 export const dynamic = "force-dynamic";
 
 export default async function KitchenPage() {
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("kitchen");
   const { data: orders, error } = await supabase
     .from("orders")
     .select("id, order_number, customer_name, status, service_type, notes, created_at, accepted_at, started_at, ready_at, order_items(product_name, quantity)")

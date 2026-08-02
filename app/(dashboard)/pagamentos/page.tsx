@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getCurrentCompany } from "@/lib/auth/current-company";
+import { requirePlanModule } from "@/lib/auth/current-company";
 import { updatePayment } from "./actions";
 
 const methodLabel: Record<string,string> = {
@@ -14,7 +14,7 @@ function money(value: number | string | null) { return new Intl.NumberFormat("pt
 
 export default async function PagamentosPage({ searchParams }: { searchParams: Promise<{ erro?: string; sucesso?: string }> }) {
   const query = await searchParams;
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("payments");
   const { data: orders } = await supabase.from("orders")
     .select("id,order_number,customer_name,total,payment_method,payment_status,amount_received,change_amount,created_at")
     .eq("company_id", company.id)

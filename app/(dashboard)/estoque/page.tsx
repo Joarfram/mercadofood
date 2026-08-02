@@ -1,4 +1,4 @@
-import { getCurrentCompany } from "@/lib/auth/current-company";
+import { requirePlanModule } from "@/lib/auth/current-company";
 import { addInventoryMovement, createIngredient, removeRecipeItem, saveRecipeItem } from "./actions";
 
 function money(value: number | string | null | undefined) {
@@ -10,7 +10,7 @@ const movementLabel: Record<string,string> = {entry:"Entrada",sale:"Venda",adjus
 
 export default async function EstoquePage({ searchParams }: { searchParams: Promise<{ erro?: string; sucesso?: string }> }) {
   const query = await searchParams;
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("stock");
   const [{ data: ingredients }, { data: products }, { data: recipes }, { data: movements }] = await Promise.all([
     supabase.from("ingredients").select("*").eq("company_id", company.id).eq("is_active", true).order("name"),
     supabase.from("products").select("id,name").eq("company_id", company.id).eq("is_active", true).order("name"),

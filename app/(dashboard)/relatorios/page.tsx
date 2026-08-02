@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getCurrentCompany } from "@/lib/auth/current-company";
+import { requirePlanModule } from "@/lib/auth/current-company";
 
 function money(value: number | string | null | undefined) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value || 0));
@@ -14,7 +14,7 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
   const defaultStart = new Date(today); defaultStart.setDate(today.getDate() - 29);
   const inicio = query.inicio || defaultStart.toISOString().slice(0,10);
   const fim = query.fim || today.toISOString().slice(0,10);
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("reports");
 
   const { data: orders } = await supabase.from("orders")
     .select("id,order_number,status,payment_status,payment_method,total,delivery_fee,service_type,created_at,delivered_at,canceled_at")

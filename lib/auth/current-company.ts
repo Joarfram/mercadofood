@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { CompanyRole, ModuleKey } from "./permissions";
 import { canAccess } from "./permissions";
+import { isPlanCode, planAllows } from "@/lib/billing/plans";
 
 export async function getCurrentCompany() {
   const supabase = await createClient();
@@ -39,4 +40,21 @@ export async function requireModule(module: ModuleKey) {
   const context = await getCurrentCompany();
   if (!canAccess(context.role, module)) redirect("/sem-permissao");
   return context;
+}
+
+export async function requirePlanModule(module: ModuleKey) {
+  const context = await requireModule(module);
+  const { data, error } = await context.supabase
+    .from("company_subscriptions")
+    .select("status, subscription_plans(code)")
+    .eq("company_id", context.company.id)
+    .maybeSingle();
+
+  // Mantém o piloto funcionando até a migration de assinaturas ser aplicada.
+  if (error || !data) return { ...context, planCode: "premium" as const };
+  const relatedPlan = Array.isArray(data.subscription_plans) ? data.subscription_plans[0] : data.subscription_plans;
+  const planCode = relatedPlan?.code;
+  const active = data.status === "active" || data.status === "trialing";
+  if (!active || !isPlanCode(planCode) || !planAllows(planCode, module)) redirect(`/assinatura?bloqueado=${module}`);
+  return { ...context, planCode };
 }

@@ -1,9 +1,9 @@
-import { getCurrentCompany } from "@/lib/auth/current-company";
+import { requirePlanModule } from "@/lib/auth/current-company";
 import { roleLabels, type CompanyRole } from "@/lib/auth/permissions";
 import { cancelInvite, createInvite, updateMember } from "./actions";
 
 export default async function UsersPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const { supabase, company, role } = await getCurrentCompany();
+  const { supabase, company, role } = await requirePlanModule("team");
   if (!(["owner", "manager"] as string[]).includes(role)) return <div className="rounded-2xl border bg-white p-6">Você não tem permissão para gerenciar usuários.</div>;
   const params = await searchParams;
   const error = typeof params.erro === "string" ? params.erro : "";

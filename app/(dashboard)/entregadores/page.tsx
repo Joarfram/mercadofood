@@ -1,7 +1,7 @@
 import { Bike, MapPin, Phone, Power, Send } from "lucide-react";
 import { WhatsAppButton } from "@/components/notifications/whatsapp-button";
 import { customerOutForDeliveryMessage, driverOfferMessage } from "@/lib/notifications/whatsapp";
-import { getCurrentCompany } from "@/lib/auth/current-company";
+import { requirePlanModule } from "@/lib/auth/current-company";
 import { assignDriver, createDriver, setDriverAvailability } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +26,7 @@ function money(value: number | string | null) {
 
 export default async function DriversPage({ searchParams }: { searchParams: Promise<{ erro?: string; sucesso?: string }> }) {
   const query = await searchParams;
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("delivery");
   const [{ data: drivers }, { data: readyOrders }, { data: activeDeliveries }, { data: notifications }] = await Promise.all([
     supabase.from("drivers").select("id, name, email, phone, whatsapp, vehicle_plate, availability_status, registration_status, default_delivery_value, last_seen_at").eq("company_id", company.id).order("name"),
     supabase.from("orders").select("id, order_number, customer_name, customer_phone, total, delivery_fee, delivery_address, created_at").eq("company_id", company.id).eq("service_type", "delivery").eq("status", "ready").is("assigned_driver_id", null).order("ready_at", { ascending: true }),
