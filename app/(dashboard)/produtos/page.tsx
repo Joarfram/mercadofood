@@ -1,8 +1,9 @@
-import { createCategory, createProduct, deleteProduct, toggleProduct, updateProduct } from "./actions";
+import { createCategory, createProduct, toggleProduct, updateProduct } from "./actions";
 import { getCurrentCompany } from "@/lib/auth/current-company";
 import { CategoryManager } from "./category-manager";
 import { MediaManager } from "@/components/media/media-manager";
 import type { MediaAsset } from "@/lib/media/types";
+import { DeleteProductForm } from "./delete-product-form";
 
 function money(value: number | string | null) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value || 0));
@@ -79,10 +80,7 @@ export default async function ProdutosPage({ searchParams }: { searchParams: Pro
                   <div className="flex items-end"><button className="w-full rounded-xl bg-emerald-700 px-4 py-3 font-bold text-white">Salvar alterações</button></div>
                 </form>
                 <div className="mt-5"><MediaManager companyId={company.id} entityType="product" entityId={product.id} initialAssets={media} title="Foto do produto" description="Adicione ou troque a foto sem sair do cadastro. A primeira imagem será a capa no cardápio." recommendedSize="1000 × 1000 px (proporção 1:1)"/></div>
-                <form action={deleteProduct} onSubmit={event => { if (!window.confirm(`Excluir permanentemente o produto "${product.name}"? A descrição, fotos, complementos e ficha técnica também serão removidos.`)) event.preventDefault(); }} className="mt-4 border-t pt-4">
-                  <input type="hidden" name="productId" value={product.id}/>
-                  <button className="rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white">Excluir produto permanentemente</button>
-                </form>
+                <DeleteProductForm productId={product.id} productName={product.name}/>
               </details>
             </article>;
           })}
