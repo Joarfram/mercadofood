@@ -83,10 +83,10 @@ export function CategoryManager({ initialCategories, companyId }: { initialCateg
         <span className={`rounded-full px-2 py-1 text-xs font-semibold ${category.is_active ? "bg-emerald-50 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>{category.is_active ? "Ativa" : "Pausada"}</span>
         <div className="flex gap-2">
           <form action={toggleCategory}><input type="hidden" name="categoryId" value={category.id}/><input type="hidden" name="nextActive" value={String(!category.is_active)}/><button className="rounded-lg border px-2.5 py-1.5 text-xs font-semibold">{category.is_active ? "Pausar" : "Ativar"}</button></form>
-          <form action={deleteCategory} onSubmit={event => { if (!window.confirm(`Excluir a categoria "${category.name}"? Os produtos serão mantidos sem categoria.`)) event.preventDefault(); }}><input type="hidden" name="categoryId" value={category.id}/><button className="rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-600">Excluir</button></form>
+          <form action={deleteCategory} onSubmit={event => { if (!window.confirm(`Excluir permanentemente a categoria "${category.name}"? Todos os produtos, combos, fotos, complementos e fichas técnicas vinculados a ela também serão excluídos. O histórico dos pedidos será preservado.`)) event.preventDefault(); }}><input type="hidden" name="categoryId" value={category.id}/><button className="rounded-lg bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-600">Excluir</button></form>
         </div>
       </div>
     </article>)}
-    <p className="text-xs text-gray-500">Ao excluir uma categoria, os produtos são preservados e ficam em “Sem categoria”.</p>
+    <p className="text-xs text-red-600">A exclusão remove permanentemente a categoria e todo o conteúdo ligado a ela. O histórico de pedidos permanece preservado.</p>
   </div>;
 }

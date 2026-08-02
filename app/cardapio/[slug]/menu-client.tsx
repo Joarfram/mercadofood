@@ -252,7 +252,7 @@ export default function MenuClient({ menu }: { menu: MenuData }) {
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {products.map(product => <article key={product.id} className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
-            <div className="aspect-[2/1] bg-orange-50">{product.image_url ? <img src={product.image_url} alt={product.name} className="h-full w-full" style={{ objectFit: product.image_fit || "cover", objectPosition: product.image_position || "center" }} /> : <div className="grid h-full place-items-center text-6xl">🍽️</div>}</div>
+            <div className="aspect-square bg-white p-2">{product.image_url ? <img src={product.image_url} alt={product.name} className="h-full w-full object-contain" style={{ objectPosition: product.image_position || "center" }} /> : <div className="grid h-full place-items-center bg-orange-50 text-6xl">🍽️</div>}</div>
             <div className="p-5"><h2 className="text-lg font-black">{product.name}</h2><p className="mt-1 min-h-10 text-sm text-gray-600">{product.description}</p>
               <div className="mt-4 flex items-center justify-between"><div>{product.original_price && <span className="mr-2 text-xs text-gray-400 line-through">{money(Number(product.original_price))}</span>}<strong className="text-lg text-green-700">{money(Number(product.price))}</strong></div><button disabled={!menu.company.is_open} onClick={() => openProduct(product)} className="rounded-xl bg-orange-500 px-4 py-2 font-bold text-white disabled:bg-gray-300">Adicionar</button></div>
             </div>

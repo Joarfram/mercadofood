@@ -78,22 +78,59 @@ export async function toggleCategory(formData: FormData) {
 export async function deleteCategory(formData: FormData) {
   const categoryId = String(formData.get("categoryId") || "");
   if (!z.string().uuid().safeParse(categoryId).success) redirect("/produtos?erro=Categoria%20inválida");
-  const { supabase, company } = await getCurrentCompany();
-  const { error: unlinkError } = await supabase
-    .from("products")
-    .update({ category_id: null, updated_at: new Date().toISOString() })
-    .eq("company_id", company.id)
-    .eq("category_id", categoryId);
-  if (unlinkError) redirect(`/produtos?erro=${encodeURIComponent(unlinkError.message)}`);
-  const { error } = await supabase
-    .from("categories")
-    .delete()
-    .eq("id", categoryId)
-    .eq("company_id", company.id);
-  if (error) redirect(`/produtos?erro=${encodeURIComponent(error.message)}`);
+  const { supabase, company, role } = await getCurrentCompany();
+  if (role !== "owner" && role !== "manager") {
+    redirect("/produtos?erro=Somente%20o%20propriet%C3%A1rio%20ou%20gerente%20pode%20excluir%20uma%20categoria");
+  }
+  const [{ data: products, error: productsError }, { data: combos, error: combosError }] = await Promise.all([
+    supabase.from("products").select("id").eq("company_id", company.id).eq("category_id", categoryId),
+    supabase.from("combos").select("id").eq("company_id", company.id).eq("category_id", categoryId),
+  ]);
+  const lookupError = productsError || combosError;
+  if (lookupError) redirect(`/produtos?erro=${encodeURIComponent(lookupError.message)}`);
+
+  const productIds = (products || []).map(product => product.id);
+  const comboIds = (combos || []).map(combo => combo.id);
+  const entityIds = [...productIds, ...comboIds];
+  let storagePaths: string[] = [];
+  if (entityIds.length) {
+    const { data: media, error: mediaError } = await supabase
+      .from("media_assets")
+      .select("storage_path")
+      .eq("company_id", company.id)
+      .in("entity_id", entityIds);
+    if (mediaError) redirect(`/produtos?erro=${encodeURIComponent(mediaError.message)}`);
+    storagePaths = (media || []).map(asset => asset.storage_path);
+  }
+
+  // Remove referências operacionais; o resumo histórico do pedido permanece em order_items.
+  if (productIds.length) {
+    const { error } = await supabase.from("order_item_combo_choices").delete().eq("company_id", company.id).in("product_id", productIds);
+    if (error) redirect(`/produtos?erro=${encodeURIComponent(error.message)}`);
+  }
+  if (comboIds.length) {
+    const { error } = await supabase.from("order_item_combo_choices").delete().eq("company_id", company.id).in("combo_id", comboIds);
+    if (error) redirect(`/produtos?erro=${encodeURIComponent(error.message)}`);
+  }
+  if (entityIds.length) {
+    const { error } = await supabase.from("media_assets").delete().eq("company_id", company.id).in("entity_id", entityIds);
+    if (error) redirect(`/produtos?erro=${encodeURIComponent(error.message)}`);
+  }
+  if (comboIds.length) {
+    const { error } = await supabase.from("combos").delete().eq("company_id", company.id).in("id", comboIds);
+    if (error) redirect(`/produtos?erro=${encodeURIComponent(error.message)}`);
+  }
+  if (productIds.length) {
+    const { error } = await supabase.from("products").delete().eq("company_id", company.id).in("id", productIds);
+    if (error) redirect(`/produtos?erro=${encodeURIComponent(error.message)}`);
+  }
+  const { error: categoryError } = await supabase.from("categories").delete().eq("company_id", company.id).eq("id", categoryId);
+  if (categoryError) redirect(`/produtos?erro=${encodeURIComponent(categoryError.message)}`);
+  if (storagePaths.length) await supabase.storage.from("company-media").remove(storagePaths);
   revalidatePath("/produtos");
+  revalidatePath("/midias");
   revalidatePath(`/cardapio/${company.slug}`);
-  redirect("/produtos?sucesso=Categoria%20excluída.%20Os%20produtos%20foram%20mantidos%20sem%20categoria");
+  redirect("/produtos?sucesso=Categoria%20e%20todo%20o%20seu%20conte%C3%BAdo%20foram%20exclu%C3%ADdos");
 }
 
 export async function createProduct(formData: FormData) {
