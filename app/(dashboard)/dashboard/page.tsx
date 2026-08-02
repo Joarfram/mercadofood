@@ -1,4 +1,5 @@
 import { Card } from "@/components/ui/card";
+import { getCurrentCompany } from "@/lib/auth/current-company";
 
 const orders = [
   { id: "#1042", customer: "Mariana", status: "Em preparo", total: "R$ 42,90" },
@@ -6,13 +7,16 @@ const orders = [
   { id: "#1040", customer: "Aline", status: "Pronto", total: "R$ 63,50" }
 ];
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const { company, user } = await getCurrentCompany();
+  const ownerName = String(user.user_metadata?.full_name || user.email?.split("@")[0] || "Proprietário");
+
   return (
     <div className="space-y-6">
       <header className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
-          <p className="text-sm text-gray-500">Empório Chagas</p>
-          <h1 className="text-3xl font-bold">Boa tarde, Joaz 👋</h1>
+          <p className="text-sm text-gray-500">{company.name}</p>
+          <h1 className="text-3xl font-bold">Olá, {ownerName} 👋</h1>
         </div>
         <span className="inline-flex w-fit rounded-full bg-green-100 px-3 py-1 text-sm font-semibold text-green-700">
           Loja aberta
