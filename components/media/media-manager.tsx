@@ -226,13 +226,13 @@ export function MediaManager({
     <div className={`mt-4 grid gap-3 ${maxFiles === 1 ? "grid-cols-1" : aspect === "wide" ? "sm:grid-cols-2" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"}`}>
       {!assets.length && !preview && <div className={`flex min-h-36 flex-col items-center justify-center rounded-xl border-2 border-dashed bg-gray-50 p-5 text-center text-gray-400 ${maxFiles === 1 ? "" : aspect === "wide" ? "sm:col-span-2" : "col-span-2 sm:col-span-3 lg:col-span-4"}`}><ImagePlus/><p className="mt-2 text-sm">Nenhuma imagem. O sistema exibirá a imagem padrão.</p></div>}
       {assets.map((asset, index) => <article key={asset.id} className="overflow-hidden rounded-xl border bg-gray-50">
-        <div className={`relative bg-gray-100 ${aspect === "wide" ? "aspect-[16/7]" : "aspect-square"}`}><img src={asset.public_url} alt={asset.alt_text || title} className="h-full w-full object-cover"/>{index === 0 && <span className="absolute left-2 top-2 rounded-full bg-emerald-700 px-2 py-1 text-[10px] font-bold text-white">Principal</span>}</div>
+        <div className={`relative bg-gray-100 ${aspect === "wide" ? "aspect-[16/7]" : "aspect-square p-2"}`}><img src={asset.public_url} alt={asset.alt_text || title} className={`h-full w-full ${aspect === "wide" ? "object-cover" : "object-contain"}`}/>{index === 0 && <span className="absolute left-2 top-2 rounded-full bg-emerald-700 px-2 py-1 text-[10px] font-bold text-white">Principal</span>}</div>
         <div className="flex items-center justify-between gap-1 p-2">
           <div className="flex gap-1"><button type="button" disabled={index === 0 || busy} onClick={() => move(index, -1)} title="Mover para a esquerda" className="rounded-lg border bg-white p-2 disabled:opacity-30"><ArrowLeft size={15}/></button><button type="button" disabled={index === assets.length - 1 || busy} onClick={() => move(index, 1)} title="Mover para a direita" className="rounded-lg border bg-white p-2 disabled:opacity-30"><ArrowRight size={15}/></button></div>
           <div className="flex gap-1"><button type="button" disabled={busy} onClick={() => openPicker(asset.id)} title="Trocar imagem" className="inline-flex items-center gap-1 rounded-lg bg-orange-50 px-2 py-2 text-xs font-semibold text-orange-700"><Replace size={15}/><span>Trocar</span></button><button type="button" disabled={busy} onClick={() => remove(asset)} title="Remover" className="rounded-lg bg-red-50 p-2 text-red-600"><Trash2 size={15}/></button></div>
         </div>
       </article>)}
-      {preview && <div className={`overflow-hidden rounded-xl border-2 border-emerald-500 bg-gray-50 ${aspect === "wide" ? "aspect-[16/7]" : "aspect-square"}`}><img src={preview} alt="Pré-visualização do envio" className="h-full w-full object-cover"/></div>}
+      {preview && <div className={`overflow-hidden rounded-xl border-2 border-emerald-500 bg-gray-50 ${aspect === "wide" ? "aspect-[16/7]" : "aspect-square p-2"}`}><img src={preview} alt="Pré-visualização do envio" className={`h-full w-full ${aspect === "wide" ? "object-cover" : "object-contain"}`}/></div>}
     </div>
   </section>;
 }

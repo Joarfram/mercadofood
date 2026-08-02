@@ -200,6 +200,48 @@ export async function updateProduct(formData: FormData) {
   redirect("/produtos?sucesso=Produto%20atualizado");
 }
 
+export async function deleteProduct(formData: FormData) {
+  const productId = String(formData.get("productId") || "");
+  if (!z.string().uuid().safeParse(productId).success) redirect("/produtos?erro=Produto%20inválido");
+  const { supabase, company, role } = await getCurrentCompany();
+  if (role !== "owner" && role !== "manager") {
+    redirect("/produtos?erro=Somente%20o%20propriet%C3%A1rio%20ou%20gerente%20pode%20excluir%20um%20produto");
+  }
+
+  const { data: media, error: mediaError } = await supabase
+    .from("media_assets")
+    .select("storage_path")
+    .eq("company_id", company.id)
+    .eq("entity_type", "product")
+    .eq("entity_id", productId);
+  if (mediaError) redirect(`/produtos?erro=${encodeURIComponent(mediaError.message)}`);
+
+  const { error: choicesError } = await supabase
+    .from("order_item_combo_choices")
+    .delete()
+    .eq("company_id", company.id)
+    .eq("product_id", productId);
+  if (choicesError) redirect(`/produtos?erro=${encodeURIComponent(choicesError.message)}`);
+
+  const { error: assetError } = await supabase
+    .from("media_assets")
+    .delete()
+    .eq("company_id", company.id)
+    .eq("entity_type", "product")
+    .eq("entity_id", productId);
+  if (assetError) redirect(`/produtos?erro=${encodeURIComponent(assetError.message)}`);
+
+  const { error } = await supabase.from("products").delete().eq("company_id", company.id).eq("id", productId);
+  if (error) redirect(`/produtos?erro=${encodeURIComponent(error.message)}`);
+  const storagePaths = (media || []).map(asset => asset.storage_path);
+  if (storagePaths.length) await supabase.storage.from("company-media").remove(storagePaths);
+
+  revalidatePath("/produtos");
+  revalidatePath("/midias");
+  revalidatePath(`/cardapio/${company.slug}`);
+  redirect("/produtos?sucesso=Produto%20e%20todo%20o%20seu%20conte%C3%BAdo%20foram%20exclu%C3%ADdos");
+}
+
 export async function toggleProduct(formData: FormData) {
   const productId = String(formData.get("productId") || "");
   const nextStatus = String(formData.get("nextStatus") || "unavailable");
