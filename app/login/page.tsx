@@ -10,7 +10,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   return <main className="min-h-screen bg-[#f7faf8] p-6 flex items-center justify-center">
     <section className="w-full max-w-md rounded-3xl border border-emerald-100 bg-white p-7 shadow-xl">
       <div className="mx-auto grid h-20 w-20 place-items-center rounded-3xl bg-white shadow-lg ring-1 ring-emerald-100"><BrandMark size={68}/></div>
-      <h1 className="mt-4 text-center text-2xl font-bold">Entrar no MercadoFood</h1>
+      <h1 className="mt-4 text-center text-2xl font-bold">Entrar no Mercado<span className="text-orange-500">Food</span></h1>
       <p className="mt-1 text-center text-sm text-gray-500">Acesse o painel da sua empresa.</p>
       {error && <div className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</div>}
       <form action={login} className="mt-6 space-y-4">
