@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
 import { submitPublicOrder } from "./actions";
+import { PublicFeedback } from "@/components/feedback/public-feedback";
 
 type Option = { id: string; name: string; price_delta: number; max_quantity?: number };
 type Group = {
@@ -299,6 +300,7 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
           <div className="rounded-2xl bg-gray-50 p-4"><div className="flex justify-between"><span>Subtotal</span><strong>{money(subtotal)}</strong></div><div className="mt-1 flex justify-between"><span>Entrega</span><strong>{money(deliveryFee)}</strong></div><div className="mt-3 flex justify-between border-t pt-3 text-lg"><span>Total estimado</span><strong>{money(subtotal + deliveryFee)}</strong></div></div>
           {error && <p className="rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}<button disabled={pending} className="w-full rounded-xl bg-green-700 py-4 font-black text-white disabled:opacity-60">{pending ? "Enviando pedido..." : "Confirmar pedido"}</button>
         </form></section></div>}
+      <PublicFeedback slug={menu.company.slug} companyName={menu.company.name}/>
       <footer className="mx-auto max-w-6xl px-5 pb-6 text-center text-xs text-gray-500"><a href="/termos" className="underline">Termos de uso</a> · <a href="/privacidade" className="underline">Privacidade</a> · Cardápio por MercadoFood</footer>
     </main>
   );

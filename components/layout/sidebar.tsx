@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { LayoutDashboard, ShoppingBag, Utensils, Settings, Bike, ChefHat, WalletCards, Banknote, BarChart3, PackageOpen, Users, Tags, Armchair, Boxes, UserCog, Images, BadgeDollarSign, LockKeyhole, Megaphone, LogOut } from "lucide-react";
+import { LayoutDashboard, ShoppingBag, Utensils, Settings, Bike, ChefHat, WalletCards, Banknote, BarChart3, PackageOpen, Users, Tags, Armchair, Boxes, UserCog, Images, BadgeDollarSign, LockKeyhole, Megaphone, LogOut, MessageSquareText } from "lucide-react";
 import { getCurrentCompany } from "@/lib/auth/current-company";
 import { canAccess, roleLabels, type ModuleKey } from "@/lib/auth/permissions";
 import { BrandMark } from "@/components/brand/brand-mark";
 import { isPlanCode, planAllows, plans } from "@/lib/billing/plans";
 import { MobileNavigation } from "./mobile-navigation";
 import { logout } from "@/app/logout-action";
+import { ActiveSidebarLink } from "./active-sidebar-link";
 
 const items: Array<{href:string;label:string;icon:typeof LayoutDashboard;module:ModuleKey}> = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, module: "dashboard" },
@@ -22,6 +23,7 @@ const items: Array<{href:string;label:string;icon:typeof LayoutDashboard;module:
   { href: "/clientes", label: "Clientes", icon: Users, module: "customers" },
   { href: "/promocoes", label: "Promoções", icon: Tags, module: "promotions" },
   { href: "/impulsiona", label: "Impulsiona", icon: Megaphone, module: "marketing" },
+  { href: "/mensagens", label: "Mensagens", icon: MessageSquareText, module: "messages" },
   { href: "/mesas", label: "Mesas e comandas", icon: Armchair, module: "tables" },
   { href: "/usuarios", label: "Usuários", icon: UserCog, module: "team" },
   { href: "/configuracoes", label: "Configurações", icon: Settings, module: "settings" }
@@ -33,10 +35,13 @@ export async function Sidebar() {
   const relatedPlan = Array.isArray(subscription?.subscription_plans) ? subscription?.subscription_plans[0] : subscription?.subscription_plans;
   const planCode = isPlanCode(relatedPlan?.code) ? relatedPlan.code : "basic";
   const visibleItems = items.filter(item => canAccess(role,item.module)).map(item => ({ ...item, allowed: planAllows(planCode, item.module) }));
-  return <><MobileNavigation companyName={company.name} items={visibleItems.map(item => ({ href: item.allowed ? item.href : `/assinatura?bloqueado=${item.module}`, label: item.label, locked: !item.allowed }))}/><aside className="hidden min-h-screen border-r border-emerald-950 bg-[#063D2F] p-4 text-white shadow-xl md:flex md:w-64 md:flex-col">
+  const { count: unreadMessages } = canAccess(role,"messages")
+    ? await supabase.from("customer_messages").select("id",{count:"exact",head:true}).eq("company_id",company.id).eq("status","new")
+    : { count: 0 };
+  return <><MobileNavigation companyName={company.name} items={visibleItems.map(item => ({ href: item.allowed ? item.href : `/assinatura?bloqueado=${item.module}`, label: item.label, locked: !item.allowed, badge: item.module === "messages" ? unreadMessages || 0 : 0 }))}/><aside className="hidden min-h-screen border-r border-emerald-950 bg-[#063D2F] p-4 text-white shadow-xl md:flex md:w-64 md:flex-col">
     <div className="flex items-center gap-3 border-b border-white/10 px-2 py-4"><div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white shadow-md"><BrandMark size={42}/></div><div className="min-w-0"><p className="font-bold">Mercado<span className="text-orange-400">Food</span></p><p className="truncate text-xs text-emerald-100/80">{company.name}</p><p className="text-[11px] font-semibold text-emerald-300">{roleLabels[role]}</p></div></div>
     <nav className="mt-6 space-y-2">{visibleItems.map(({href,label,icon:Icon,module,allowed}) => {
-      return <Link key={href} href={allowed ? href : `/assinatura?bloqueado=${module}`} className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors duration-200 hover:bg-[#F97316] hover:text-white focus-visible:bg-[#F97316] focus-visible:outline-none ${allowed ? "text-emerald-50" : "text-emerald-100/55"}`}><Icon size={18}/>{label}{!allowed && <LockKeyhole className="ml-auto" size={14}/>}</Link>;
+      return <ActiveSidebarLink key={href} href={allowed ? href : `/assinatura?bloqueado=${module}`} activeHref={href} muted={!allowed}><Icon size={18}/><span>{label}</span>{allowed && module === "messages" && Boolean(unreadMessages) && <span className="ml-auto min-w-6 rounded-full bg-white px-2 py-0.5 text-center text-xs font-black text-orange-600">{unreadMessages}</span>}{!allowed && <LockKeyhole className="ml-auto" size={14}/>}</ActiveSidebarLink>;
     })}</nav>
     <div className="mt-auto space-y-2"><Link href="/assinatura" className="flex items-center gap-3 rounded-xl border border-white/15 px-3 py-3 text-sm font-semibold text-emerald-50 hover:bg-[#F97316]"><BadgeDollarSign size={18}/><span>Plano {plans[planCode].name}</span></Link><form action={logout}><button className="flex w-full items-center gap-3 rounded-xl border border-white/15 px-3 py-3 text-sm font-semibold hover:bg-red-600"><LogOut size={18}/>Sair</button></form></div>
   </aside></>;

@@ -25,7 +25,7 @@ export const plans: Record<PlanCode, PlanDefinition> = {
     branchLimit: 1,
     monthlyPrice: 75,
     annualMonthlyPrice: 49.90,
-    modules: ["dashboard", "orders", "products", "promotions", "marketing", "settings"],
+    modules: ["dashboard", "orders", "products", "promotions", "marketing", "messages", "settings"],
     highlights: ["Cardápio digital e QR Code", "Produtos, fotos, categorias e combos", "Pedidos para delivery e retirada", "Complementos, cupons e PIX manual"],
   },
   professional: {
@@ -37,7 +37,7 @@ export const plans: Record<PlanCode, PlanDefinition> = {
     branchLimit: 1,
     monthlyPrice: 150,
     annualMonthlyPrice: 99.90,
-    modules: ["dashboard", "orders", "products", "kitchen", "delivery", "payments", "finance", "reports", "customers", "promotions", "marketing", "tables", "settings", "team"],
+    modules: ["dashboard", "orders", "products", "kitchen", "delivery", "payments", "finance", "reports", "customers", "promotions", "marketing", "messages", "tables", "settings", "team"],
     highlights: ["Tudo do Básico", "Painel da cozinha, mesas e comandas", "Caixa, clientes e fidelidade", "Entregadores, rastreamento e relatórios"],
   },
   premium: {
@@ -49,7 +49,7 @@ export const plans: Record<PlanCode, PlanDefinition> = {
     branchLimit: 3,
     monthlyPrice: 225,
     annualMonthlyPrice: 149.90,
-    modules: ["dashboard", "orders", "products", "kitchen", "delivery", "payments", "finance", "reports", "stock", "customers", "promotions", "marketing", "tables", "settings", "team"],
+    modules: ["dashboard", "orders", "products", "kitchen", "delivery", "payments", "finance", "reports", "stock", "customers", "promotions", "marketing", "messages", "tables", "settings", "team"],
     highlights: ["Tudo do Profissional", "Estoque e ficha técnica", "Custos, margens e relatórios avançados", "Até 3 unidades e suporte Premium"],
   },
 };
@@ -58,7 +58,7 @@ export const moduleLabels: Record<ModuleKey, string> = {
   dashboard: "Dashboard", orders: "Pedidos", products: "Cardápio e produtos", kitchen: "Painel da cozinha",
   delivery: "Entregadores e rastreamento", payments: "Pagamentos", finance: "Caixa", reports: "Relatórios",
   stock: "Estoque e ficha técnica", customers: "Clientes e fidelidade", promotions: "Promoções e cupons",
-  marketing: "MercadoFood Impulsiona", tables: "Mesas e comandas", settings: "Configurações", team: "Usuários e permissões",
+  marketing: "MercadoFood Impulsiona", messages: "Mensagens e avaliações", tables: "Mesas e comandas", settings: "Configurações", team: "Usuários e permissões",
 };
 
 export const paidAddons = [
