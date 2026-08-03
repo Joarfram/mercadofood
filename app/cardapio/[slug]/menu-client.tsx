@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
-import { submitPublicOrder } from "./actions";
+import { previewPublicCoupon, submitPublicOrder } from "./actions";
 import { PublicFeedback } from "@/components/feedback/public-feedback";
 
 type Option = { id: string; name: string; price_delta: number; max_quantity?: number };
@@ -51,6 +51,7 @@ type MenuData = {
 type Selection = Record<string, Record<string, number>>;
 type CartChoice = { groupId: string; groupName: string; optionId: string; optionName: string; quantity: number; unitPrice: number; chargedQuantity: number; totalPrice: number };
 type CartItem = { key: string; product: Product; quantity: number; choices: CartChoice[]; notes: string; optionUnitTotal: number };
+type CouponPreview = { code: string; name?: string; description?: string; subtotal: number; discount: number; total_after_discount: number };
 
 const money = (value: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 
@@ -112,6 +113,10 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
   const [error, setError] = useState("");
   const [success, setSuccess] = useState<any>(null);
   const [pending, startTransition] = useTransition();
+  const [couponPending, startCouponTransition] = useTransition();
+  const [couponCode, setCouponCode] = useState("");
+  const [couponPreview, setCouponPreview] = useState<CouponPreview | null>(null);
+  const [couponError, setCouponError] = useState("");
 
   const products = useMemo(() => menu.categories
     .flatMap(category => category.products.map(product => ({ ...product, categoryId: category.id })))
@@ -122,6 +127,13 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
   const selectedZone = deliveryZones.find(zone => zone.id === deliveryZoneId);
   const deliveryFee = serviceType === "delivery" ? Number(selectedZone?.delivery_fee ?? menu.company.default_delivery_fee ?? 0) : 0;
   const modalPricing = selectedProduct ? calculateChoices(selectedProduct, selectedOptions) : { choices: [], optionUnitTotal: 0 };
+  const validCouponPreview = couponPreview && Number(couponPreview.subtotal) === Number(subtotal) ? couponPreview : null;
+  const couponDiscount = Number(validCouponPreview?.discount || 0);
+  const promotionSavings = cart.reduce((sum, item) => {
+    const originalPrice = Number(item.product.original_price || 0);
+    const currentPrice = Number(item.product.price || 0);
+    return sum + (originalPrice > currentPrice ? (originalPrice - currentPrice) * item.quantity : 0);
+  }, 0);
   const productQuantities = useMemo(() => cart.reduce<Record<string, number>>((totals, item) => {
     totals[item.product.id] = (totals[item.product.id] || 0) + item.quantity;
     return totals;
@@ -209,7 +221,7 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
       service_type: serviceType,
       delivery_zone_id: serviceType === 'delivery' ? deliveryZoneId : null,
       payment_method: String(formData.get("payment_method") || "pix"),
-      coupon_code: String(formData.get("coupon_code") || ""),
+      coupon_code: validCouponPreview?.code || "",
       notes: String(formData.get("notes") || ""),
       marketing_consent: formData.get("marketing_consent") === "on",
       delivery_address: {
@@ -235,6 +247,20 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
       setSuccess(result.data);
       setCart([]);
       setCheckoutOpen(false);
+    });
+  }
+
+  function applyCoupon() {
+    setCouponError("");
+    startCouponTransition(async () => {
+      const result = await previewPublicCoupon({ slug: menu.company.slug, code: couponCode, subtotal });
+      if (!result.ok) {
+        setCouponPreview(null);
+        setCouponError(result.error);
+        return;
+      }
+      setCouponPreview(result.data as CouponPreview);
+      setCouponCode(String(result.data.code || couponCode).toUpperCase());
     });
   }
 
@@ -326,6 +352,13 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
           {item.notes && <p className="mt-2 text-sm italic text-gray-500">Obs.: {item.notes}</p>}
           <div className="mt-3 flex items-center justify-between border-t pt-3"><div className="flex items-center gap-2"><button type="button" onClick={() => changeCartQuantity(item.key, -1)} className="rounded-full border p-2"><Minus size={15} /></button><strong>{item.quantity}</strong><button type="button" onClick={() => changeCartQuantity(item.key, 1)} className="rounded-full bg-green-700 p-2 text-white"><Plus size={15} /></button></div><strong>{money((Number(item.product.price) + item.optionUnitTotal) * item.quantity)}</strong></div>
         </div>)}</div>
+        <section className="mt-5 rounded-2xl border border-orange-200 bg-orange-50 p-4">
+          <div className="flex items-start justify-between gap-3"><div><h3 className="font-black text-gray-900">Tem cupom de desconto?</h3><p className="text-sm text-gray-600">Digite o código e veja o desconto antes de continuar.</p></div><span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-orange-700">Cupom</span></div>
+          <div className="mt-3 flex gap-2"><input value={couponCode} onChange={event => { setCouponCode(event.target.value.toUpperCase()); setCouponError(""); }} placeholder="EX.: BEMVINDO10" className="min-w-0 flex-1 rounded-xl border border-orange-200 bg-white p-3 uppercase outline-none focus:ring-2 focus:ring-orange-400" /><button type="button" onClick={applyCoupon} disabled={couponPending || !couponCode.trim()} className="rounded-xl bg-orange-500 px-5 font-black text-white disabled:bg-gray-300">{couponPending ? "Verificando..." : "Aplicar"}</button></div>
+          {couponError && <p className="mt-2 rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">{couponError}</p>}
+          {couponPreview && !validCouponPreview && <p className="mt-2 rounded-xl bg-amber-100 p-3 text-sm font-bold text-amber-800">O carrinho mudou. Clique em Aplicar para recalcular o cupom.</p>}
+          {validCouponPreview && <div className="mt-3 flex items-center justify-between rounded-xl border border-green-200 bg-green-50 p-3"><div><strong className="text-green-800">Cupom {validCouponPreview.code} aplicado!</strong><p className="text-sm text-green-700">Você ganhou {money(couponDiscount)} de desconto.</p></div><button type="button" onClick={() => { setCouponPreview(null); setCouponCode(""); }} className="text-sm font-bold text-red-600">Remover</button></div>}
+        </section>
         <form action={submit} className="mt-6 space-y-4">
           <h3 className="border-b pb-2 text-lg font-black">1. Entrega ou retirada</h3>
           <div className="grid grid-cols-2 gap-2"><button type="button" disabled={!serviceConfig.delivery_enabled} onClick={() => setServiceType("delivery")} className={`rounded-xl border p-3 font-bold disabled:bg-gray-100 disabled:text-gray-400 ${serviceType === "delivery" ? "bg-green-700 text-white" : ""}`}>Entrega</button><button type="button" disabled={!serviceConfig.pickup_enabled} onClick={() => setServiceType("pickup")} className={`rounded-xl border p-3 font-bold disabled:bg-gray-100 disabled:text-gray-400 ${serviceType === "pickup" ? "bg-green-700 text-white" : ""}`}>Retirada</button></div>
@@ -334,10 +367,10 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
           {serviceType === "delivery" && <><h3 className="border-b pb-2 pt-2 text-lg font-black">3. Endereço de entrega</h3><div className="grid gap-3 sm:grid-cols-2"><input name="cep" inputMode="numeric" placeholder="CEP" className="rounded-xl border p-3" /><input name="street" required placeholder="Rua ou avenida" className="rounded-xl border p-3" /><input name="number" required placeholder="Número" className="rounded-xl border p-3" /><input name="complement" placeholder="Complemento (opcional)" className="rounded-xl border p-3" />{deliveryZones.length ? <select name="delivery_zone_id" required value={deliveryZoneId} onChange={event=>setDeliveryZoneId(event.target.value)} className="rounded-xl border p-3"><option value="">Selecione o bairro</option>{deliveryZones.map(zone=><option key={zone.id} value={zone.id}>{zone.name} · {money(Number(zone.delivery_fee))} · {zone.estimated_minutes} min</option>)}</select> : <input name="neighborhood" required placeholder="Bairro" className="rounded-xl border p-3" />}<input name="city" required placeholder="Cidade" className="rounded-xl border p-3" /><input name="reference" placeholder="Ponto de referência" className="rounded-xl border p-3 sm:col-span-2" />{selectedZone && subtotal < Number(selectedZone.minimum_order) && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800 sm:col-span-2">Pedido mínimo para {selectedZone.name}: {money(Number(selectedZone.minimum_order))}</p>}</div></>}
           <h3 className="border-b pb-2 pt-2 text-lg font-black">{serviceType === "delivery" ? "4" : "3"}. Pagamento</h3>
           <label className="text-sm font-bold text-gray-700">Como deseja pagar?<select name="payment_method" className="mt-1 w-full rounded-xl border p-3 font-normal"><option value="pix">PIX</option><option value="cash">Dinheiro na entrega/retirada</option><option value="card_on_delivery">Cartão na entrega/retirada</option></select></label>
-          <input name="coupon_code" placeholder="Cupom de desconto" className="w-full rounded-xl border p-3 uppercase" /><textarea name="notes" placeholder="Observação geral" className="w-full rounded-xl border p-3" /><label className="flex gap-2 text-sm"><input type="checkbox" name="marketing_consent" /> Quero receber promoções da loja.</label><label className="flex gap-2 text-sm"><input type="checkbox" required /> Confirmo os dados do pedido e aceito os <a href="/termos" target="_blank" className="font-semibold text-green-700 underline">termos de uso</a>.</label>
-          <div className="rounded-2xl bg-gray-50 p-4"><div className="flex justify-between"><span>Subtotal</span><strong>{money(subtotal)}</strong></div><div className="mt-1 flex justify-between"><span>Entrega</span><strong>{money(deliveryFee)}</strong></div><div className="mt-3 flex justify-between border-t pt-3 text-lg"><span>Total estimado</span><strong>{money(subtotal + deliveryFee)}</strong></div></div>
+          <textarea name="notes" placeholder="Observação geral" className="w-full rounded-xl border p-3" /><label className="flex gap-2 text-sm"><input type="checkbox" name="marketing_consent" /> Quero receber promoções da loja.</label><label className="flex gap-2 text-sm"><input type="checkbox" required /> Confirmo os dados do pedido e aceito os <a href="/termos" target="_blank" className="font-semibold text-green-700 underline">termos de uso</a>.</label>
+          <div className="rounded-2xl bg-gray-50 p-4"><div className="flex justify-between"><span>Subtotal</span><strong>{money(subtotal)}</strong></div>{promotionSavings > 0 && <div className="mt-1 flex justify-between text-green-700"><span>Economia nas promoções</span><strong>- {money(promotionSavings)}</strong></div>}{couponDiscount > 0 && <div className="mt-1 flex justify-between text-green-700"><span>Desconto do cupom</span><strong>- {money(couponDiscount)}</strong></div>}<div className="mt-1 flex justify-between"><span>Entrega</span><strong>{money(deliveryFee)}</strong></div><div className="mt-3 flex justify-between border-t pt-3 text-lg"><span>Total estimado</span><strong>{money(Math.max(0, subtotal - couponDiscount + deliveryFee))}</strong></div>{promotionSavings + couponDiscount > 0 && <p className="mt-3 rounded-xl bg-green-100 p-2 text-center text-sm font-black text-green-800">Você está economizando {money(promotionSavings + couponDiscount)} neste pedido.</p>}</div>
           {!menu.company.is_open && <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-800">A loja está fechada no momento. Você pode montar e revisar o carrinho, mas o envio será liberado quando ela abrir.</p>}
-          {error && <p className="rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}<button disabled={pending || !menu.company.is_open || cart.length === 0} className="w-full rounded-xl bg-green-700 py-4 font-black text-white disabled:bg-gray-300 disabled:text-gray-600">{pending ? "Enviando pedido..." : menu.company.is_open ? `Confirmar pedido • ${money(subtotal + deliveryFee)}` : "Loja fechada"}</button>
+          {error && <p className="rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}<button disabled={pending || !menu.company.is_open || cart.length === 0} className="w-full rounded-xl bg-green-700 py-4 font-black text-white disabled:bg-gray-300 disabled:text-gray-600">{pending ? "Enviando pedido..." : menu.company.is_open ? `Confirmar pedido • ${money(Math.max(0, subtotal - couponDiscount + deliveryFee))}` : "Loja fechada"}</button>
         </form></section></div>}
       <PublicFeedback slug={menu.company.slug} companyName={menu.company.name}/>
       <footer className="mx-auto max-w-6xl px-5 pb-6 text-center text-xs text-gray-500"><a href="/termos" className="underline">Termos de uso</a> · <a href="/privacidade" className="underline">Privacidade</a> · Cardápio por MercadoFood</footer>

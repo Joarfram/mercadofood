@@ -3,9 +3,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-export async function submitPublicOrder(payload: unknown) {
+async function createPublicSupabaseClient() {
   const cookieStore = await cookies();
-  const supabase = createServerClient(
+  return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -15,6 +15,25 @@ export async function submitPublicOrder(payload: unknown) {
       }
     }
   );
+}
+
+export async function previewPublicCoupon(input: { slug: string; code: string; subtotal: number }) {
+  const supabase = await createPublicSupabaseClient();
+  const code = input.code.trim().toUpperCase().replace(/\s+/g, "");
+  if (!code) return { ok: false as const, error: "Informe o código do cupom." };
+  if (!Number.isFinite(input.subtotal) || input.subtotal <= 0) return { ok: false as const, error: "Adicione produtos antes de aplicar o cupom." };
+
+  const { data, error } = await supabase.rpc("preview_public_coupon", {
+    p_slug: input.slug,
+    p_code: code,
+    p_subtotal: input.subtotal
+  });
+  if (error) return { ok: false as const, error: error.message };
+  return { ok: true as const, data };
+}
+
+export async function submitPublicOrder(payload: unknown) {
+  const supabase = await createPublicSupabaseClient();
 
   const input = payload as { slug?: string; service_type?: string; delivery_zone_id?: string };
   const [{ data: serviceConfig }, { data: zones }] = await Promise.all([
