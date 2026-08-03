@@ -3,6 +3,7 @@ import { Bike, CircleDollarSign, LogOut, MapPin, PackageCheck, Phone, Power, Sto
 import { createClient } from "@/lib/supabase/server";
 import { DriverGps } from "@/components/delivery/driver-gps";
 import { advanceOwnDelivery, driverSignOut, respondToDelivery, setOwnAvailability } from "./actions";
+import { InstallDriverApp } from "@/components/delivery/install-driver-app";
 
 export const dynamic = "force-dynamic";
 
@@ -36,5 +37,6 @@ export default async function DriverAppPage() {
       <div className="mt-5 space-y-4 text-sm"><div className="flex gap-3"><Store className="text-emerald-700"/><div><b>Retirada</b><p>{pickup.street || "Endereço da loja"}</p></div></div><div className="flex gap-3"><MapPin className="text-orange-500"/><div><b>Entrega</b><p>{destination.street || "Endereço do cliente"}<br/>{destination.neighborhood || ""}</p></div></div><div className="rounded-xl bg-slate-100 p-3"><b>Cliente:</b> {order?.customer_name || "Cliente"}<br/><b>Corrida:</b> {money(delivery.delivery_value)} {delivery.amount_to_collect > 0 ? `• Cobrar ${money(delivery.amount_to_collect)}` : ""}</div></div>
       {delivery.status === "offered" ? <form action={respondToDelivery} className="mt-5 grid grid-cols-2 gap-3"><input type="hidden" name="deliveryId" value={delivery.id}/><button name="response" value="decline" className="rounded-xl bg-red-500 py-3 font-bold text-white">Recusar</button><button name="response" value="accept" className="rounded-xl bg-emerald-600 py-3 font-bold text-white">Aceitar</button></form> : <div className="mt-5 flex gap-3"><a href={`tel:${order?.customer_phone || ""}`} className="flex flex-1 items-center justify-center gap-2 rounded-xl border py-3 font-semibold"><Phone size={17}/>Ligar</a><form action={advanceOwnDelivery} className="flex-[1.5]"><input type="hidden" name="deliveryId" value={delivery.id}/><input type="hidden" name="currentStatus" value={delivery.status}/><button className="w-full rounded-xl bg-emerald-600 py-3 font-bold text-white">{actions[delivery.status] || "Atualizar"}</button></form></div>}
     </section>}
+    <InstallDriverApp/>
   </div></main>;
 }

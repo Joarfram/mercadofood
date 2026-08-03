@@ -50,8 +50,11 @@ export async function requirePlanModule(module: ModuleKey) {
     .eq("company_id", context.company.id)
     .maybeSingle();
 
-  // Mantém o piloto funcionando até a migration de assinaturas ser aplicada.
-  if (error || !data) return { ...context, planCode: "premium" as const };
+  // Falha de assinatura nunca pode liberar silenciosamente o plano Premium.
+  if (error || !data) {
+    if (!planAllows("basic", module)) redirect(`/assinatura?bloqueado=${module}&erro=assinatura`);
+    return { ...context, planCode: "basic" as const };
+  }
   const relatedPlan = Array.isArray(data.subscription_plans) ? data.subscription_plans[0] : data.subscription_plans;
   const planCode = relatedPlan?.code;
   const active = data.status === "active" || data.status === "trialing";

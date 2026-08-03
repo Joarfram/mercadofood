@@ -8,7 +8,10 @@ export function DriverGps({ driverId, enabled }: { driverId: string; enabled: bo
   useEffect(() => {
     if (!enabled || !navigator.geolocation) return;
     const supabase = createClient();
+    let lastSent = 0;
     const watch = navigator.geolocation.watchPosition(async (position) => {
+      if (Date.now() - lastSent < 15000) return;
+      lastSent = Date.now();
       const { latitude, longitude, accuracy, heading, speed } = position.coords;
       const { error } = await supabase.from("driver_locations").insert({ driver_id: driverId, latitude, longitude, accuracy_meters: accuracy, heading, speed_mps: speed });
       setMessage(error ? "Não foi possível enviar a localização" : "GPS ativo • localização atualizada");

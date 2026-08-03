@@ -1,0 +1,3 @@
+import Link from "next/link";
+import { BrandMark } from "@/components/brand/brand-mark";
+export default function NotFound(){return <main className="grid min-h-screen place-items-center bg-[#f7faf8] p-5"><section className="text-center"><div className="mx-auto grid h-24 w-24 place-items-center rounded-3xl bg-white shadow"><BrandMark size={78}/></div><p className="mt-5 text-sm font-bold text-orange-500">ERRO 404</p><h1 className="mt-1 text-3xl font-bold">Página não encontrada</h1><p className="mt-2 text-gray-600">O endereço pode ter mudado ou não estar mais disponível.</p><Link href="/" className="mt-6 inline-block rounded-xl bg-emerald-700 px-6 py-3 font-bold text-white">Voltar ao início</Link></section></main>}

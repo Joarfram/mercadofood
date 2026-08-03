@@ -19,6 +19,18 @@ Esta é a referência única para produto, desenvolvimento, site comercial e equ
 - Profissional: **Operar** — organizar equipe e atendimento.
 - Premium: **Crescer** — controlar custos e tomar decisões.
 
+## Preços de referência
+
+| Plano | Mensal sem fidelidade | Anual (valor mensal equivalente) | Total anual |
+|---|---:|---:|---:|
+| Básico | R$ 75,00 | R$ 49,90/mês | R$ 598,80 |
+| Profissional | R$ 150,00 | R$ 99,90/mês | R$ 1.198,80 |
+| Premium | R$ 225,00 | R$ 149,90/mês | R$ 1.798,80 |
+
+O plano anual possui compromisso de 12 meses. A proposta e o contrato devem
+mostrar o valor total, periodicidade, vencimento, reajuste e regras de
+cancelamento antes da confirmação do cliente.
+
 ## Módulos adicionais
 
 Pagamento online, WhatsApp automatizado, MercadoFood Impulsiona, criação com IA, unidade adicional e usuários adicionais serão cobrados separadamente.

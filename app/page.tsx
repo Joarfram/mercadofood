@@ -12,7 +12,7 @@ export default function HomePage() {
           <Link href="/login" className="rounded-xl bg-mercado-green px-5 py-3 text-white font-semibold">
             Entrar
           </Link>
-          <Link href="/dashboard" className="rounded-xl border border-gray-300 px-5 py-3 font-semibold">
+          <Link href="/demonstracao" className="rounded-xl border border-gray-300 px-5 py-3 font-semibold">
             Ver demonstração
           </Link>
         </div>

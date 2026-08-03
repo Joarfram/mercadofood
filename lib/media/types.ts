@@ -1,4 +1,4 @@
-export type MediaEntityType = "product" | "company" | "promotion" | "combo";
+export type MediaEntityType = "product" | "company" | "promotion" | "combo" | "campaign";
 export type MediaKind = "gallery" | "logo" | "banner";
 
 export type MediaAsset = {

@@ -6,7 +6,7 @@ export type CompanyRole = (typeof companyRoles)[number];
 export type ModuleKey =
   | "dashboard" | "orders" | "products" | "kitchen" | "delivery"
   | "payments" | "finance" | "reports" | "stock" | "customers"
-  | "promotions" | "tables" | "settings" | "team";
+  | "promotions" | "marketing" | "tables" | "settings" | "team";
 
 export const roleLabels: Record<CompanyRole, string> = {
   owner: "Proprietário",
@@ -19,7 +19,7 @@ export const roleLabels: Record<CompanyRole, string> = {
   viewer: "Somente relatórios"
 };
 
-const all: ModuleKey[] = ["dashboard","orders","products","kitchen","delivery","payments","finance","reports","stock","customers","promotions","tables","settings","team"];
+const all: ModuleKey[] = ["dashboard","orders","products","kitchen","delivery","payments","finance","reports","stock","customers","promotions","marketing","tables","settings","team"];
 
 export const roleModules: Record<CompanyRole, ModuleKey[]> = {
   owner: all,

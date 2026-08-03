@@ -1,35 +1,6 @@
 import Link from "next/link";
+import { BarChart3, Bike, ChefHat, ShoppingBag, Utensils } from "lucide-react";
+import { BrandMark } from "@/components/brand/brand-mark";
 
-export default function DemonstracaoPage() {
-  return (
-    <main className="min-h-screen grid md:grid-cols-2">
-      <section className="hidden md:flex bg-mercado-green text-white p-12 flex-col justify-between">
-        <div className="text-2xl font-bold">MercadoFood</div>
-        <div>
-          <h1 className="text-4xl font-bold max-w-md">Venda mais. Gerencie melhor.</h1>
-          <p className="mt-4 max-w-md text-green-50">
-            Um painel simples e completo para organizar pedidos, cardápio e operação.
-          </p>
-        </div>
-        <p className="text-sm text-green-100">MercadoFood v0.1</p>
-      </section>
-
-      <section className="flex items-center justify-center p-6">
-        <form className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
-          <h2 className="text-2xl font-bold">Entrar</h2>
-          <p className="mt-2 text-sm text-gray-500">Use seus dados para acessar o painel.</p>
-
-          <label className="mt-6 block text-sm font-medium">E-mail</label>
-          <input type="email" placeholder="voce@empresa.com" className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-mercado-green" />
-
-          <label className="mt-4 block text-sm font-medium">Senha</label>
-          <input type="password" placeholder="••••••••" className="mt-2 w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-mercado-green" />
-
-          <Link href="/dashboard" className="mt-6 block rounded-xl bg-mercado-green px-4 py-3 text-center font-semibold text-white">
-            Entrar na demonstração
-          </Link>
-        </form>
-      </section>
-    </main>
-  );
-}
+const modules = [{ icon:ShoppingBag, title:'Pedidos', text:'Acompanhe cada pedido do recebimento à entrega.' },{ icon:ChefHat, title:'Cozinha', text:'Organize a produção e destaque atrasos.' },{ icon:Bike, title:'Entregadores', text:'Veja disponibilidade, corrida e rastreamento.' },{ icon:Utensils, title:'Cardápio', text:'Edite categorias, produtos, fotos e preços.' }];
+export default function DemoPage() { return <main className="min-h-screen bg-[#f7faf8]"><header className="bg-[#063D2F] px-5 py-4 text-white"><div className="mx-auto flex max-w-6xl items-center justify-between"><div className="flex items-center gap-3"><span className="grid h-12 w-12 place-items-center rounded-xl bg-white"><BrandMark size={42}/></span><b className="text-xl">Mercado<span className="text-orange-400">Food</span></b></div><Link href="/cadastro" className="rounded-xl bg-orange-500 px-4 py-2 font-bold">Começar</Link></div></header><section className="mx-auto max-w-6xl p-5 py-10"><span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-bold text-emerald-800">Demonstração sem login</span><h1 className="mt-4 max-w-3xl text-4xl font-bold text-slate-900">O centro de comando para o seu fast-food</h1><p className="mt-3 max-w-2xl text-lg text-gray-600">Veja como o MercadoFood conecta cardápio, pedido, cozinha, caixa e entrega em uma operação simples.</p><div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><div className="rounded-2xl bg-white p-5 shadow-sm"><p className="text-sm text-gray-500">Pedidos hoje</p><b className="mt-2 block text-3xl">42</b><span className="text-xs text-emerald-700">Exemplo demonstrativo</span></div><div className="rounded-2xl bg-white p-5 shadow-sm"><p className="text-sm text-gray-500">Faturamento</p><b className="mt-2 block text-3xl">R$ 2.350</b><span className="text-xs text-emerald-700">Exemplo demonstrativo</span></div><div className="rounded-2xl bg-white p-5 shadow-sm"><p className="text-sm text-gray-500">Na cozinha</p><b className="mt-2 block text-3xl">5</b><span className="text-xs text-orange-600">1 próximo do prazo</span></div><div className="rounded-2xl bg-white p-5 shadow-sm"><BarChart3 className="text-emerald-700"/><b className="mt-2 block">Visão em tempo real</b><span className="text-xs text-gray-500">Dados da própria loja</span></div></div><div className="mt-8 grid gap-4 sm:grid-cols-2">{modules.map(({icon:Icon,title,text})=><article key={title} className="flex gap-4 rounded-2xl border bg-white p-5"><span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-700"><Icon/></span><div><h2 className="font-bold">{title}</h2><p className="mt-1 text-sm text-gray-600">{text}</p></div></article>)}</div><div className="mt-9 flex flex-wrap gap-3"><Link href="/cadastro" className="rounded-xl bg-emerald-700 px-6 py-3 font-bold text-white">Criar minha empresa</Link><Link href="/login" className="rounded-xl border px-6 py-3 font-bold">Já tenho acesso</Link></div></section></main>; }

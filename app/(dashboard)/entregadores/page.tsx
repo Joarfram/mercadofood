@@ -2,7 +2,7 @@ import { Bike, MapPin, Phone, Power, Send } from "lucide-react";
 import { WhatsAppButton } from "@/components/notifications/whatsapp-button";
 import { customerOutForDeliveryMessage, driverOfferMessage } from "@/lib/notifications/whatsapp";
 import { requirePlanModule } from "@/lib/auth/current-company";
-import { assignDriver, createDriver, setDriverAvailability } from "./actions";
+import { assignDriver, createDriver, deleteDriver, setDriverAvailability, updateDriver } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -78,6 +78,7 @@ export default async function DriversPage({ searchParams }: { searchParams: Prom
                 <input type="hidden" name="driverId" value={driver.id}/>
                 <button name="status" value={driver.availability_status === "available" ? "offline" : "available"} disabled={["called", "busy"].includes(driver.availability_status)} className="flex flex-1 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold disabled:opacity-40"><Power size={15}/>{driver.availability_status === "available" ? "Ficar offline" : "Marcar disponível"}</button>
               </form>
+              <details className="mt-3 rounded-xl bg-gray-50 p-3"><summary className="cursor-pointer text-sm font-semibold text-emerald-800">Editar ou excluir</summary><form action={updateDriver} className="mt-3 grid gap-2"><input type="hidden" name="driverId" value={driver.id}/><input name="name" defaultValue={driver.name} required className="rounded-lg border px-3 py-2" aria-label="Nome"/><input name="phone" defaultValue={driver.phone} required className="rounded-lg border px-3 py-2" aria-label="Telefone"/><input name="whatsapp" defaultValue={driver.whatsapp || ''} className="rounded-lg border px-3 py-2" aria-label="WhatsApp"/><div className="grid grid-cols-2 gap-2"><input name="vehiclePlate" defaultValue={driver.vehicle_plate || ''} className="rounded-lg border px-3 py-2" aria-label="Placa"/><input name="defaultDeliveryValue" type="number" min="0" step="0.01" defaultValue={driver.default_delivery_value || 0} className="rounded-lg border px-3 py-2" aria-label="Valor da corrida"/></div><button className="rounded-lg bg-emerald-700 py-2 font-semibold text-white">Salvar alterações</button></form><form action={deleteDriver} className="mt-2"><input type="hidden" name="driverId" value={driver.id}/><button className="w-full rounded-lg bg-red-50 py-2 text-sm font-semibold text-red-700">Excluir motoboy</button></form></details>
             </article>)}
           </div>
         </section>

@@ -54,6 +54,34 @@ export async function setDriverAvailability(formData: FormData) {
   revalidatePath("/entregadores");
 }
 
+export async function updateDriver(formData: FormData) {
+  const driverId = String(formData.get("driverId") || "");
+  const name = String(formData.get("name") || "").trim();
+  const phone = String(formData.get("phone") || "").trim();
+  const whatsapp = String(formData.get("whatsapp") || "").trim();
+  const vehiclePlate = String(formData.get("vehiclePlate") || "").trim().toUpperCase();
+  const defaultDeliveryValue = Math.max(0, Number(formData.get("defaultDeliveryValue") || 0));
+  if (!driverId || !name || !phone) redirect('/entregadores?erro=Preencha%20nome%20e%20telefone');
+  const { supabase, company, role } = await getCurrentCompany();
+  if (!['owner','manager'].includes(role)) redirect('/sem-permissao');
+  const { error } = await supabase.from('drivers').update({ name, phone, whatsapp: whatsapp || phone, vehicle_plate: vehiclePlate || null, default_delivery_value: defaultDeliveryValue }).eq('id',driverId).eq('company_id',company.id);
+  if (error) redirect(`/entregadores?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath('/entregadores');
+  redirect('/entregadores?sucesso=Dados%20do%20motoboy%20atualizados');
+}
+
+export async function deleteDriver(formData: FormData) {
+  const driverId = String(formData.get('driverId') || '');
+  const { supabase, company, role } = await getCurrentCompany();
+  if (!['owner','manager'].includes(role)) redirect('/sem-permissao');
+  const { count } = await supabase.from('deliveries').select('id',{count:'exact',head:true}).eq('driver_id',driverId).in('status',['offered','accepted','to_store','waiting_pickup','delivering']);
+  if (count) redirect('/entregadores?erro=Finalize%20a%20corrida%20ativa%20antes%20de%20excluir');
+  const { error } = await supabase.from('drivers').delete().eq('id',driverId).eq('company_id',company.id);
+  if (error) redirect(`/entregadores?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath('/entregadores');
+  redirect('/entregadores?sucesso=Motoboy%20excluído');
+}
+
 export async function assignDriver(formData: FormData) {
   const orderId = String(formData.get("orderId") || "");
   const driverId = String(formData.get("driverId") || "");

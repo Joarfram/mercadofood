@@ -1,0 +1,4 @@
+"use client";
+import Link from "next/link";
+import { AlertTriangle } from "lucide-react";
+export default function ErrorPage({reset}:{error:Error&{digest?:string};reset:()=>void}){return <main className="grid min-h-screen place-items-center bg-[#f7faf8] p-5"><section className="w-full max-w-lg rounded-3xl border bg-white p-8 text-center shadow-xl"><AlertTriangle className="mx-auto text-orange-500" size={46}/><h1 className="mt-4 text-2xl font-bold">Não foi possível carregar esta tela</h1><p className="mt-2 text-gray-600">Se a conexão estiver normal, tente novamente. Seus dados não foram apagados.</p><div className="mt-6 grid gap-3 sm:grid-cols-2"><button onClick={reset} className="rounded-xl bg-emerald-700 px-4 py-3 font-bold text-white">Tentar novamente</button><Link href="/" className="rounded-xl border px-4 py-3 font-bold">Ir para o início</Link></div></section></main>}

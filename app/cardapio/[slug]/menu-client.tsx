@@ -29,6 +29,8 @@ type Product = {
   option_groups: Group[];
 };
 type Category = { id: string; name: string; description?: string; products: Product[] };
+type DeliveryZone = { id:string; name:string; delivery_fee:number; minimum_order:number; estimated_minutes:number };
+type ServiceConfig = { delivery_enabled:boolean; pickup_enabled:boolean; average_delivery_minutes:number };
 type MenuData = {
   company: {
     name: string;
@@ -95,7 +97,7 @@ function calculateChoices(product: Product, selection: Selection): { choices: Ca
   return { choices, optionUnitTotal };
 }
 
-export default function MenuClient({ menu }: { menu: MenuData }) {
+export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConfig }: { menu: MenuData; deliveryZones: DeliveryZone[]; hasCombos: boolean; serviceConfig: ServiceConfig }) {
   const [query, setQuery] = useState("");
   const [categoryId, setCategoryId] = useState<string>("all");
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -103,7 +105,8 @@ export default function MenuClient({ menu }: { menu: MenuData }) {
   const [selectedOptions, setSelectedOptions] = useState<Selection>({});
   const [itemNotes, setItemNotes] = useState("");
   const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [serviceType, setServiceType] = useState("delivery");
+  const [serviceType, setServiceType] = useState(serviceConfig.delivery_enabled ? "delivery" : "pickup");
+  const [deliveryZoneId, setDeliveryZoneId] = useState(deliveryZones[0]?.id || "");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState<any>(null);
   const [pending, startTransition] = useTransition();
@@ -114,7 +117,8 @@ export default function MenuClient({ menu }: { menu: MenuData }) {
       && `${product.name} ${product.description || ""}`.toLowerCase().includes(query.toLowerCase())), [menu, categoryId, query]);
 
   const subtotal = cart.reduce((sum, item) => sum + (Number(item.product.price) + item.optionUnitTotal) * item.quantity, 0);
-  const deliveryFee = serviceType === "delivery" ? Number(menu.company.default_delivery_fee || 0) : 0;
+  const selectedZone = deliveryZones.find(zone => zone.id === deliveryZoneId);
+  const deliveryFee = serviceType === "delivery" ? Number(selectedZone?.delivery_fee ?? menu.company.default_delivery_fee ?? 0) : 0;
   const modalPricing = selectedProduct ? calculateChoices(selectedProduct, selectedOptions) : { choices: [], optionUnitTotal: 0 };
 
   function openProduct(product: Product) {
@@ -183,6 +187,7 @@ export default function MenuClient({ menu }: { menu: MenuData }) {
       customer_name: String(formData.get("customer_name") || ""),
       customer_phone: String(formData.get("customer_phone") || ""),
       service_type: serviceType,
+      delivery_zone_id: serviceType === 'delivery' ? deliveryZoneId : null,
       payment_method: String(formData.get("payment_method") || "pix"),
       coupon_code: String(formData.get("coupon_code") || ""),
       notes: String(formData.get("notes") || ""),
@@ -190,7 +195,7 @@ export default function MenuClient({ menu }: { menu: MenuData }) {
       delivery_address: {
         street: String(formData.get("street") || ""),
         number: String(formData.get("number") || ""),
-        neighborhood: String(formData.get("neighborhood") || ""),
+        neighborhood: selectedZone?.name || String(formData.get("neighborhood") || ""),
         reference: String(formData.get("reference") || "")
       },
       items: cart.map(item => ({
@@ -243,7 +248,7 @@ export default function MenuClient({ menu }: { menu: MenuData }) {
 
       <section className="mx-auto max-w-6xl p-4 md:p-6">
         {menu.promotions.length > 0 && <div className="mb-5 flex gap-3 overflow-x-auto pb-2">{menu.promotions.map(promotion => <article key={promotion.id} className="min-w-[260px] overflow-hidden rounded-2xl bg-orange-100">{promotion.image_url && <img src={promotion.image_url} alt={promotion.title} className="aspect-[16/7] w-full object-cover"/>}<div className="p-4"><strong>{promotion.title}</strong><p className="text-sm text-gray-700">{promotion.description}</p></div></article>)}</div>}
-        <a href={`/cardapio/${menu.company.slug}/combos`} className="mb-5 flex items-center justify-between rounded-2xl bg-gradient-to-r from-orange-500 to-orange-400 p-5 text-white shadow-sm"><div><p className="text-sm font-bold text-white/80">Monte do seu jeito</p><strong className="text-xl">Ver combos completos</strong></div><span className="rounded-xl bg-white/20 px-4 py-2 font-black">Abrir →</span></a>
+        {hasCombos && <a href={`/cardapio/${menu.company.slug}/combos`} className="mb-5 flex items-center justify-between rounded-2xl bg-gradient-to-r from-orange-500 to-orange-400 p-5 text-white shadow-sm"><div><p className="text-sm font-bold text-white/80">Monte do seu jeito</p><strong className="text-xl">Ver combos completos</strong></div><span className="rounded-xl bg-white/20 px-4 py-2 font-black">Abrir →</span></a>}
         <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar no cardápio" className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-4 shadow-sm outline-none focus:ring-2 focus:ring-green-600" />
         <nav className="mt-4 flex gap-2 overflow-x-auto pb-2">
           <button onClick={() => setCategoryId("all")} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-bold ${categoryId === "all" ? "bg-green-700 text-white" : "bg-white border"}`}>Todos</button>
@@ -258,6 +263,7 @@ export default function MenuClient({ menu }: { menu: MenuData }) {
             </div>
           </article>)}
         </div>
+        {!products.length && <div className="mt-6 rounded-2xl border border-dashed bg-white p-10 text-center text-gray-500">Nenhum produto encontrado nesta seleção.</div>}
       </section>
 
       {cart.length > 0 && <div className="fixed bottom-0 left-0 right-0 border-t bg-white p-4 shadow-2xl"><div className="mx-auto flex max-w-6xl items-center justify-between"><div><strong>{cart.reduce((sum, item) => sum + item.quantity, 0)} item(ns)</strong><p className="text-sm text-gray-600">Subtotal {money(subtotal)}</p></div><button onClick={() => setCheckoutOpen(true)} className="flex items-center gap-2 rounded-xl bg-green-700 px-6 py-3 font-black text-white"><ShoppingCart size={18} /> Ver carrinho</button></div></div>}
@@ -285,14 +291,15 @@ export default function MenuClient({ menu }: { menu: MenuData }) {
           <div className="mt-3 flex items-center justify-between border-t pt-3"><div className="flex items-center gap-2"><button type="button" onClick={() => changeCartQuantity(item.key, -1)} className="rounded-full border p-2"><Minus size={15} /></button><strong>{item.quantity}</strong><button type="button" onClick={() => changeCartQuantity(item.key, 1)} className="rounded-full bg-green-700 p-2 text-white"><Plus size={15} /></button></div><strong>{money((Number(item.product.price) + item.optionUnitTotal) * item.quantity)}</strong></div>
         </div>)}</div>
         <form action={submit} className="mt-6 space-y-4">
-          <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setServiceType("delivery")} className={`rounded-xl border p-3 font-bold ${serviceType === "delivery" ? "bg-green-700 text-white" : ""}`}>Entrega</button><button type="button" onClick={() => setServiceType("pickup")} className={`rounded-xl border p-3 font-bold ${serviceType === "pickup" ? "bg-green-700 text-white" : ""}`}>Retirada</button></div>
+          <div className="grid grid-cols-2 gap-2"><button type="button" disabled={!serviceConfig.delivery_enabled} onClick={() => setServiceType("delivery")} className={`rounded-xl border p-3 font-bold disabled:bg-gray-100 disabled:text-gray-400 ${serviceType === "delivery" ? "bg-green-700 text-white" : ""}`}>Entrega</button><button type="button" disabled={!serviceConfig.pickup_enabled} onClick={() => setServiceType("pickup")} className={`rounded-xl border p-3 font-bold disabled:bg-gray-100 disabled:text-gray-400 ${serviceType === "pickup" ? "bg-green-700 text-white" : ""}`}>Retirada</button></div>
           <input name="customer_name" required placeholder="Seu nome" className="w-full rounded-xl border p-3" /><input name="customer_phone" required placeholder="WhatsApp com DDD" className="w-full rounded-xl border p-3" />
-          {serviceType === "delivery" && <div className="grid gap-3 sm:grid-cols-2"><input name="street" required placeholder="Rua" className="rounded-xl border p-3" /><input name="number" required placeholder="Número" className="rounded-xl border p-3" /><input name="neighborhood" required placeholder="Bairro" className="rounded-xl border p-3" /><input name="reference" placeholder="Referência" className="rounded-xl border p-3" /></div>}
+          {serviceType === "delivery" && <div className="grid gap-3 sm:grid-cols-2"><input name="street" required placeholder="Rua" className="rounded-xl border p-3" /><input name="number" required placeholder="Número" className="rounded-xl border p-3" />{deliveryZones.length ? <select name="delivery_zone_id" required value={deliveryZoneId} onChange={event=>setDeliveryZoneId(event.target.value)} className="rounded-xl border p-3"><option value="">Selecione o bairro</option>{deliveryZones.map(zone=><option key={zone.id} value={zone.id}>{zone.name} · {money(Number(zone.delivery_fee))} · {zone.estimated_minutes} min</option>)}</select> : <input name="neighborhood" required placeholder="Bairro" className="rounded-xl border p-3" />}<input name="reference" placeholder="Referência" className="rounded-xl border p-3" />{selectedZone && subtotal < Number(selectedZone.minimum_order) && <p className="sm:col-span-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">Pedido mínimo para {selectedZone.name}: {money(Number(selectedZone.minimum_order))}</p>}</div>}
           <select name="payment_method" className="w-full rounded-xl border p-3"><option value="pix">PIX</option><option value="cash">Dinheiro</option><option value="card_on_delivery">Cartão na entrega</option></select>
-          <input name="coupon_code" placeholder="Cupom de desconto" className="w-full rounded-xl border p-3 uppercase" /><textarea name="notes" placeholder="Observação geral" className="w-full rounded-xl border p-3" /><label className="flex gap-2 text-sm"><input type="checkbox" name="marketing_consent" /> Quero receber promoções da loja.</label>
+          <input name="coupon_code" placeholder="Cupom de desconto" className="w-full rounded-xl border p-3 uppercase" /><textarea name="notes" placeholder="Observação geral" className="w-full rounded-xl border p-3" /><label className="flex gap-2 text-sm"><input type="checkbox" name="marketing_consent" /> Quero receber promoções da loja.</label><label className="flex gap-2 text-sm"><input type="checkbox" required /> Confirmo os dados do pedido e aceito os <a href="/termos" target="_blank" className="font-semibold text-green-700 underline">termos de uso</a>.</label>
           <div className="rounded-2xl bg-gray-50 p-4"><div className="flex justify-between"><span>Subtotal</span><strong>{money(subtotal)}</strong></div><div className="mt-1 flex justify-between"><span>Entrega</span><strong>{money(deliveryFee)}</strong></div><div className="mt-3 flex justify-between border-t pt-3 text-lg"><span>Total estimado</span><strong>{money(subtotal + deliveryFee)}</strong></div></div>
           {error && <p className="rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}<button disabled={pending} className="w-full rounded-xl bg-green-700 py-4 font-black text-white disabled:opacity-60">{pending ? "Enviando pedido..." : "Confirmar pedido"}</button>
         </form></section></div>}
+      <footer className="mx-auto max-w-6xl px-5 pb-6 text-center text-xs text-gray-500"><a href="/termos" className="underline">Termos de uso</a> · <a href="/privacidade" className="underline">Privacidade</a> · Cardápio por MercadoFood</footer>
     </main>
   );
 }
