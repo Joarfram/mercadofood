@@ -103,6 +103,7 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
   const [categoryId, setCategoryId] = useState<string>("all");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedProductQuantity, setSelectedProductQuantity] = useState(1);
   const [selectedOptions, setSelectedOptions] = useState<Selection>({});
   const [itemNotes, setItemNotes] = useState("");
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -121,9 +122,14 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
   const selectedZone = deliveryZones.find(zone => zone.id === deliveryZoneId);
   const deliveryFee = serviceType === "delivery" ? Number(selectedZone?.delivery_fee ?? menu.company.default_delivery_fee ?? 0) : 0;
   const modalPricing = selectedProduct ? calculateChoices(selectedProduct, selectedOptions) : { choices: [], optionUnitTotal: 0 };
+  const productQuantities = useMemo(() => cart.reduce<Record<string, number>>((totals, item) => {
+    totals[item.product.id] = (totals[item.product.id] || 0) + item.quantity;
+    return totals;
+  }, {}), [cart]);
 
   function openProduct(product: Product) {
     setSelectedProduct(product);
+    setSelectedProductQuantity(1);
     setSelectedOptions({});
     setItemNotes("");
     setError("");
@@ -166,7 +172,7 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
     setCart(previous => [...previous, {
       key: crypto.randomUUID(),
       product: selectedProduct,
-      quantity: 1,
+      quantity: selectedProductQuantity,
       choices: pricing.choices,
       optionUnitTotal: pricing.optionUnitTotal,
       notes: itemNotes
@@ -179,6 +185,19 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
     setCart(previous => previous
       .map(item => item.key === key ? { ...item, quantity: Math.max(0, Math.min(99, item.quantity + delta)) } : item)
       .filter(item => item.quantity > 0));
+  }
+
+  function changeProductQuantity(productId: string, delta: number) {
+    setCart(previous => {
+      const matchingIndex = previous.findIndex(item => item.product.id === productId);
+      if (matchingIndex < 0) return previous;
+      const next = [...previous];
+      const item = next[matchingIndex];
+      const quantity = Math.max(0, Math.min(99, item.quantity + delta));
+      if (quantity === 0) next.splice(matchingIndex, 1);
+      else next[matchingIndex] = { ...item, quantity };
+      return next;
+    });
   }
 
   function submit(formData: FormData) {
@@ -194,9 +213,12 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
       notes: String(formData.get("notes") || ""),
       marketing_consent: formData.get("marketing_consent") === "on",
       delivery_address: {
+        cep: String(formData.get("cep") || ""),
         street: String(formData.get("street") || ""),
         number: String(formData.get("number") || ""),
+        complement: String(formData.get("complement") || ""),
         neighborhood: selectedZone?.name || String(formData.get("neighborhood") || ""),
+        city: String(formData.get("city") || ""),
         reference: String(formData.get("reference") || "")
       },
       items: cart.map(item => ({
@@ -257,17 +279,26 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
         </nav>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {products.map(product => <article key={product.id} className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
+          {products.map(product => {
+            const quantityInCart = productQuantities[product.id] || 0;
+            return <article key={product.id} className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
             <div className="aspect-square bg-white p-2">{product.image_url ? <img src={product.image_url} alt={product.name} className="h-full w-full object-contain" style={{ objectPosition: product.image_position || "center" }} /> : <div className="grid h-full place-items-center bg-orange-50 text-6xl">🍽️</div>}</div>
             <div className="p-5"><h2 className="text-lg font-black">{product.name}</h2><p className="mt-1 min-h-10 text-sm text-gray-600">{product.description}</p>
-              <div className="mt-4 flex items-center justify-between"><div>{product.original_price && <span className="mr-2 text-xs text-gray-400 line-through">{money(Number(product.original_price))}</span>}<strong className="text-lg text-green-700">{money(Number(product.price))}</strong></div><button disabled={!menu.company.is_open} onClick={() => openProduct(product)} className="rounded-xl bg-orange-500 px-4 py-2 font-bold text-white disabled:bg-gray-300">Adicionar</button></div>
+              <div className="mt-4 flex items-center justify-between gap-3"><div>{product.original_price && <span className="mr-2 text-xs text-gray-400 line-through">{money(Number(product.original_price))}</span>}<strong className="text-lg text-green-700">{money(Number(product.price))}</strong></div>
+                {quantityInCart > 0 ? <div className="flex items-center gap-2 rounded-full border border-green-200 bg-green-50 p-1" aria-label={`Quantidade de ${product.name}`}>
+                  <button type="button" aria-label={`Diminuir ${product.name}`} onClick={() => changeProductQuantity(product.id, -1)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-green-800 shadow-sm"><Minus size={17} /></button>
+                  <strong className="min-w-6 text-center text-green-800">{quantityInCart}</strong>
+                  <button type="button" aria-label={`Aumentar ${product.name}`} onClick={() => changeProductQuantity(product.id, 1)} className="grid h-9 w-9 place-items-center rounded-full bg-green-700 text-white"><Plus size={17} /></button>
+                </div> : <button onClick={() => openProduct(product)} className="rounded-xl bg-orange-500 px-4 py-2 font-bold text-white">Adicionar</button>}
+              </div>
+              {quantityInCart > 0 && (product.option_groups || []).length > 0 && <button type="button" onClick={() => openProduct(product)} className="mt-3 w-full text-sm font-bold text-orange-600">+ Adicionar outra opção</button>}
             </div>
-          </article>)}
+          </article>})}
         </div>
         {!products.length && <div className="mt-6 rounded-2xl border border-dashed bg-white p-10 text-center text-gray-500">Nenhum produto encontrado nesta seleção.</div>}
       </section>
 
-      {cart.length > 0 && <div className="fixed bottom-0 left-0 right-0 border-t bg-white p-4 shadow-2xl"><div className="mx-auto flex max-w-6xl items-center justify-between"><div><strong>{cart.reduce((sum, item) => sum + item.quantity, 0)} item(ns)</strong><p className="text-sm text-gray-600">Subtotal {money(subtotal)}</p></div><button onClick={() => setCheckoutOpen(true)} className="flex items-center gap-2 rounded-xl bg-green-700 px-6 py-3 font-black text-white"><ShoppingCart size={18} /> Ver carrinho</button></div></div>}
+      {cart.length > 0 && <div className="fixed bottom-0 left-0 right-0 z-30 border-t bg-white p-3 shadow-2xl md:p-4"><div className="mx-auto flex max-w-6xl items-center justify-between gap-3"><div><strong>{cart.reduce((sum, item) => sum + item.quantity, 0)} item(ns)</strong><p className="text-sm text-gray-600">Subtotal {money(subtotal)}</p></div><button onClick={() => setCheckoutOpen(true)} className="flex items-center gap-2 rounded-xl bg-green-700 px-4 py-3 text-sm font-black text-white md:px-6 md:text-base"><ShoppingCart size={18} /> Ver carrinho e finalizar</button></div></div>}
 
       {selectedProduct && <div className="fixed inset-0 z-40 flex items-end bg-black/50 md:items-center md:justify-center"><section className="max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6 md:max-w-xl md:rounded-3xl"><button onClick={() => setSelectedProduct(null)} className="float-right text-2xl">×</button><h2 className="text-2xl font-black">{selectedProduct.name}</h2><p className="mt-2 text-gray-600">{selectedProduct.description}</p>
         {(selectedProduct.option_groups || []).map(group => {
@@ -282,23 +313,31 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
               </div>})}</div>
           </div>})}
         <textarea value={itemNotes} onChange={event => setItemNotes(event.target.value)} placeholder="Observação do item" className="mt-5 w-full rounded-xl border p-3" />
-        <div className="mt-4 rounded-2xl bg-gray-50 p-4"><div className="flex justify-between"><span>Produto</span><strong>{money(Number(selectedProduct.price))}</strong></div><div className="mt-1 flex justify-between"><span>Complementos cobrados</span><strong>{money(modalPricing.optionUnitTotal)}</strong></div><div className="mt-3 flex justify-between border-t pt-3 text-lg"><span>Total do item</span><strong>{money(Number(selectedProduct.price) + modalPricing.optionUnitTotal)}</strong></div>{selectedProduct.option_groups.some(group => Number(group.free_selection || 0) > 0) && <p className="mt-2 text-xs text-gray-500">As unidades grátis são aplicadas automaticamente às opções selecionadas de maior valor.</p>}</div>
-        {error && <p className="mt-3 text-sm font-bold text-red-600">{error}</p>}<button onClick={addSelectedProduct} className="mt-5 w-full rounded-xl bg-orange-500 py-3 font-black text-white">Adicionar ao carrinho • {money(Number(selectedProduct.price) + modalPricing.optionUnitTotal)}</button></section></div>}
+        <div className="mt-4 flex items-center justify-between rounded-2xl border border-green-200 bg-green-50 p-4">
+          <div><strong>Quantidade</strong><p className="text-sm text-gray-600">Escolha quantas unidades deseja.</p></div>
+          <div className="flex items-center gap-3"><button type="button" aria-label="Diminuir quantidade" onClick={() => setSelectedProductQuantity(value => Math.max(1, value - 1))} className="grid h-10 w-10 place-items-center rounded-full bg-white text-green-800 shadow-sm"><Minus size={18} /></button><strong className="min-w-7 text-center text-lg">{selectedProductQuantity}</strong><button type="button" aria-label="Aumentar quantidade" onClick={() => setSelectedProductQuantity(value => Math.min(99, value + 1))} className="grid h-10 w-10 place-items-center rounded-full bg-green-700 text-white"><Plus size={18} /></button></div>
+        </div>
+        <div className="mt-4 rounded-2xl bg-gray-50 p-4"><div className="flex justify-between"><span>Produto</span><strong>{money(Number(selectedProduct.price))}</strong></div><div className="mt-1 flex justify-between"><span>Complementos cobrados</span><strong>{money(modalPricing.optionUnitTotal)}</strong></div><div className="mt-1 flex justify-between"><span>Quantidade</span><strong>{selectedProductQuantity}</strong></div><div className="mt-3 flex justify-between border-t pt-3 text-lg"><span>Total</span><strong>{money((Number(selectedProduct.price) + modalPricing.optionUnitTotal) * selectedProductQuantity)}</strong></div>{selectedProduct.option_groups.some(group => Number(group.free_selection || 0) > 0) && <p className="mt-2 text-xs text-gray-500">As unidades grátis são aplicadas automaticamente às opções selecionadas de maior valor.</p>}</div>
+        {error && <p className="mt-3 text-sm font-bold text-red-600">{error}</p>}<button onClick={addSelectedProduct} className="mt-5 w-full rounded-xl bg-orange-500 py-3 font-black text-white">Adicionar ao carrinho • {money((Number(selectedProduct.price) + modalPricing.optionUnitTotal) * selectedProductQuantity)}</button></section></div>}
 
-      {checkoutOpen && <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-3"><section className="mx-auto my-4 max-w-2xl rounded-3xl bg-white p-6"><button onClick={() => setCheckoutOpen(false)} className="float-right text-2xl">×</button><h2 className="text-2xl font-black">Seu pedido</h2>
+      {checkoutOpen && <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-3"><section className="mx-auto my-4 max-w-2xl rounded-3xl bg-white p-5 md:p-6"><button onClick={() => setCheckoutOpen(false)} aria-label="Fechar carrinho" className="float-right text-2xl">×</button><p className="text-sm font-bold uppercase tracking-wide text-green-700">Carrinho e checkout</p><h2 className="text-2xl font-black">Revise e finalize seu pedido</h2><p className="mt-1 text-sm text-gray-600">Confira as quantidades e depois informe seus dados.</p>
         <div className="mt-4 space-y-3">{cart.map(item => <div key={item.key} className="rounded-xl border p-3"><div className="flex items-start justify-between gap-3"><div><strong>{item.product.name}</strong><p className="text-sm text-gray-500">{money(Number(item.product.price) + item.optionUnitTotal)} por unidade</p></div><button onClick={() => setCart(current => current.filter(entry => entry.key !== item.key))} className="rounded-lg p-2 text-red-600"><Trash2 size={17} /></button></div>
           {item.choices.length > 0 && <ul className="mt-2 space-y-1 text-sm text-gray-600">{item.choices.map(choice => <li key={`${choice.groupId}-${choice.optionId}`}>{choice.quantity}× {choice.optionName}{choice.chargedQuantity === 0 ? " — grátis" : choice.chargedQuantity < choice.quantity ? ` — ${choice.quantity - choice.chargedQuantity} grátis` : choice.totalPrice > 0 ? ` — + ${money(choice.totalPrice)}` : ""}</li>)}</ul>}
           {item.notes && <p className="mt-2 text-sm italic text-gray-500">Obs.: {item.notes}</p>}
           <div className="mt-3 flex items-center justify-between border-t pt-3"><div className="flex items-center gap-2"><button type="button" onClick={() => changeCartQuantity(item.key, -1)} className="rounded-full border p-2"><Minus size={15} /></button><strong>{item.quantity}</strong><button type="button" onClick={() => changeCartQuantity(item.key, 1)} className="rounded-full bg-green-700 p-2 text-white"><Plus size={15} /></button></div><strong>{money((Number(item.product.price) + item.optionUnitTotal) * item.quantity)}</strong></div>
         </div>)}</div>
         <form action={submit} className="mt-6 space-y-4">
+          <h3 className="border-b pb-2 text-lg font-black">1. Entrega ou retirada</h3>
           <div className="grid grid-cols-2 gap-2"><button type="button" disabled={!serviceConfig.delivery_enabled} onClick={() => setServiceType("delivery")} className={`rounded-xl border p-3 font-bold disabled:bg-gray-100 disabled:text-gray-400 ${serviceType === "delivery" ? "bg-green-700 text-white" : ""}`}>Entrega</button><button type="button" disabled={!serviceConfig.pickup_enabled} onClick={() => setServiceType("pickup")} className={`rounded-xl border p-3 font-bold disabled:bg-gray-100 disabled:text-gray-400 ${serviceType === "pickup" ? "bg-green-700 text-white" : ""}`}>Retirada</button></div>
-          <input name="customer_name" required placeholder="Seu nome" className="w-full rounded-xl border p-3" /><input name="customer_phone" required placeholder="WhatsApp com DDD" className="w-full rounded-xl border p-3" />
-          {serviceType === "delivery" && <div className="grid gap-3 sm:grid-cols-2"><input name="street" required placeholder="Rua" className="rounded-xl border p-3" /><input name="number" required placeholder="Número" className="rounded-xl border p-3" />{deliveryZones.length ? <select name="delivery_zone_id" required value={deliveryZoneId} onChange={event=>setDeliveryZoneId(event.target.value)} className="rounded-xl border p-3"><option value="">Selecione o bairro</option>{deliveryZones.map(zone=><option key={zone.id} value={zone.id}>{zone.name} · {money(Number(zone.delivery_fee))} · {zone.estimated_minutes} min</option>)}</select> : <input name="neighborhood" required placeholder="Bairro" className="rounded-xl border p-3" />}<input name="reference" placeholder="Referência" className="rounded-xl border p-3" />{selectedZone && subtotal < Number(selectedZone.minimum_order) && <p className="sm:col-span-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">Pedido mínimo para {selectedZone.name}: {money(Number(selectedZone.minimum_order))}</p>}</div>}
-          <select name="payment_method" className="w-full rounded-xl border p-3"><option value="pix">PIX</option><option value="cash">Dinheiro</option><option value="card_on_delivery">Cartão na entrega</option></select>
+          <h3 className="border-b pb-2 pt-2 text-lg font-black">2. Seus dados</h3>
+          <div className="grid gap-3 sm:grid-cols-2"><label className="text-sm font-bold text-gray-700">Nome<input name="customer_name" required placeholder="Seu nome completo" className="mt-1 w-full rounded-xl border p-3 font-normal" /></label><label className="text-sm font-bold text-gray-700">Telefone/WhatsApp<input name="customer_phone" required inputMode="tel" placeholder="(79) 99999-9999" className="mt-1 w-full rounded-xl border p-3 font-normal" /></label></div>
+          {serviceType === "delivery" && <><h3 className="border-b pb-2 pt-2 text-lg font-black">3. Endereço de entrega</h3><div className="grid gap-3 sm:grid-cols-2"><input name="cep" inputMode="numeric" placeholder="CEP" className="rounded-xl border p-3" /><input name="street" required placeholder="Rua ou avenida" className="rounded-xl border p-3" /><input name="number" required placeholder="Número" className="rounded-xl border p-3" /><input name="complement" placeholder="Complemento (opcional)" className="rounded-xl border p-3" />{deliveryZones.length ? <select name="delivery_zone_id" required value={deliveryZoneId} onChange={event=>setDeliveryZoneId(event.target.value)} className="rounded-xl border p-3"><option value="">Selecione o bairro</option>{deliveryZones.map(zone=><option key={zone.id} value={zone.id}>{zone.name} · {money(Number(zone.delivery_fee))} · {zone.estimated_minutes} min</option>)}</select> : <input name="neighborhood" required placeholder="Bairro" className="rounded-xl border p-3" />}<input name="city" required placeholder="Cidade" className="rounded-xl border p-3" /><input name="reference" placeholder="Ponto de referência" className="rounded-xl border p-3 sm:col-span-2" />{selectedZone && subtotal < Number(selectedZone.minimum_order) && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800 sm:col-span-2">Pedido mínimo para {selectedZone.name}: {money(Number(selectedZone.minimum_order))}</p>}</div></>}
+          <h3 className="border-b pb-2 pt-2 text-lg font-black">{serviceType === "delivery" ? "4" : "3"}. Pagamento</h3>
+          <label className="text-sm font-bold text-gray-700">Como deseja pagar?<select name="payment_method" className="mt-1 w-full rounded-xl border p-3 font-normal"><option value="pix">PIX</option><option value="cash">Dinheiro na entrega/retirada</option><option value="card_on_delivery">Cartão na entrega/retirada</option></select></label>
           <input name="coupon_code" placeholder="Cupom de desconto" className="w-full rounded-xl border p-3 uppercase" /><textarea name="notes" placeholder="Observação geral" className="w-full rounded-xl border p-3" /><label className="flex gap-2 text-sm"><input type="checkbox" name="marketing_consent" /> Quero receber promoções da loja.</label><label className="flex gap-2 text-sm"><input type="checkbox" required /> Confirmo os dados do pedido e aceito os <a href="/termos" target="_blank" className="font-semibold text-green-700 underline">termos de uso</a>.</label>
           <div className="rounded-2xl bg-gray-50 p-4"><div className="flex justify-between"><span>Subtotal</span><strong>{money(subtotal)}</strong></div><div className="mt-1 flex justify-between"><span>Entrega</span><strong>{money(deliveryFee)}</strong></div><div className="mt-3 flex justify-between border-t pt-3 text-lg"><span>Total estimado</span><strong>{money(subtotal + deliveryFee)}</strong></div></div>
-          {error && <p className="rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}<button disabled={pending} className="w-full rounded-xl bg-green-700 py-4 font-black text-white disabled:opacity-60">{pending ? "Enviando pedido..." : "Confirmar pedido"}</button>
+          {!menu.company.is_open && <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-800">A loja está fechada no momento. Você pode montar e revisar o carrinho, mas o envio será liberado quando ela abrir.</p>}
+          {error && <p className="rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}<button disabled={pending || !menu.company.is_open || cart.length === 0} className="w-full rounded-xl bg-green-700 py-4 font-black text-white disabled:bg-gray-300 disabled:text-gray-600">{pending ? "Enviando pedido..." : menu.company.is_open ? `Confirmar pedido • ${money(subtotal + deliveryFee)}` : "Loja fechada"}</button>
         </form></section></div>}
       <PublicFeedback slug={menu.company.slug} companyName={menu.company.name}/>
       <footer className="mx-auto max-w-6xl px-5 pb-6 text-center text-xs text-gray-500"><a href="/termos" className="underline">Termos de uso</a> · <a href="/privacidade" className="underline">Privacidade</a> · Cardápio por MercadoFood</footer>
