@@ -15,6 +15,12 @@ const groupSchema = z.object({
   freeSelection: z.coerce.number().int().min(0).max(50),
 });
 
+function parseMoney(value: FormDataEntryValue | null) {
+  const raw = String(value || "0").trim().replace(/\s/g, "");
+  const normalized = raw.includes(",") ? raw.replace(/\./g, "").replace(",", ".") : raw;
+  return Number(normalized);
+}
+
 export async function createOptionGroup(formData: FormData) {
   const parsed = groupSchema.safeParse({
     productId: formData.get("productId"),
@@ -88,9 +94,9 @@ export async function createOption(formData: FormData) {
   const productId = String(formData.get("productId") || "");
   const groupId = String(formData.get("groupId") || "");
   const name = String(formData.get("name") || "").trim();
-  const priceDelta = Number(formData.get("priceDelta") || 0);
+  const priceDelta = parseMoney(formData.get("priceDelta"));
   const maxQuantity = Math.max(1, Number(formData.get("maxQuantity") || 1));
-  if (!productId || !groupId || name.length < 2 || Number.isNaN(priceDelta)) {
+  if (!productId || !groupId || name.length < 2 || !Number.isFinite(priceDelta) || priceDelta < 0) {
     redirect(`/produtos/${productId}/complementos?erro=${encodeURIComponent("Preencha a opção corretamente")}`);
   }
   const { supabase, company } = await getCurrentCompany();
@@ -111,9 +117,9 @@ export async function updateOption(formData: FormData) {
   const productId = String(formData.get("productId") || "");
   const optionId = String(formData.get("optionId") || "");
   const name = String(formData.get("name") || "").trim();
-  const priceDelta = Number(formData.get("priceDelta") || 0);
+  const priceDelta = parseMoney(formData.get("priceDelta"));
   const maxQuantity = Number(formData.get("maxQuantity") || 1);
-  if (!z.string().uuid().safeParse(productId).success || !z.string().uuid().safeParse(optionId).success || name.length < 2 || !Number.isFinite(priceDelta) || !Number.isInteger(maxQuantity) || maxQuantity < 1) redirect(`/produtos/${productId}/complementos?erro=${encodeURIComponent("Preencha a opção corretamente")}`);
+  if (!z.string().uuid().safeParse(productId).success || !z.string().uuid().safeParse(optionId).success || name.length < 2 || !Number.isFinite(priceDelta) || priceDelta < 0 || !Number.isInteger(maxQuantity) || maxQuantity < 1) redirect(`/produtos/${productId}/complementos?erro=${encodeURIComponent("Preencha a opção corretamente")}`);
   const { supabase, company } = await getCurrentCompany();
   const { error } = await supabase.from("product_options").update({ name, price_delta: priceDelta, max_quantity: maxQuantity }).eq("id", optionId).eq("company_id", company.id);
   if (error) redirect(`/produtos/${productId}/complementos?erro=${encodeURIComponent(error.message)}`);
