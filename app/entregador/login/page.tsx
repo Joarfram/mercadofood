@@ -6,7 +6,7 @@ export default async function DriverLogin({ searchParams }: { searchParams: Prom
   const q = await searchParams;
   return <main className="flex min-h-screen items-center justify-center bg-slate-950 p-4 text-white">
     <div className="w-full max-w-md rounded-3xl bg-slate-900 p-7 shadow-2xl">
-      <div className="flex items-center gap-3"><img src="/mercadofood-icon.svg" alt="MercadoFood Entregador" className="h-14 w-14 rounded-2xl"/><div><p className="text-sm text-emerald-400">MercadoFood</p><h1 className="text-2xl font-bold">Acesso do entregador</h1></div></div>
+      <div className="flex items-center gap-3"><img src="/mercadofood-entrega-icon.svg" alt="MercadoFood Entrega" className="h-16 w-16 rounded-2xl"/><div><p className="text-sm font-semibold text-emerald-400">MercadoFood Entrega</p><h1 className="text-2xl font-bold">Acesso do motoboy</h1></div></div>
       {q.erro && <p className="mt-5 rounded-xl bg-red-500/15 p-3 text-sm text-red-200">{q.erro}</p>}
       {q.sucesso && <p className="mt-5 rounded-xl bg-emerald-500/15 p-3 text-sm text-emerald-200">{q.sucesso}</p>}
       <form action={driverSignIn} className="mt-6 space-y-4">

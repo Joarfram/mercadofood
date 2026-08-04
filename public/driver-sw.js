@@ -1,4 +1,4 @@
-const VERSION = "mercadofood-entregador-v1";
+const VERSION = "mercadofood-entrega-v2";
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", event => event.waitUntil(self.clients.claim()));
@@ -20,10 +20,10 @@ self.addEventListener("push", event => {
   } catch {
     payload = { body: event.data?.text() || "" };
   }
-  event.waitUntil(self.registration.showNotification(payload.title || "MercadoFood Entregador", {
+  event.waitUntil(self.registration.showNotification(payload.title || "MercadoFood Entrega", {
     body: payload.body || "Você recebeu uma atualização de corrida.",
-    icon: "/mercadofood-icon.svg",
-    badge: "/mercadofood-icon.svg",
+    icon: "/mercadofood-entrega-icon.svg",
+    badge: "/mercadofood-entrega-icon.svg",
     data: { url: payload.url || "/entregador" },
   }));
 });

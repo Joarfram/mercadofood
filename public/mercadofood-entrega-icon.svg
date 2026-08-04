@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="MercadoFood Entrega">
+  <rect width="512" height="512" rx="112" fill="#063D2F"/>
+  <path d="M62 214h69M48 250h78" fill="none" stroke="#F97316" stroke-width="22" stroke-linecap="round"/>
+  <circle cx="158" cy="360" r="58" fill="#FFFFFF"/>
+  <circle cx="158" cy="360" r="30" fill="#15803D"/>
+  <circle cx="374" cy="360" r="58" fill="#FFFFFF"/>
+  <circle cx="374" cy="360" r="30" fill="#15803D"/>
+  <path d="M158 360l70-109h72l74 109M158 360h105l-49-78M263 360l66-93" fill="none" stroke="#22C55E" stroke-width="25" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M313 210h67l22 55h-88z" fill="#F97316"/>
+  <rect x="295" y="132" width="116" height="92" rx="20" fill="#FFFFFF"/>
+  <path d="M325 180h56M353 152v56" fill="none" stroke="#22C55E" stroke-width="16" stroke-linecap="round"/>
+  <circle cx="230" cy="153" r="40" fill="#F97316"/>
+  <path d="M227 199l53 45-42 61-62-37z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="12" stroke-linejoin="round"/>
+  <path d="M231 219l-52 21M273 243l44 10" fill="none" stroke="#FFFFFF" stroke-width="20" stroke-linecap="round"/>
+</svg>

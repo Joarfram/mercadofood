@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 export function GET() {
   return NextResponse.json({
     id: "/entregador/",
-    name: "MercadoFood Entregador",
-    short_name: "MF Entregador",
+    name: "MercadoFood Entrega",
+    short_name: "MF Entrega",
     description: "Receba corridas, abra rotas e atualize entregas com segurança.",
     start_url: "/entregador",
     scope: "/entregador/",
@@ -16,15 +16,15 @@ export function GET() {
     categories: ["business", "navigation", "productivity"],
     prefer_related_applications: false,
     icons: [
-      { src: "/mercadofood-icon.svg", sizes: "192x192", type: "image/svg+xml", purpose: "any maskable" },
-      { src: "/mercadofood-icon.svg", sizes: "512x512", type: "image/svg+xml", purpose: "any maskable" },
+      { src: "/mercadofood-entrega-icon.svg", sizes: "192x192", type: "image/svg+xml", purpose: "any maskable" },
+      { src: "/mercadofood-entrega-icon.svg", sizes: "512x512", type: "image/svg+xml", purpose: "any maskable" },
     ],
     shortcuts: [
       {
         name: "Minhas corridas",
         short_name: "Corridas",
         url: "/entregador",
-        icons: [{ src: "/mercadofood-icon.svg", sizes: "192x192", type: "image/svg+xml" }],
+        icons: [{ src: "/mercadofood-entrega-icon.svg", sizes: "192x192", type: "image/svg+xml" }],
       },
     ],
   }, {

@@ -2,19 +2,19 @@ import type { Metadata, Viewport } from "next";
 import { DriverPwaRuntime } from "@/components/delivery/driver-pwa-runtime";
 
 export const metadata: Metadata = {
-  title: "MercadoFood Entregador",
+  title: "MercadoFood Entrega",
   description: "Aplicativo do motoboy para receber, acompanhar e concluir entregas.",
   manifest: "/entregador/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "MF Entregador",
+    title: "MF Entrega",
   },
   icons: {
     icon: [
-      { url: "/mercadofood-icon.svg", sizes: "any", type: "image/svg+xml" },
+      { url: "/mercadofood-entrega-icon.svg", sizes: "any", type: "image/svg+xml" },
     ],
-    apple: "/mercadofood-icon.svg",
+    apple: "/mercadofood-entrega-icon.svg",
   },
 };
 

@@ -36,7 +36,7 @@ export function DriverAppStatus({ deliveryId }: { deliveryId?: string }) {
     if (!deliveryId || !("Notification" in window)) return;
     const previous = window.localStorage.getItem("mercadofood:last-driver-delivery");
     if (previous && previous !== deliveryId && Notification.permission === "granted") {
-      new Notification("Nova corrida MercadoFood", { body: "Abra o aplicativo para conferir e responder.", icon: "/mercadofood-icon.svg" });
+      new Notification("Nova corrida — MercadoFood Entrega", { body: "Abra o aplicativo para conferir e responder.", icon: "/mercadofood-entrega-icon.svg" });
     }
     window.localStorage.setItem("mercadofood:last-driver-delivery", deliveryId);
   }, [deliveryId]);
