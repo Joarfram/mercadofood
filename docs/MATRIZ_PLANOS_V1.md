@@ -9,8 +9,11 @@ Esta é a referência única para produto, desenvolvimento, site comercial e equ
 | Usuários | 2 | 6 | 15 |
 | Unidades | 1 | 1 | 3 |
 | Cozinha, mesas e comandas | — | Sim | Sim |
-| Caixa, clientes, fidelidade e entregadores | — | Sim | Sim |
-| Rastreamento e relatórios | — | Sim | Sim |
+| Caixa, clientes e fidelidade | — | Sim | Sim |
+| Entregas simples e rota externa | Sim | Sim | Sim |
+| Aplicativo do entregador | — | Até 5 motoboys | Até 20 motoboys |
+| Rastreamento GPS durante corrida ativa | — | 150 corridas/mês | 500 corridas/mês |
+| Relatórios | — | Operacionais | Avançados |
 | Estoque, ficha técnica, custos e margens | — | — | Sim |
 
 ## Posicionamento
@@ -33,7 +36,9 @@ cancelamento antes da confirmação do cliente.
 
 ## Módulos adicionais
 
-Pagamento online, WhatsApp automatizado, MercadoFood Impulsiona, criação com IA, unidade adicional e usuários adicionais serão cobrados separadamente.
+Pagamento online, WhatsApp automatizado, MercadoFood Impulsiona, criação com IA,
+unidade adicional, usuários adicionais e pacotes excedentes de rastreamento serão
+cobrados separadamente.
 
 ## Regras
 
@@ -43,3 +48,7 @@ Pagamento online, WhatsApp automatizado, MercadoFood Impulsiona, criação com I
 4. Empresas existentes no piloto permanecem Premium durante a validação.
 5. Novas empresas recebem 14 dias de avaliação no Básico até a cobrança ser implantada.
 6. O servidor deve validar o plano; esconder um item no menu não é proteção suficiente.
+7. O GPS do entregador só pode iniciar após o comando **Iniciar corrida** e deve parar ao concluir, cancelar ou expirar a entrega.
+8. Disponibilidade do motoboy não autoriza coleta de localização.
+9. Ao esgotar a franquia de rastreamento, o sistema não gera cobrança automática: oferece pacote adicional e mantém a rota externa disponível.
+10. A referência técnica e comercial completa está em `GOVERNANCA_GPS_E_PLANOS_V2.md`.
