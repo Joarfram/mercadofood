@@ -1,8 +1,13 @@
+import QRCode from "qrcode";
 import { Bike, MapPin, Phone, Power, Send } from "lucide-react";
+import { MediaManager } from "@/components/media/media-manager";
+import { CopyPaymentCode } from "@/components/payments/copy-payment-code";
 import { WhatsAppButton } from "@/components/notifications/whatsapp-button";
 import { customerOutForDeliveryMessage, driverOfferMessage } from "@/lib/notifications/whatsapp";
 import { requirePlanModule } from "@/lib/auth/current-company";
-import { assignDriver, createDriver, deleteDriver, setDriverAvailability, updateDriver } from "./actions";
+import { buildPixPayload } from "@/lib/payments/pix";
+import type { MediaAsset } from "@/lib/media/types";
+import { assignDriver, cancelDriverPayout, createDriver, createDriverPayout, deleteDriver, markDriverPayoutPaid, setDriverAvailability, updateDriver } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -26,15 +31,35 @@ function money(value: number | string | null) {
 
 export default async function DriversPage({ searchParams }: { searchParams: Promise<{ erro?: string; sucesso?: string }> }) {
   const query = await searchParams;
-  const { supabase, company } = await requirePlanModule("delivery");
-  const [{ data: drivers }, { data: readyOrders }, { data: activeDeliveries }, { data: notifications }] = await Promise.all([
+  const { supabase, company, role } = await requirePlanModule("delivery");
+  const [{ data: drivers }, { data: readyOrders }, { data: activeDeliveries }, { data: notifications }, { data: unsettledDeliveries }, { data: payouts }, { data: driverAds }, { data: payoutAccounts }] = await Promise.all([
     supabase.from("drivers").select("id, name, email, phone, whatsapp, vehicle_plate, availability_status, registration_status, default_delivery_value, last_seen_at").eq("company_id", company.id).order("name"),
     supabase.from("orders").select("id, order_number, customer_name, customer_phone, total, delivery_fee, delivery_address, created_at").eq("company_id", company.id).eq("service_type", "delivery").eq("status", "ready").is("assigned_driver_id", null).order("ready_at", { ascending: true }),
     supabase.from("deliveries").select("id, status, tracking_code, delivery_value, delivery_address, created_at, drivers(name, phone, whatsapp), orders(order_number, customer_name, customer_phone)").eq("company_id", company.id).in("status", ["offered", "accepted", "to_store", "waiting_pickup", "delivering"]).order("created_at", { ascending: false }),
     supabase.from("whatsapp_notifications").select("id, recipient_type, recipient_name, recipient_phone, template_key, message_body, status, created_at").eq("company_id", company.id).order("created_at", { ascending: false }).limit(10),
+    supabase.from("deliveries").select("id,driver_id,delivery_value,completed_at").eq("company_id",company.id).eq("status","completed").is("payout_id",null),
+    supabase.from("driver_payouts").select("id,driver_id,amount,delivery_count,status,payment_method,payment_reference,created_at,paid_at,confirmed_at,drivers(name)").eq("company_id",company.id).order("created_at",{ascending:false}).limit(30),
+    supabase.from("media_assets").select("id,storage_path,public_url,alt_text,mime_type,byte_size,sort_order").eq("company_id",company.id).eq("entity_type","company").eq("entity_id",company.id).eq("kind","gallery").order("sort_order"),
+    supabase.from("driver_payout_accounts").select("driver_id,payout_method,pix_key,holder_name,city,bank_name,bank_branch,bank_account").eq("company_id",company.id),
   ]);
 
   const availableDrivers = drivers?.filter((driver) => driver.availability_status === "available") || [];
+  const dueByDriver = new Map<string, { amount: number; count: number }>();
+  unsettledDeliveries?.forEach((item) => { const current = dueByDriver.get(item.driver_id) || { amount: 0, count: 0 }; current.amount += Number(item.delivery_value || 0); current.count += 1; dueByDriver.set(item.driver_id, current); });
+  const accountByDriver = new Map((payoutAccounts || []).map((account) => [account.driver_id, account]));
+  const preparedPayouts = await Promise.all((payouts || []).map(async (payout: any) => {
+    const payoutDriver = Array.isArray(payout.drivers) ? payout.drivers[0] : payout.drivers;
+    const payoutAccount = accountByDriver.get(payout.driver_id);
+    let pixPayload = "";
+    let qr = "";
+    if (payout.status === "pending" && payout.payment_method === "pix" && payoutAccount?.pix_key) {
+      try {
+        pixPayload = buildPixPayload({ key: payoutAccount.pix_key, merchantName: payoutAccount.holder_name || payoutDriver?.name, merchantCity: payoutAccount.city || "ARACAJU", amount: Number(payout.amount), txid: `MFP${payout.id.replace(/-/g, "").slice(0, 20)}`, description: "Repasse MercadoFood" });
+        qr = await QRCode.toDataURL(pixPayload, { width: 260, margin: 1 });
+      } catch { pixPayload = ""; }
+    }
+    return { ...payout, payoutDriver, payoutAccount, pixPayload, qr };
+  }));
 
   return <main className="space-y-6">
     <header>
@@ -45,6 +70,11 @@ export default async function DriversPage({ searchParams }: { searchParams: Prom
 
     {query.erro && <div className="rounded-xl bg-red-50 p-4 text-red-700">{query.erro}</div>}
     {query.sucesso && <div className="rounded-xl bg-emerald-50 p-4 text-emerald-800">{query.sucesso}</div>}
+
+    <section>
+      <h2 className="mb-3 text-xl font-bold">Publicidade no aplicativo</h2>
+      <MediaManager companyId={company.id} entityType="company" entityId={company.id} kind="gallery" initialAssets={(driverAds || []) as MediaAsset[]} title="Imagens para o MercadoFood Entrega" description="Estas imagens aparecem no aplicativo do motoboy quando ele não está em uma corrida. Use para parceiros, cupons e benefícios." recommendedSize="1200 × 525 px (proporção 16:7)" maxFiles={5} aspect="wide"/>
+    </section>
 
     <section className="grid gap-5 xl:grid-cols-[360px_1fr]">
       <form action={createDriver} className="h-fit rounded-2xl border bg-white p-5 shadow-sm">
@@ -84,6 +114,16 @@ export default async function DriversPage({ searchParams }: { searchParams: Prom
         </section>
       </div>
     </section>
+
+    {role === "owner" && <><section className="rounded-2xl border bg-white p-5 shadow-sm">
+      <div><p className="text-sm font-semibold text-emerald-700">Financeiro dos entregadores</p><h2 className="text-xl font-bold">Repasses pendentes</h2><p className="text-sm text-gray-500">O valor reúne somente entregas concluídas que ainda não entraram em outro repasse.</p></div>
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">{drivers?.map((driver) => { const due = dueByDriver.get(driver.id) || { amount: 0, count: 0 }; const account = accountByDriver.get(driver.id); return <article key={driver.id} className="rounded-xl border p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="font-bold">{driver.name}</h3><p className="text-xs text-gray-500">{due.count} entregas aguardando repasse</p></div><strong className="text-lg text-emerald-700">{money(due.amount)}</strong></div><p className="mt-3 text-xs text-gray-500">Recebimento: {account?.payout_method === "bank" ? `${account.bank_name || "Banco não informado"} • ${account.bank_account || "conta não informada"}` : account?.pix_key ? `PIX ${account.pix_key}` : "Dados ainda não cadastrados"}</p><form action={createDriverPayout} className="mt-3"><input type="hidden" name="driverId" value={driver.id}/><button disabled={!due.count || !account || (account.payout_method === "pix" && !account.pix_key)} className="w-full rounded-xl bg-emerald-700 py-2.5 text-sm font-semibold text-white disabled:bg-gray-300">Preparar pagamento</button></form></article>; })}</div>
+    </section>
+
+    <section className="rounded-2xl border bg-white p-5 shadow-sm">
+      <h2 className="text-xl font-bold">Pagamentos e confirmações</h2>
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">{preparedPayouts.map((payout: any) => <article key={payout.id} className="rounded-2xl border p-4"><div className="flex items-start justify-between gap-3"><div><h3 className="font-bold">{payout.payoutDriver?.name || "Motoboy"}</h3><p className="text-sm text-gray-500">{payout.delivery_count} entregas • {new Date(payout.created_at).toLocaleDateString("pt-BR")}</p></div><span className={`rounded-full px-3 py-1 text-xs font-bold ${payout.status === "confirmed" ? "bg-emerald-100 text-emerald-800" : payout.status === "paid" ? "bg-orange-100 text-orange-800" : payout.status === "canceled" ? "bg-gray-100 text-gray-600" : "bg-blue-100 text-blue-800"}`}>{payout.status === "confirmed" ? "Recebido" : payout.status === "paid" ? "Aguardando confirmação" : payout.status === "canceled" ? "Cancelado" : "Preparado"}</span></div><p className="mt-3 text-2xl font-bold text-emerald-700">{money(payout.amount)}</p>{payout.qr && <div className="mt-4 rounded-xl bg-gray-50 p-4"><img src={payout.qr} alt="QR Code PIX do motoboy" className="mx-auto h-52 w-52 rounded-lg bg-white p-2"/><p className="mt-2 break-all text-xs text-gray-500">Chave: {payout.payoutAccount?.pix_key}</p><div className="mt-3"><CopyPaymentCode value={payout.pixPayload}/></div></div>}{payout.payment_method === "bank" && payout.status === "pending" && <div className="mt-4 rounded-xl bg-gray-50 p-3 text-sm"><p><b>Banco:</b> {payout.payoutAccount?.bank_name || "—"}</p><p><b>Agência:</b> {payout.payoutAccount?.bank_branch || "—"}</p><p><b>Conta:</b> {payout.payoutAccount?.bank_account || "—"}</p></div>}{payout.status === "pending" && <div className="mt-4 grid gap-2"><form action={markDriverPayoutPaid} className="space-y-2"><input type="hidden" name="payoutId" value={payout.id}/><input name="reference" placeholder="Referência ou comprovante (opcional)" className="w-full rounded-xl border px-3 py-2"/><button className="w-full rounded-xl bg-emerald-700 py-2.5 font-semibold text-white">Marcar como pago</button></form><form action={cancelDriverPayout}><input type="hidden" name="payoutId" value={payout.id}/><button className="w-full rounded-xl bg-red-50 py-2 text-sm font-semibold text-red-700">Cancelar repasse</button></form></div>}{payout.status === "paid" && <p className="mt-4 rounded-xl bg-orange-50 p-3 text-sm font-semibold text-orange-800">Pagamento informado. Aguardando o motoboy confirmar no aplicativo.</p>}{payout.status === "confirmed" && <p className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">O motoboy confirmou o recebimento.</p>}</article>)}{!preparedPayouts.length && <p className="rounded-xl bg-gray-50 p-5 text-gray-500">Nenhum repasse criado.</p>}</div>
+    </section></>}
 
     <section className="rounded-2xl border bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between"><div><h2 className="text-xl font-bold">Pedidos prontos para entrega</h2><p className="text-sm text-gray-500">Escolha um motoboy disponível.</p></div><span className="rounded-full bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-800">{readyOrders?.length || 0} aguardando</span></div>

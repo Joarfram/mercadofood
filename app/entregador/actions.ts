@@ -69,6 +69,34 @@ export async function respondToDelivery(formData: FormData) {
   revalidatePath("/entregador");
 }
 
+export async function saveOwnPayoutProfile(formData: FormData) {
+  const { supabase } = await currentDriver();
+  const { error } = await supabase.rpc("update_own_driver_payout_profile", {
+    p_method: String(formData.get("payoutMethod") || "pix"),
+    p_pix_key_type: String(formData.get("pixKeyType") || "random"),
+    p_pix_key: String(formData.get("pixKey") || "").trim(),
+    p_holder_name: String(formData.get("holderName") || "").trim(),
+    p_city: String(formData.get("city") || "").trim(),
+    p_bank_name: String(formData.get("bankName") || "").trim(),
+    p_bank_branch: String(formData.get("bankBranch") || "").trim(),
+    p_bank_account: String(formData.get("bankAccount") || "").trim(),
+    p_bank_account_type: String(formData.get("bankAccountType") || "checking"),
+  });
+  if (error) redirect(`/entregador?tab=perfil&erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/entregador");
+  redirect("/entregador?tab=perfil&sucesso=Dados%20de%20recebimento%20salvos");
+}
+
+export async function confirmOwnPayout(formData: FormData) {
+  const payoutId = String(formData.get("payoutId") || "");
+  if (!payoutId) return;
+  const { supabase } = await currentDriver();
+  const { error } = await supabase.rpc("confirm_own_driver_payout", { p_payout_id: payoutId });
+  if (error) redirect(`/entregador?tab=ganhos&erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/entregador");
+  redirect("/entregador?tab=ganhos&sucesso=Recebimento%20confirmado");
+}
+
 const transitions: Record<string, { next: string; event: string; timestamp?: string }> = {
   accepted: { next: "to_store", event: "to_store" },
   to_store: { next: "waiting_pickup", event: "arrived_store", timestamp: "arrived_store_at" },

@@ -145,3 +145,37 @@ export async function assignDriver(formData: FormData) {
   revalidatePath("/pedidos");
   redirect("/entregadores?sucesso=Corrida%20enviada%20ao%20motoboy");
 }
+
+export async function createDriverPayout(formData: FormData) {
+  const driverId = String(formData.get("driverId") || "");
+  if (!driverId) redirect("/entregadores?erro=Escolha%20o%20motoboy");
+  const { supabase, role } = await getCurrentCompany();
+  if (role !== "owner") redirect("/sem-permissao");
+  const { error } = await supabase.rpc("create_driver_payout", { p_driver_id: driverId });
+  if (error) redirect(`/entregadores?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/entregadores");
+  revalidatePath("/entregador");
+  redirect("/entregadores?sucesso=Repasse%20preparado.%20Confira%20o%20PIX%20antes%20de%20pagar");
+}
+
+export async function markDriverPayoutPaid(formData: FormData) {
+  const payoutId = String(formData.get("payoutId") || "");
+  const reference = String(formData.get("reference") || "").trim();
+  const { supabase, role } = await getCurrentCompany();
+  if (role !== "owner") redirect("/sem-permissao");
+  const { error } = await supabase.rpc("mark_driver_payout_paid", { p_payout_id: payoutId, p_reference: reference });
+  if (error) redirect(`/entregadores?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/entregadores");
+  revalidatePath("/entregador");
+  redirect("/entregadores?sucesso=Pagamento%20marcado%20como%20realizado");
+}
+
+export async function cancelDriverPayout(formData: FormData) {
+  const payoutId = String(formData.get("payoutId") || "");
+  const { supabase, role } = await getCurrentCompany();
+  if (role !== "owner") redirect("/sem-permissao");
+  const { error } = await supabase.rpc("cancel_driver_payout", { p_payout_id: payoutId });
+  if (error) redirect(`/entregadores?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/entregadores");
+  redirect("/entregadores?sucesso=Repasse%20cancelado");
+}
