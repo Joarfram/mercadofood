@@ -135,4 +135,5 @@ export async function advanceOwnDelivery(formData: FormData) {
     });
   }
   revalidatePath("/entregador");
+  if (transition.next === "completed") redirect("/entregador?entrega=concluida");
 }
