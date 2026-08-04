@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { driverSignUp } from "../actions";
+import { InstallDriverApp } from "@/components/delivery/install-driver-app";
 
 export default async function DriverSignup({ searchParams }: { searchParams: Promise<{ erro?: string }> }) {
   const q = await searchParams;
@@ -15,6 +16,7 @@ export default async function DriverSignup({ searchParams }: { searchParams: Pro
         <button className="w-full rounded-xl bg-emerald-600 py-3 font-bold">Ativar conta</button>
       </form>
       <p className="mt-5 text-center text-sm text-slate-400"><Link href="/entregador/login" className="text-emerald-400">Voltar ao login</Link></p>
+      <div className="mt-5"><InstallDriverApp/></div>
     </div>
   </main>;
 }
