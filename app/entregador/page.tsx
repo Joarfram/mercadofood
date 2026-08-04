@@ -1,51 +1,106 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CheckCircle2, CircleDollarSign, ClipboardList, Home, LogOut, MapPin, Navigation, PackageCheck, Phone, Power, Route, ShieldCheck, Store, UserRound, WalletCards } from "lucide-react";
+import { CheckCircle2, CircleDollarSign, ClipboardList, Fuel, Gift, Home, LogOut, MapPin, Navigation, PackageCheck, Phone, Power, Route, ShieldCheck, Store, Tag, UserRound, WalletCards, Wrench } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { DriverGps } from "@/components/delivery/driver-gps";
-import { advanceOwnDelivery, driverSignOut, respondToDelivery, setOwnAvailability } from "./actions";
 import { InstallDriverApp } from "@/components/delivery/install-driver-app";
 import { DriverAppStatus } from "@/components/delivery/driver-app-status";
+import { advanceOwnDelivery, driverSignOut, respondToDelivery, setOwnAvailability } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-const titles: Record<string,string> = { offered:"Nova corrida", accepted:"Corrida aceita", to_store:"A caminho da loja", waiting_pickup:"Aguardando retirada", delivering:"Em entrega", completed:"Entrega concluída" };
-const actions: Record<string,string> = { accepted:"Iniciar corrida", to_store:"Cheguei na loja", waiting_pickup:"Pedido retirado", delivering:"Confirmar entrega" };
+const titles: Record<string, string> = { offered: "Nova corrida", accepted: "Corrida aceita", to_store: "A caminho da loja", waiting_pickup: "Aguardando retirada", delivering: "Em entrega", completed: "Entrega concluída" };
+const actions: Record<string, string> = { accepted: "Iniciar corrida", to_store: "Cheguei na loja", waiting_pickup: "Pedido retirado", delivering: "Confirmar entrega" };
 const deliverySteps = ["accepted", "to_store", "waiting_pickup", "delivering"];
-function money(v: unknown) { return new Intl.NumberFormat("pt-BR", { style:"currency", currency:"BRL" }).format(Number(v || 0)); }
-function addressText(address: any) { return [address?.street, address?.number, address?.neighborhood, address?.city].filter(Boolean).join(", "); }
-function mapsUrl(address: any) { return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addressText(address))}`; }
+const tabs = [
+  { id: "inicio", label: "Início", icon: Home },
+  { id: "corridas", label: "Corridas", icon: ClipboardList },
+  { id: "ganhos", label: "Ganhos", icon: WalletCards },
+  { id: "perfil", label: "Perfil", icon: UserRound },
+] as const;
 
-export default async function DriverAppPage({ searchParams }: { searchParams: Promise<{ entrega?: string }> }) {
+function money(value: unknown) {
+  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value || 0));
+}
+
+function addressText(address: any) {
+  return [address?.street, address?.number, address?.neighborhood, address?.city].filter(Boolean).join(", ");
+}
+
+function mapsUrl(address: any) {
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addressText(address))}`;
+}
+
+function shortDate(value: string | null) {
+  return value ? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(value)) : "—";
+}
+
+export default async function DriverAppPage({ searchParams }: { searchParams: Promise<{ entrega?: string; tab?: string }> }) {
   const query = await searchParams;
+  const activeTab = tabs.some((item) => item.id === query.tab) ? query.tab! : "inicio";
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/entregador/login");
-  const { data: driver } = await supabase.from("drivers").select("id, name, availability_status, default_delivery_value").eq("auth_user_id", user.id).maybeSingle();
+
+  const { data: driver } = await supabase.from("drivers")
+    .select("id, name, email, phone, whatsapp, vehicle_plate, availability_status, default_delivery_value")
+    .eq("auth_user_id", user.id).maybeSingle();
   if (!driver) redirect("/entregador/login?erro=Seu%20e-mail%20ainda%20não%20foi%20cadastrado%20por%20uma%20loja");
-  const { data: delivery } = await supabase.from("deliveries")
-    .select("id, status, tracking_code, pickup_address, delivery_address, delivery_value, amount_to_collect, orders(order_number, customer_name, customer_phone, payment_method)")
-    .eq("driver_id", driver.id).in("status", ["offered","accepted","to_store","waiting_pickup","delivering"]).order("created_at", { ascending:false }).limit(1).maybeSingle();
-  const { count: completedToday } = await supabase.from("deliveries").select("id", { count:"exact", head:true }).eq("driver_id", driver.id).eq("status", "completed").gte("completed_at", new Date(new Date().setHours(0,0,0,0)).toISOString());
+
+  const weekStart = new Date();
+  weekStart.setDate(weekStart.getDate() - 6);
+  weekStart.setHours(0, 0, 0, 0);
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const [{ data: delivery }, { data: completedDeliveries }] = await Promise.all([
+    supabase.from("deliveries")
+      .select("id, status, tracking_code, pickup_address, delivery_address, delivery_value, amount_to_collect, orders(order_number, customer_name, customer_phone, payment_method)")
+      .eq("driver_id", driver.id).in("status", ["offered", "accepted", "to_store", "waiting_pickup", "delivering"])
+      .order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("deliveries")
+      .select("id, delivery_value, completed_at, orders(order_number, customer_name)")
+      .eq("driver_id", driver.id).eq("status", "completed").gte("completed_at", weekStart.toISOString())
+      .order("completed_at", { ascending: false }).limit(30),
+  ]);
+
+  const history = completedDeliveries || [];
+  const completedToday = history.filter((item) => item.completed_at && new Date(item.completed_at) >= todayStart);
+  const dailyEarnings = completedToday.reduce((sum, item) => sum + Number(item.delivery_value || 0), 0);
+  const weeklyEarnings = history.reduce((sum, item) => sum + Number(item.delivery_value || 0), 0);
   const isTracking = Boolean(delivery && ["to_store", "waiting_pickup", "delivering"].includes(delivery.status));
   const order: any = delivery?.orders;
   const pickup: any = delivery?.pickup_address || {};
   const destination: any = delivery?.delivery_address || {};
   const currentStep = delivery ? Math.max(0, deliverySteps.indexOf(delivery.status)) : 0;
-  const dailyEarnings = (completedToday || 0) * Number(driver.default_delivery_value || 0);
+
+  const deliveryCard = delivery ? <section className="overflow-hidden rounded-3xl bg-white text-slate-900 shadow-2xl shadow-black/30">
+    <div className="bg-slate-100 px-5 py-4">
+      <div className="flex items-center justify-between gap-3"><div><p className="text-sm font-semibold text-emerald-700">{titles[delivery.status] || delivery.status}</p><h2 className="mt-1 text-2xl font-bold">Pedido #{order?.order_number || "—"}</h2></div><span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">{money(delivery.delivery_value)}</span></div>
+      {delivery.status !== "offered" && <div className="mt-4 flex items-center gap-1">{deliverySteps.map((step, index) => <div key={step} className="flex flex-1 items-center gap-1"><span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold ${index <= currentStep ? "bg-emerald-600 text-white" : "bg-slate-300 text-slate-600"}`}>{index + 1}</span>{index < deliverySteps.length - 1 && <span className={`h-1 flex-1 rounded-full ${index < currentStep ? "bg-emerald-500" : "bg-slate-300"}`}/>}</div>)}</div>}
+    </div>
+    <div className="p-5">
+      <div className="space-y-4 text-sm"><div className="flex gap-3"><Store className="text-emerald-700"/><div><b>Retirada</b><p>{pickup.street || "Endereço da loja"}</p></div></div><div className="flex gap-3"><MapPin className="text-orange-500"/><div><b>Entrega</b><p>{destination.street || "Endereço do cliente"}{destination.number ? `, ${destination.number}` : ""}<br/>{destination.neighborhood || ""}</p>{destination.complement && <p className="mt-1 text-slate-600">Complemento: {destination.complement}</p>}{destination.reference && <p className="mt-2 rounded-lg bg-orange-50 p-2 font-semibold text-orange-800">Ponto de referência: {destination.reference}</p>}</div></div><div className="rounded-xl bg-slate-100 p-3"><b>Cliente:</b> {order?.customer_name || "Cliente"}<br/><b>Corrida:</b> {money(delivery.delivery_value)} {delivery.amount_to_collect > 0 ? `• Cobrar ${money(delivery.amount_to_collect)}` : ""}</div></div>
+      {delivery.status === "offered" ? <form action={respondToDelivery} className="mt-5 grid grid-cols-2 gap-3"><input type="hidden" name="deliveryId" value={delivery.id}/><button name="response" value="decline" className="rounded-xl bg-red-500 py-3 font-bold text-white">Recusar</button><button name="response" value="accept" className="rounded-xl bg-emerald-600 py-3 font-bold text-white">Aceitar</button></form> : <><div className="mt-5 grid grid-cols-2 gap-3"><a href={mapsUrl(delivery.status === "accepted" || delivery.status === "to_store" ? pickup : destination)} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 rounded-xl border border-emerald-600 py-3 font-semibold text-emerald-700"><Navigation size={17}/>Abrir rota</a><a href={`tel:${order?.customer_phone || ""}`} className="flex items-center justify-center gap-2 rounded-xl border py-3 font-semibold"><Phone size={17}/>Ligar</a></div><form action={advanceOwnDelivery} className="mt-3"><input type="hidden" name="deliveryId" value={delivery.id}/><input type="hidden" name="currentStatus" value={delivery.status}/><button className="w-full rounded-xl bg-emerald-600 py-3 font-bold text-white">{actions[delivery.status] || "Atualizar"}</button></form></>}
+    </div>
+  </section> : <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-7 text-center"><span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-white/5"><Route className="text-slate-400" size={32}/></span><h2 className="mt-4 text-lg font-bold">Nenhuma corrida no momento</h2><p className="mt-1 text-sm leading-6 text-slate-400">Ative o status disponível e aguarde uma nova entrega enviada pela loja.</p></section>;
 
   return <main className="min-h-screen bg-[#071821] px-4 pb-28 pt-4 text-white"><div className="mx-auto max-w-md space-y-4">
     <header className="flex items-center justify-between py-2"><div className="flex items-center gap-3"><img src="/mercadofood-entrega-icon.svg" alt="MercadoFood Entrega" className="h-12 w-12 rounded-2xl shadow-lg shadow-emerald-950/40"/><div><p className="text-xs font-bold uppercase tracking-[0.12em] text-emerald-400">MercadoFood Entrega</p><h1 className="text-xl font-bold">Olá, {driver.name.split(" ")[0]}! 👋</h1></div></div><form action={driverSignOut}><button className="rounded-full border border-white/10 bg-white/5 p-3 text-slate-300" title="Sair"><LogOut size={19}/></button></form></header>
     <DriverAppStatus deliveryId={delivery?.id}/>
-    {query.entrega === "concluida" && <section className="rounded-3xl bg-gradient-to-br from-emerald-500 to-emerald-700 p-6 text-center shadow-xl shadow-emerald-950/30"><CheckCircle2 className="mx-auto" size={54}/><h2 className="mt-3 text-2xl font-bold">Entrega concluída!</h2><p className="mt-1 text-sm text-white/80">Ótimo trabalho. Você já está livre para receber outra corrida.</p></section>}
-    <section className={`overflow-hidden rounded-3xl border border-white/10 p-5 shadow-xl ${driver.availability_status === "available" ? "bg-gradient-to-br from-emerald-500 to-emerald-700" : delivery ? "bg-gradient-to-br from-orange-500 to-orange-700" : "bg-slate-900"}`}><div className="flex items-center justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-widest text-white/70">Status atual</p><p className="mt-1 text-2xl font-bold">{delivery ? "Em operação" : driver.availability_status === "available" ? "Disponível" : "Offline"}</p><DriverGps driverId={driver.id} deliveryId={delivery?.id} enabled={isTracking}/><p className="mt-1 max-w-[250px] text-xs text-white/80">{isTracking ? "Localização compartilhada somente nesta corrida" : delivery?.status === "accepted" ? "O GPS ligará ao iniciar a corrida" : "Sua localização não está sendo compartilhada"}</p></div>{!delivery && <form action={setOwnAvailability}><button aria-label="Alterar disponibilidade" name="status" value={driver.availability_status === "available" ? "offline" : "available"} className="rounded-2xl bg-white/20 p-4 shadow-inner"><Power size={25}/></button></form>}</div></section>
-    <section id="ganhos" className="grid grid-cols-2 gap-3"><div className="rounded-2xl border border-white/10 bg-white/[0.05] p-4"><PackageCheck className="text-emerald-400"/><p className="mt-3 text-2xl font-bold">{completedToday || 0}</p><p className="text-sm text-slate-400">Entregas hoje</p></div><div className="rounded-2xl border border-white/10 bg-white/[0.05] p-4"><CircleDollarSign className="text-emerald-400"/><p className="mt-3 text-2xl font-bold">{money(dailyEarnings)}</p><p className="text-sm text-slate-400">Ganhos estimados</p></div></section>
 
-    {!delivery && <section id="corridas" className="rounded-3xl border border-white/10 bg-white/[0.04] p-7 text-center"><span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-white/5"><Route className="text-slate-400" size={32}/></span><h2 className="mt-4 text-lg font-bold">Nenhuma corrida no momento</h2><p className="mt-1 text-sm leading-6 text-slate-400">Ative o status disponível e aguarde uma nova entrega enviada pela loja.</p></section>}
+    {activeTab === "inicio" && <>
+      {query.entrega === "concluida" && <section className="rounded-3xl bg-gradient-to-br from-emerald-500 to-emerald-700 p-6 text-center shadow-xl shadow-emerald-950/30"><CheckCircle2 className="mx-auto" size={54}/><h2 className="mt-3 text-2xl font-bold">Entrega concluída!</h2><p className="mt-1 text-sm text-white/80">Ótimo trabalho. Você já está livre para receber outra corrida.</p></section>}
+      <section className={`overflow-hidden rounded-3xl border border-white/10 p-5 shadow-xl ${driver.availability_status === "available" ? "bg-gradient-to-br from-emerald-500 to-emerald-700" : delivery ? "bg-gradient-to-br from-orange-500 to-orange-700" : "bg-slate-900"}`}><div className="flex items-center justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-widest text-white/70">Status atual</p><p className="mt-1 text-2xl font-bold">{delivery ? "Em operação" : driver.availability_status === "available" ? "Disponível" : "Offline"}</p><DriverGps driverId={driver.id} deliveryId={delivery?.id} enabled={isTracking}/><p className="mt-1 max-w-[250px] text-xs text-white/80">{isTracking ? "Localização compartilhada somente nesta corrida" : delivery?.status === "accepted" ? "O GPS ligará ao iniciar a corrida" : "Sua localização não está sendo compartilhada"}</p></div>{!delivery && <form action={setOwnAvailability}><button aria-label="Alterar disponibilidade" name="status" value={driver.availability_status === "available" ? "offline" : "available"} className="rounded-2xl bg-white/20 p-4 shadow-inner"><Power size={25}/></button></form>}</div></section>
+      <section className="grid grid-cols-2 gap-3"><div className="rounded-2xl border border-white/10 bg-white/[0.05] p-4"><PackageCheck className="text-emerald-400"/><p className="mt-3 text-2xl font-bold">{completedToday.length}</p><p className="text-sm text-slate-400">Entregas hoje</p></div><div className="rounded-2xl border border-white/10 bg-white/[0.05] p-4"><CircleDollarSign className="text-emerald-400"/><p className="mt-3 text-2xl font-bold">{money(dailyEarnings)}</p><p className="text-sm text-slate-400">Ganhos hoje</p></div></section>
+      {deliveryCard}
+      {!delivery && <section className="rounded-3xl border border-orange-400/20 bg-gradient-to-br from-orange-500/15 to-emerald-500/10 p-5"><div className="flex items-center gap-3"><Gift className="text-orange-400"/><div><p className="text-xs font-bold uppercase tracking-wider text-orange-300">Benefícios do entregador</p><h2 className="font-bold">Ofertas de parceiros em breve</h2></div></div><p className="mt-3 text-sm leading-6 text-slate-300">Cupons de combustível, manutenção e equipamentos poderão aparecer aqui sem interromper suas corridas.</p></section>}
+    </>}
 
-    {delivery && <section id="corridas" className="overflow-hidden rounded-3xl bg-white text-slate-900 shadow-2xl shadow-black/30"><div className="bg-slate-100 px-5 py-4"><div className="flex items-center justify-between"><div><p className="text-sm font-semibold text-emerald-700">{titles[delivery.status] || delivery.status}</p><h2 className="mt-1 text-2xl font-bold">Pedido #{order?.order_number || "—"}</h2></div><span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">{money(delivery.delivery_value)}</span></div>{delivery.status !== "offered" && <div className="mt-4 flex items-center gap-1">{deliverySteps.map((step,index)=><div key={step} className="flex flex-1 items-center gap-1"><span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-bold ${index <= currentStep ? "bg-emerald-600 text-white" : "bg-slate-300 text-slate-600"}`}>{index + 1}</span>{index < deliverySteps.length - 1 && <span className={`h-1 flex-1 rounded-full ${index < currentStep ? "bg-emerald-500" : "bg-slate-300"}`}/>}</div>)}</div>}</div><div className="p-5">       <div className="space-y-4 text-sm"><div className="flex gap-3"><Store className="text-emerald-700"/><div><b>Retirada</b><p>{pickup.street || "Endereço da loja"}</p></div></div><div className="flex gap-3"><MapPin className="text-orange-500"/><div><b>Entrega</b><p>{destination.street || "Endereço do cliente"}{destination.number ? `, ${destination.number}` : ""}<br/>{destination.neighborhood || ""}</p>{destination.complement && <p className="mt-1 text-slate-600">Complemento: {destination.complement}</p>}{destination.reference && <p className="mt-2 rounded-lg bg-orange-50 p-2 font-semibold text-orange-800">Ponto de referência: {destination.reference}</p>}</div></div><div className="rounded-xl bg-slate-100 p-3"><b>Cliente:</b> {order?.customer_name || "Cliente"}<br/><b>Corrida:</b> {money(delivery.delivery_value)} {delivery.amount_to_collect > 0 ? `• Cobrar ${money(delivery.amount_to_collect)}` : ""}</div></div>
-      {delivery.status === "offered" ? <form action={respondToDelivery} className="mt-5 grid grid-cols-2 gap-3"><input type="hidden" name="deliveryId" value={delivery.id}/><button name="response" value="decline" className="rounded-xl bg-red-500 py-3 font-bold text-white">Recusar</button><button name="response" value="accept" className="rounded-xl bg-emerald-600 py-3 font-bold text-white">Aceitar</button></form> : <><div className="mt-5 grid grid-cols-2 gap-3"><a href={mapsUrl(delivery.status === "accepted" || delivery.status === "to_store" ? pickup : destination)} target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 rounded-xl border border-emerald-600 py-3 font-semibold text-emerald-700"><Navigation size={17}/>Abrir rota</a><a href={`tel:${order?.customer_phone || ""}`} className="flex items-center justify-center gap-2 rounded-xl border py-3 font-semibold"><Phone size={17}/>Ligar</a></div><form action={advanceOwnDelivery} className="mt-3"><input type="hidden" name="deliveryId" value={delivery.id}/><input type="hidden" name="currentStatus" value={delivery.status}/><button className="w-full rounded-xl bg-emerald-600 py-3 font-bold text-white">{actions[delivery.status] || "Atualizar"}</button></form></>}
-    </div></section>}
-    <InstallDriverApp/>
-    <section id="perfil" className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-xs leading-5 text-emerald-100"><div className="flex gap-3"><ShieldCheck className="shrink-0 text-emerald-400" size={21}/><p><b>Privacidade protegida:</b> o GPS permanece desligado fora das corridas e é encerrado automaticamente após a confirmação da entrega.</p></div></section>
-  </div><nav className="fixed inset-x-3 bottom-3 z-30 mx-auto flex max-w-md items-center justify-around rounded-2xl border border-white/10 bg-slate-950/95 px-2 py-2 shadow-2xl backdrop-blur"><a href="#" className="flex min-w-16 flex-col items-center gap-1 rounded-xl bg-emerald-500/15 px-3 py-2 text-[11px] font-semibold text-emerald-400"><Home size={19}/>Início</a><a href="#corridas" className="flex min-w-16 flex-col items-center gap-1 px-3 py-2 text-[11px] text-slate-400"><ClipboardList size={19}/>Corridas</a><a href="#ganhos" className="flex min-w-16 flex-col items-center gap-1 px-3 py-2 text-[11px] text-slate-400"><WalletCards size={19}/>Ganhos</a><a href="#perfil" className="flex min-w-16 flex-col items-center gap-1 px-3 py-2 text-[11px] text-slate-400"><UserRound size={19}/>Perfil</a></nav></main>;
+    {activeTab === "corridas" && <><div><p className="text-sm font-semibold text-emerald-400">Minhas corridas</p><h2 className="text-2xl font-bold">Entrega atual e histórico</h2></div>{deliveryCard}<section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5"><h3 className="font-bold">Concluídas nos últimos 7 dias</h3><div className="mt-4 space-y-3">{history.map((item) => { const itemOrder: any = item.orders; return <article key={item.id} className="flex items-center justify-between rounded-2xl bg-white/5 p-4"><div><p className="font-semibold">Pedido #{itemOrder?.order_number || "—"}</p><p className="text-xs text-slate-400">{itemOrder?.customer_name || "Cliente"} • {shortDate(item.completed_at)}</p></div><strong className="text-emerald-400">{money(item.delivery_value)}</strong></article>; })}{!history.length && <p className="py-5 text-center text-sm text-slate-400">Nenhuma entrega concluída nesta semana.</p>}</div></section></>}
+
+    {activeTab === "ganhos" && <><div><p className="text-sm font-semibold text-emerald-400">Seus resultados</p><h2 className="text-2xl font-bold">Ganhos e benefícios</h2></div><section className="grid grid-cols-2 gap-3"><div className="rounded-2xl bg-emerald-600 p-5"><p className="text-sm text-white/75">Hoje</p><p className="mt-2 text-2xl font-bold">{money(dailyEarnings)}</p><p className="mt-1 text-xs text-white/70">{completedToday.length} entregas</p></div><div className="rounded-2xl border border-white/10 bg-white/5 p-5"><p className="text-sm text-slate-400">Últimos 7 dias</p><p className="mt-2 text-2xl font-bold">{money(weeklyEarnings)}</p><p className="mt-1 text-xs text-slate-400">{history.length} entregas</p></div></section><section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5"><div className="flex items-center justify-between"><div><p className="text-xs font-bold uppercase tracking-wider text-orange-300">Publicidade</p><h3 className="font-bold">Clube de vantagens</h3></div><Tag className="text-orange-400"/></div><div className="mt-4 grid gap-3"><div className="flex items-center gap-3 rounded-2xl bg-white/5 p-4"><Fuel className="text-emerald-400"/><div><b>Combustível</b><p className="text-xs text-slate-400">Espaço para cupom de posto parceiro.</p></div></div><div className="flex items-center gap-3 rounded-2xl bg-white/5 p-4"><Wrench className="text-orange-400"/><div><b>Manutenção da moto</b><p className="text-xs text-slate-400">Espaço para oficina ou loja patrocinadora.</p></div></div></div><p className="mt-4 text-xs leading-5 text-slate-500">Ofertas serão exibidas somente fora da condução e identificadas como publicidade.</p></section></>}
+
+    {activeTab === "perfil" && <><div><p className="text-sm font-semibold text-emerald-400">Minha conta</p><h2 className="text-2xl font-bold">Perfil do entregador</h2></div><section className="rounded-3xl bg-white p-5 text-slate-900"><div className="flex items-center gap-4"><img src="/mercadofood-entrega-icon.svg" alt="" className="h-16 w-16 rounded-2xl"/><div><h3 className="text-xl font-bold">{driver.name}</h3><p className="text-sm text-slate-500">{driver.email || user.email}</p></div></div><dl className="mt-5 space-y-3 border-t pt-5 text-sm"><div className="flex justify-between gap-4"><dt className="text-slate-500">Telefone</dt><dd className="font-semibold">{driver.phone || "Não informado"}</dd></div><div className="flex justify-between gap-4"><dt className="text-slate-500">Placa</dt><dd className="font-semibold">{driver.vehicle_plate || "Não informada"}</dd></div><div className="flex justify-between gap-4"><dt className="text-slate-500">Valor padrão</dt><dd className="font-semibold">{money(driver.default_delivery_value)}</dd></div></dl></section><InstallDriverApp/><section className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-xs leading-5 text-emerald-100"><div className="flex gap-3"><ShieldCheck className="shrink-0 text-emerald-400" size={21}/><p><b>Privacidade protegida:</b> o GPS permanece desligado fora das corridas e é encerrado automaticamente após a confirmação da entrega.</p></div></section></>}
+  </div><nav className="fixed inset-x-3 bottom-3 z-30 mx-auto flex max-w-md items-center justify-around rounded-2xl border border-white/10 bg-slate-950/95 px-2 py-2 shadow-2xl backdrop-blur">{tabs.map(({ id, label, icon: Icon }) => <Link key={id} href={`/entregador?tab=${id}`} className={`flex min-w-16 flex-col items-center gap-1 rounded-xl px-3 py-2 text-[11px] ${activeTab === id ? "bg-emerald-500/15 font-semibold text-emerald-400" : "text-slate-400"}`}><Icon size={19}/>{label}</Link>)}</nav></main>;
 }
