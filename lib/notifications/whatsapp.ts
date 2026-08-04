@@ -37,6 +37,7 @@ export function driverOfferMessage(input: {
   orderNumber: string;
   storeName: string;
   neighborhood?: string | null;
+  reference?: string | null;
   deliveryValue: number;
 }) {
   return [
@@ -45,6 +46,7 @@ export function driverOfferMessage(input: {
     `Pedido: #${input.orderNumber}`,
     `Retirada: ${input.storeName}`,
     input.neighborhood ? `Destino: ${input.neighborhood}` : null,
+    input.reference ? `Ponto de referência: ${input.reference}` : null,
     `Valor da corrida: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(input.deliveryValue)}`,
     "Abra o aplicativo para aceitar ou recusar.",
   ].filter(Boolean).join("\n");

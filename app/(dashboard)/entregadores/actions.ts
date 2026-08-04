@@ -121,7 +121,7 @@ export async function assignDriver(formData: FormData) {
     supabase.from("delivery_events").insert({ delivery_id: delivery.id, event_type: "offered", actor_type: "store", payload: { order_id: order.id } }),
   ]);
 
-  const destination = (order.delivery_address || {}) as { neighborhood?: string | null };
+  const destination = (order.delivery_address || {}) as { neighborhood?: string | null; reference?: string | null };
   await queueWhatsAppNotification({
     supabase,
     companyId: company.id,
@@ -135,6 +135,7 @@ export async function assignDriver(formData: FormData) {
       orderNumber: order.order_number,
       storeName: company.name,
       neighborhood: destination.neighborhood,
+      reference: destination.reference,
       deliveryValue: value,
     }),
     metadata: { order_id: order.id, tracking_code: delivery.tracking_code },

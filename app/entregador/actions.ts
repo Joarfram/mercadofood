@@ -88,7 +88,7 @@ export async function advanceOwnDelivery(formData: FormData) {
   if (!delivery || delivery.status !== currentStatus) return;
   const payload: Record<string, string> = { status: transition.next };
   if (transition.timestamp) payload[transition.timestamp] = new Date().toISOString();
-  if (transition.next === "delivering") payload.started_at = new Date().toISOString();
+  if (transition.next === "to_store") payload.started_at = new Date().toISOString();
   await supabase.from("deliveries").update(payload).eq("id", delivery.id);
   await supabase.from("delivery_events").insert({ delivery_id: delivery.id, event_type: transition.event, actor_type: "driver", actor_id: driver.id });
   const order = Array.isArray(delivery.orders) ? delivery.orders[0] : delivery.orders;
