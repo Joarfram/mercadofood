@@ -14,7 +14,11 @@ export default async function DriverLogin({ searchParams }: { searchParams: Prom
         <div><label className="text-sm font-semibold">Senha</label><input name="password" type="password" required className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3" /></div>
         <button className="w-full rounded-xl bg-emerald-600 py-3 font-bold">Entrar no aplicativo</button>
       </form>
-      <p className="mt-5 text-center text-sm text-slate-400">Primeiro acesso? <Link href="/entregador/cadastro" className="font-semibold text-emerald-400">Ativar minha conta</Link></p>
+      <div className="mt-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-center">
+        <p className="text-sm text-slate-300">Primeiro acesso neste celular?</p>
+        <Link href="/entregador/cadastro" className="mt-3 block w-full rounded-xl border border-emerald-500 py-3 font-bold text-emerald-300">Criar meu acesso</Link>
+        <p className="mt-2 text-xs text-slate-500">Use o mesmo e-mail cadastrado pela loja.</p>
+      </div>
       <div className="mt-5"><InstallDriverApp/></div>
     </div>
   </main>;
