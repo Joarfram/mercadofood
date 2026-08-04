@@ -34,6 +34,7 @@ before insert on public.driver_locations
 for each row execute function public.enforce_active_delivery_location();
 
 drop policy if exists "driver inserts own location" on public.driver_locations;
+drop policy if exists "driver inserts own active delivery location" on public.driver_locations;
 create policy "driver inserts own active delivery location" on public.driver_locations
 for insert with check (
   exists (
