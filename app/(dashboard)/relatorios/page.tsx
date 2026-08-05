@@ -45,7 +45,7 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
 
   const methodMap = new Map<string,number>();
   for (const o of paid) methodMap.set(o.payment_method || "other", (methodMap.get(o.payment_method || "other") || 0) + Number(o.total));
-  const methodLabels: Record<string,string> = {pix:"PIX",cash:"Dinheiro",card_on_delivery:"Cartão na entrega",online_card:"Cartão online",other:"Outro"};
+  const methodLabels: Record<string,string> = {pix:"PIX",cash:"Dinheiro",debit_card:"Cartão de débito",credit_card:"Cartão de crédito",card_on_delivery:"Cartão na entrega",online_card:"Cartão online",other:"Outro"};
 
   const dayMap = new Map<string,{orders:number,revenue:number}>();
   for (const o of orders || []) {

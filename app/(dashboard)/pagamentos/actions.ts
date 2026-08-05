@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentCompany } from "@/lib/auth/current-company";
 
-const methods = ["pix", "cash", "card_on_delivery", "online_card", "other"];
+const methods = ["pix", "cash", "debit_card", "credit_card", "card_on_delivery", "online_card", "other"];
 
 export async function updatePayment(formData: FormData) {
   const orderId = String(formData.get("orderId") || "");

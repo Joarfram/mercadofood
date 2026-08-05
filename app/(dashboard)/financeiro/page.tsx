@@ -1,5 +1,6 @@
 import { requirePlanModule } from "@/lib/auth/current-company";
 import { addCashMovement, closeCashSession, openCashSession } from "./actions";
+import { CashRegister } from "@/components/pos/cash-register";
 
 function money(value: number | string | null | undefined) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value || 0));
@@ -10,7 +11,7 @@ const typeLabel: Record<string, string> = {
   sale: "Venda", income: "Entrada", expense: "Despesa", withdrawal: "Sangria", deposit: "Reforço", refund: "Estorno",
 };
 const methodLabel: Record<string, string> = {
-  pix: "PIX", cash: "Dinheiro", card_on_delivery: "Cartão", online_card: "Cartão online", other: "Outro",
+  pix: "PIX", cash: "Dinheiro", debit_card: "Cartão de débito", credit_card: "Cartão de crédito", card_on_delivery: "Cartão", online_card: "Cartão online", other: "Outro",
 };
 
 export default async function FinanceiroPage({ searchParams }: { searchParams: Promise<{ erro?: string; sucesso?: string }> }) {
@@ -23,12 +24,17 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
     ? await supabase.from("cash_movements").select("*").eq("cash_session_id", session.id).order("occurred_at", { ascending: false })
     : { data: [] as any[] };
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const { data: paidOrders } = await supabase.from("orders")
+  const { data: paidOrders } = session ? await supabase.from("orders")
     .select("id,total,payment_method,paid_at,created_at")
-    .eq("company_id", company.id).eq("payment_status", "paid")
-    .gte("paid_at", today.toISOString());
+    .eq("company_id", company.id).eq("cash_session_id", session.id).eq("payment_status", "paid") : { data: [] as any[] };
+
+  const { data: availableProducts } = session ? await supabase.from("products")
+    .select("id,name,base_price,promotional_price,category_id,categories(name)")
+    .eq("company_id", company.id).eq("availability_status", "available").order("name") : { data: [] as any[] };
+  const posProducts = (availableProducts || []).map(product => {
+    const relatedCategory = Array.isArray(product.categories) ? product.categories[0] : product.categories;
+    return { id: product.id, name: product.name, price: Number(product.promotional_price || product.base_price), category: relatedCategory?.name || "Sem categoria" };
+  });
 
   const opening = Number(session?.opening_balance || 0);
   const manualIn = (movements || []).filter(m => !outgoing.has(m.movement_type)).reduce((s, m) => s + Number(m.amount), 0);
@@ -61,6 +67,8 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
         <div className="rounded-2xl border bg-white p-5 shadow-sm"><p className="text-sm text-gray-500">Saídas manuais</p><strong className="text-2xl text-orange-600">{money(manualOut)}</strong><p className="mt-1 text-sm text-gray-500">Despesas, sangrias e estornos</p></div>
         <div className="rounded-2xl border bg-white p-5 shadow-sm"><p className="text-sm text-gray-500">Saldo esperado</p><strong className="text-2xl text-emerald-700">{money(expectedCash)}</strong><p className="mt-1 text-sm text-gray-500">Saldo inicial + entradas − saídas</p></div>
       </section>
+
+      <CashRegister sessionId={session.id} products={posProducts}/>
 
       <section className="grid gap-6 xl:grid-cols-[1fr_430px]">
         <div className="space-y-4">

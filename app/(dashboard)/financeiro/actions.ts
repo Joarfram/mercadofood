@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getCurrentCompany } from "@/lib/auth/current-company";
+import { getCurrentCompany, requirePlanModule } from "@/lib/auth/current-company";
 
 function amountFrom(value: FormDataEntryValue | null) {
   const parsed = Number(String(value || "0").replace(",", "."));
@@ -53,6 +53,107 @@ export async function addCashMovement(formData: FormData) {
   if (error) redirect(`/financeiro?erro=${encodeURIComponent(error.message)}`);
   revalidatePath("/financeiro");
   redirect("/financeiro?sucesso=Movimentação registrada.");
+}
+
+export async function createCounterSale(formData: FormData) {
+  const { supabase, company } = await requirePlanModule("finance");
+  const sessionId = String(formData.get("sessionId") || "");
+  const paymentMethod = String(formData.get("paymentMethod") || "cash");
+  const customerName = String(formData.get("customerName") || "").trim() || "Venda balcão";
+  const notes = String(formData.get("notes") || "").trim();
+  const allowedMethods = ["cash", "pix", "debit_card", "credit_card"];
+
+  let requestedItems: Array<{ productId: string; quantity: number }> = [];
+  try {
+    requestedItems = JSON.parse(String(formData.get("items") || "[]"));
+  } catch {
+    redirect("/financeiro?erro=Os itens da venda não puderam ser lidos.");
+  }
+  requestedItems = requestedItems.filter(item => typeof item.productId === "string" && Number.isInteger(item.quantity) && item.quantity > 0 && item.quantity <= 99);
+  if (!sessionId || !allowedMethods.includes(paymentMethod) || !requestedItems.length) redirect("/financeiro?erro=Adicione os produtos e escolha o pagamento.");
+
+  const { data: session } = await supabase.from("cash_sessions").select("id").eq("id", sessionId).eq("company_id", company.id).eq("status", "open").maybeSingle();
+  if (!session) redirect("/financeiro?erro=Este caixa não está mais aberto.");
+
+  const productIds = [...new Set(requestedItems.map(item => item.productId))];
+  const { data: products, error: productError } = await supabase.from("products").select("id,name,base_price,promotional_price,availability_status").eq("company_id", company.id).in("id", productIds);
+  if (productError || !products || products.length !== productIds.length) redirect("/financeiro?erro=Um dos produtos não foi encontrado.");
+
+  const productMap = new Map(products.map(product => [product.id, product]));
+  const saleItems = requestedItems.map(item => {
+    const product = productMap.get(item.productId)!;
+    if (product.availability_status !== "available") redirect(`/financeiro?erro=${encodeURIComponent(`${product.name} está indisponível.`)}`);
+    const price = Number(product.promotional_price || product.base_price);
+    return { ...item, name: product.name, price, total: Math.round(price * item.quantity * 100) / 100 };
+  });
+  const total = Math.round(saleItems.reduce((sum, item) => sum + item.total, 0) * 100) / 100;
+  const informedReceived = amountFrom(formData.get("amountReceived"));
+  if (paymentMethod === "cash" && informedReceived < total) redirect("/financeiro?erro=O valor recebido é menor que o total da venda.");
+  const amountReceived = paymentMethod === "cash" ? informedReceived : total;
+  const changeAmount = paymentMethod === "cash" ? Math.round((amountReceived - total) * 100) / 100 : 0;
+
+  let { data: branch } = await supabase.from("branches").select("id").eq("company_id", company.id).limit(1).maybeSingle();
+  if (!branch) {
+    const { data: createdBranch, error: branchError } = await supabase.from("branches").insert({ company_id: company.id, name: "Matriz", is_open: true }).select("id").single();
+    if (branchError || !createdBranch) redirect(`/financeiro?erro=${encodeURIComponent(branchError?.message || "Não foi possível criar a unidade.")}`);
+    branch = createdBranch;
+  }
+
+  const paidAt = new Date().toISOString();
+  const { data: order, error: orderError } = await supabase.from("orders").insert({
+    company_id: company.id,
+    branch_id: branch.id,
+    cash_session_id: session.id,
+    customer_name: customerName,
+    channel: "counter",
+    service_type: "counter",
+    status: "new",
+    payment_status: "paid",
+    payment_method: paymentMethod,
+    subtotal: total,
+    discount_amount: 0,
+    delivery_fee: 0,
+    total,
+    amount_received: amountReceived,
+    change_amount: changeAmount,
+    paid_at: paidAt,
+    notes: notes || null,
+    delivery_address: {},
+  }).select("id,order_number").single();
+  if (orderError || !order) redirect(`/financeiro?erro=${encodeURIComponent(orderError?.message || "Não foi possível criar a venda.")}`);
+
+  const { error: itemsError } = await supabase.from("order_items").insert(saleItems.map(item => ({
+    company_id: company.id,
+    order_id: order.id,
+    product_id: item.productId,
+    product_name: item.name,
+    unit_price: item.price,
+    quantity: item.quantity,
+    total_price: item.total,
+  })));
+  if (itemsError) {
+    await supabase.from("orders").delete().eq("id", order.id).eq("company_id", company.id);
+    redirect(`/financeiro?erro=${encodeURIComponent(itemsError.message)}`);
+  }
+
+  const { error: paymentError } = await supabase.from("order_payments").insert({
+    company_id: company.id,
+    order_id: order.id,
+    method: paymentMethod,
+    status: "paid",
+    amount: total,
+    amount_received: amountReceived,
+    change_amount: changeAmount,
+    paid_at: paidAt,
+  });
+  if (paymentError) {
+    await supabase.from("orders").delete().eq("id", order.id).eq("company_id", company.id);
+    redirect(`/financeiro?erro=${encodeURIComponent(paymentError.message)}`);
+  }
+
+  revalidatePath("/financeiro"); revalidatePath("/pedidos"); revalidatePath("/cozinha"); revalidatePath("/pagamentos");
+  const message = `Venda #${order.order_number} finalizada.${changeAmount > 0 ? ` Troco: R$ ${changeAmount.toFixed(2).replace(".", ",")}.` : ""}`;
+  redirect(`/financeiro?sucesso=${encodeURIComponent(message)}`);
 }
 
 export async function closeCashSession(formData: FormData) {

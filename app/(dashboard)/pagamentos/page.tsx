@@ -5,6 +5,8 @@ import { updatePayment } from "./actions";
 const methodLabel: Record<string,string> = {
   pix: "PIX",
   cash: "Dinheiro",
+  debit_card: "Cartão de débito",
+  credit_card: "Cartão de crédito",
   card_on_delivery: "Cartão na entrega",
   online_card: "Cartão online",
   other: "Outro",
@@ -48,7 +50,7 @@ export default async function PagamentosPage({ searchParams }: { searchParams: P
           </div>
           <form action={updatePayment} className="grid gap-3 rounded-xl bg-gray-50 p-4 sm:grid-cols-4">
             <input type="hidden" name="orderId" value={order.id}/>
-            <div><label className="text-xs font-semibold text-gray-600">Forma</label><select name="method" defaultValue={order.payment_method || "pix"} className="mt-1 w-full rounded-lg border bg-white px-3 py-2"><option value="pix">PIX</option><option value="cash">Dinheiro</option><option value="card_on_delivery">Cartão na entrega</option><option value="online_card">Cartão online</option><option value="other">Outro</option></select></div>
+            <div><label className="text-xs font-semibold text-gray-600">Forma</label><select name="method" defaultValue={order.payment_method || "pix"} className="mt-1 w-full rounded-lg border bg-white px-3 py-2"><option value="pix">PIX</option><option value="cash">Dinheiro</option><option value="debit_card">Cartão de débito</option><option value="credit_card">Cartão de crédito</option><option value="card_on_delivery">Cartão na entrega</option><option value="online_card">Cartão online</option><option value="other">Outro</option></select></div>
             <div><label className="text-xs font-semibold text-gray-600">Status</label><select name="status" defaultValue={order.payment_status || "pending"} className="mt-1 w-full rounded-lg border bg-white px-3 py-2"><option value="pending">Pendente</option><option value="paid">Pago</option><option value="canceled">Cancelado</option><option value="refunded">Estornado</option></select></div>
             <div><label className="text-xs font-semibold text-gray-600">Valor recebido</label><input name="amountReceived" type="number" min="0" step="0.01" defaultValue={Number(order.amount_received || order.total)} className="mt-1 w-full rounded-lg border bg-white px-3 py-2"/></div>
             <button className="self-end rounded-lg bg-emerald-700 px-4 py-2 font-semibold text-white">Salvar</button>
