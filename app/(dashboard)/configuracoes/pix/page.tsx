@@ -35,6 +35,6 @@ export default async function PixSettingsPage({ searchParams }: { searchParams: 
     <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5 text-blue-900">
       <div className="flex gap-3"><ShieldCheck className="shrink-0"/><div><h2 className="font-bold">Confirmação manual nesta versão</h2><p className="mt-1 text-sm">O sistema gera a cobrança, mas a loja ainda deve conferir o recebimento no banco antes de marcar o pedido como pago.</p></div></div>
     </div>
-    <Link href="/pagamentos" className="inline-flex font-semibold text-emerald-700">Voltar para pagamentos</Link>
+    <Link href="/financeiro#pagamentos" className="inline-flex font-semibold text-emerald-700">Voltar para Caixa e pagamentos</Link>
   </main>;
 }

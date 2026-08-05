@@ -1,6 +1,8 @@
+import Link from "next/link";
 import { requirePlanModule } from "@/lib/auth/current-company";
 import { addCashMovement, closeCashSession, openCashSession } from "./actions";
 import { CashRegister } from "@/components/pos/cash-register";
+import { updatePayment } from "@/app/(dashboard)/pagamentos/actions";
 
 function money(value: number | string | null | undefined) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value || 0));
@@ -13,6 +15,7 @@ const typeLabel: Record<string, string> = {
 const methodLabel: Record<string, string> = {
   pix: "PIX", cash: "Dinheiro", debit_card: "Cartão de débito", credit_card: "Cartão de crédito", card_on_delivery: "Cartão", online_card: "Cartão online", other: "Outro",
 };
+const paymentStatusLabel: Record<string, string> = { pending: "Pendente", paid: "Pago", canceled: "Cancelado", refunded: "Estornado" };
 
 export default async function FinanceiroPage({ searchParams }: { searchParams: Promise<{ erro?: string; sucesso?: string }> }) {
   const query = await searchParams;
@@ -36,6 +39,13 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
     return { id: product.id, name: product.name, price: Number(product.promotional_price || product.base_price), category: relatedCategory?.name || "Sem categoria" };
   });
 
+  const { data: recentOrders } = await supabase.from("orders")
+    .select("id,order_number,customer_name,total,payment_method,payment_status,amount_received,change_amount,created_at")
+    .eq("company_id", company.id).order("created_at", { ascending: false }).limit(30);
+  const orderedPayments = [...(recentOrders || [])].sort((a, b) => Number(a.payment_status === "paid") - Number(b.payment_status === "paid"));
+  const pendingPayments = orderedPayments.filter(order => order.payment_status !== "paid" && order.payment_status !== "canceled");
+  const pendingTotal = pendingPayments.reduce((sum, order) => sum + Number(order.total || 0), 0);
+
   const opening = Number(session?.opening_balance || 0);
   const manualIn = (movements || []).filter(m => !outgoing.has(m.movement_type)).reduce((s, m) => s + Number(m.amount), 0);
   const manualOut = (movements || []).filter(m => outgoing.has(m.movement_type)).reduce((s, m) => s + Number(m.amount), 0);
@@ -46,8 +56,8 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
   return <main className="space-y-6">
     <header>
       <p className="text-sm font-semibold text-emerald-700">Controle diário</p>
-      <h1 className="text-3xl font-bold">Caixa e Financeiro</h1>
-      <p className="text-gray-500">Abra o caixa, registre entradas e despesas e confira o fechamento.</p>
+      <h1 className="text-3xl font-bold">Caixa e pagamentos</h1>
+      <p className="text-gray-500">Venda no balcão, receba pedidos, controle o troco e faça o fechamento em uma única tela.</p>
     </header>
 
     {query.erro && <div className="rounded-xl bg-red-50 p-4 text-red-700">{query.erro}</div>}
@@ -69,6 +79,17 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
       </section>
 
       <CashRegister sessionId={session.id} products={posProducts}/>
+
+      <section id="pagamentos" className="scroll-mt-5 rounded-3xl border bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><p className="text-sm font-bold uppercase tracking-wide text-emerald-700">Pedidos e recebimentos</p><h2 className="text-2xl font-black">Pagamentos</h2><p className="text-sm text-gray-500">Os pendentes aparecem primeiro. Atualize a forma, o valor recebido e o status.</p></div><div className="rounded-2xl bg-orange-50 px-5 py-3 text-right"><p className="text-xs font-semibold text-orange-700">A receber</p><strong className="text-2xl text-orange-700">{money(pendingTotal)}</strong><p className="text-xs text-orange-700">{pendingPayments.length} pedido(s)</p></div></div>
+        <div className="mt-5 space-y-3">
+          {!orderedPayments.length && <p className="rounded-xl bg-gray-50 p-5 text-sm text-gray-500">Nenhum pagamento registrado.</p>}
+          {orderedPayments.map(order => <details key={order.id} open={order.payment_status !== "paid" && order.payment_status !== "canceled"} className="rounded-2xl border bg-gray-50 p-4"><summary className="cursor-pointer list-none"><div className="flex flex-wrap items-center gap-3"><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-emerald-700">Pedido #{order.order_number}</p><h3 className="truncate font-bold">{order.customer_name || "Cliente"}</h3></div><span className="rounded-full bg-white px-3 py-1 text-sm">{methodLabel[order.payment_method || ""] || "Forma não definida"}</span><span className={`rounded-full px-3 py-1 text-sm font-bold ${order.payment_status === "paid" ? "bg-emerald-100 text-emerald-800" : "bg-orange-100 text-orange-800"}`}>{paymentStatusLabel[order.payment_status] || order.payment_status}</span><strong className="text-lg">{money(order.total)}</strong></div></summary>
+            <form action={updatePayment} className="mt-4 grid gap-3 border-t pt-4 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_auto]"><input type="hidden" name="orderId" value={order.id}/><label className="text-xs font-semibold text-gray-600">Forma de pagamento<select name="method" defaultValue={order.payment_method || "pix"} className="mt-1 w-full rounded-xl border bg-white p-3 text-sm font-normal"><option value="pix">PIX</option><option value="cash">Dinheiro</option><option value="debit_card">Cartão de débito</option><option value="credit_card">Cartão de crédito</option><option value="card_on_delivery">Cartão na entrega</option><option value="online_card">Cartão online</option><option value="other">Outro</option></select></label><label className="text-xs font-semibold text-gray-600">Status<select name="status" defaultValue={order.payment_status || "pending"} className="mt-1 w-full rounded-xl border bg-white p-3 text-sm font-normal"><option value="pending">Pendente</option><option value="paid">Pago</option><option value="canceled">Cancelado</option><option value="refunded">Estornado</option></select></label><label className="text-xs font-semibold text-gray-600">Valor recebido<input name="amountReceived" type="number" min="0" step="0.01" defaultValue={Number(order.amount_received || order.total)} className="mt-1 w-full rounded-xl border bg-white p-3 text-sm font-normal"/></label><button className="self-end rounded-xl bg-emerald-700 px-5 py-3 font-bold text-white">Salvar pagamento</button></form>
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">{Number(order.change_amount || 0) > 0 && <span className="rounded-full bg-blue-50 px-3 py-1 font-semibold text-blue-800">Troco: {money(order.change_amount)}</span>}<Link href={`/pagamentos/${order.id}`} className="font-semibold text-emerald-700">Gerar ou visualizar PIX →</Link></div>
+          </details>)}
+        </div>
+      </section>
 
       <section className="grid gap-6 xl:grid-cols-[1fr_430px]">
         <div className="space-y-4">

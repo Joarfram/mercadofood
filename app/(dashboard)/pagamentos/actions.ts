@@ -20,7 +20,7 @@ export async function updatePayment(formData: FormData) {
     .eq("id", orderId)
     .eq("company_id", company.id)
     .single();
-  if (orderError || !order) redirect(`/pagamentos?erro=${encodeURIComponent("Pedido não encontrado")}`);
+  if (orderError || !order) redirect(`/financeiro?erro=${encodeURIComponent("Pedido não encontrado")}#pagamentos`);
 
   const total = Number(order.total || 0);
   const amountReceived = method === "cash" && received > 0 ? received : total;
@@ -38,7 +38,7 @@ export async function updatePayment(formData: FormData) {
     paid_at: paidAt,
     updated_at: new Date().toISOString(),
   }, { onConflict: "order_id" });
-  if (paymentError) redirect(`/pagamentos?erro=${encodeURIComponent(paymentError.message)}`);
+  if (paymentError) redirect(`/financeiro?erro=${encodeURIComponent(paymentError.message)}#pagamentos`);
 
   const { error: updateError } = await supabase.from("orders").update({
     payment_method: method,
@@ -47,9 +47,10 @@ export async function updatePayment(formData: FormData) {
     change_amount: changeAmount,
     paid_at: paidAt,
   }).eq("id", orderId).eq("company_id", company.id);
-  if (updateError) redirect(`/pagamentos?erro=${encodeURIComponent(updateError.message)}`);
+  if (updateError) redirect(`/financeiro?erro=${encodeURIComponent(updateError.message)}#pagamentos`);
 
   revalidatePath("/pagamentos");
+  revalidatePath("/financeiro");
   revalidatePath("/pedidos");
-  redirect("/pagamentos?sucesso=Pagamento%20atualizado");
+  redirect("/financeiro?sucesso=Pagamento%20atualizado#pagamentos");
 }

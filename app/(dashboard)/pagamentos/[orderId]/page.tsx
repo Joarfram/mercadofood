@@ -53,6 +53,6 @@ export default async function PixOrderPage({ params, searchParams }: { params: P
         <form action={generatePix}><input type="hidden" name="orderId" value={order.id}/><button className="text-sm font-semibold text-emerald-700">Gerar novamente</button></form>
       </div>
     </section>}
-    <Link href="/pagamentos" className="inline-flex font-semibold text-emerald-700">Voltar para pagamentos</Link>
+    <Link href="/financeiro#pagamentos" className="inline-flex font-semibold text-emerald-700">Voltar para Caixa e pagamentos</Link>
   </main>;
 }

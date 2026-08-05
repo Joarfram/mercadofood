@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutDashboard, ShoppingBag, Utensils, Settings, Bike, ChefHat, WalletCards, Banknote, BarChart3, PackageOpen, Users, Tags, Armchair, Boxes, UserCog, Images, BadgeDollarSign, LockKeyhole, Megaphone, LogOut, MessageSquareText } from "lucide-react";
+import { LayoutDashboard, ShoppingBag, Utensils, Settings, Bike, ChefHat, Banknote, BarChart3, PackageOpen, Users, Tags, Armchair, Boxes, UserCog, Images, BadgeDollarSign, LockKeyhole, Megaphone, LogOut, MessageSquareText } from "lucide-react";
 import { getCurrentCompany } from "@/lib/auth/current-company";
 import { canAccess, roleLabels, type ModuleKey } from "@/lib/auth/permissions";
 import { BrandMark } from "@/components/brand/brand-mark";
@@ -16,8 +16,7 @@ const items: Array<{href:string;label:string;icon:typeof LayoutDashboard;module:
   { href: "/midias", label: "Fotos e imagens", icon: Images, module: "products" },
   { href: "/cozinha", label: "Cozinha", icon: ChefHat, module: "kitchen" },
   { href: "/entregadores", label: "Entregadores", icon: Bike, module: "delivery" },
-  { href: "/pagamentos", label: "Pagamentos", icon: WalletCards, module: "payments" },
-  { href: "/financeiro", label: "Caixa", icon: Banknote, module: "finance" },
+  { href: "/financeiro", label: "Caixa e pagamentos", icon: Banknote, module: "finance" },
   { href: "/relatorios", label: "Relatórios", icon: BarChart3, module: "reports" },
   { href: "/estoque", label: "Estoque", icon: PackageOpen, module: "stock" },
   { href: "/clientes", label: "Clientes", icon: Users, module: "customers" },
