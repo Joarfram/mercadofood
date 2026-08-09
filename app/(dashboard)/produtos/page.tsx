@@ -7,7 +7,7 @@ export default async function ProdutosPage({ searchParams }: { searchParams: Pro
   const { supabase, company } = await requirePlanModule("products");
   const [{ data: categories }, { data: products }, { data: optionGroups }, { data: options }] = await Promise.all([
     supabase.from("categories").select("id, name, is_active, sort_order").eq("company_id", company.id).order("sort_order").order("name"),
-    supabase.from("products").select("id, name, description, base_price, promotional_price, preparation_time, availability_status, category_id, sort_order, sku, stock_quantity, minimum_stock, track_stock, available_delivery, available_pickup, available_dine_in, categories(name)").eq("company_id", company.id).order("sort_order").order("name"),
+    supabase.from("products").select("id, name, description, base_price, promotional_price, preparation_time, availability_status, category_id, sku, stock_quantity, minimum_stock, track_stock, available_delivery, available_pickup, available_dine_in, categories(name)").eq("company_id", company.id).order("name"),
     supabase.from("product_option_groups").select("id, product_id, name, description, min_selection, max_selection, sort_order").eq("company_id", company.id).eq("is_active", true).order("sort_order"),
     supabase.from("product_options").select("id, group_id, name, price_delta, sort_order").eq("company_id", company.id).eq("is_active", true).order("sort_order"),
   ]);

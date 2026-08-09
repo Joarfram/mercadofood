@@ -5,7 +5,7 @@ import { ImagePlus, Package, Pencil, Plus, Search, Store, Trash2, X } from "luci
 import { createIntegratedProduct, deleteProduct, toggleProduct, updateIntegratedProduct } from "./actions";
 
 type Category = { id: string; name: string; is_active: boolean; sort_order: number };
-type Product = { id: string; name: string; description: string | null; base_price: number | string; promotional_price: number | string | null; preparation_time?: number | null; availability_status: string; category_id: string | null; sort_order?: number; sku?: string | null; stock_quantity?: number | string; minimum_stock?: number | string; track_stock?: boolean; available_delivery?: boolean; available_pickup?: boolean; available_dine_in?: boolean; addons?: Addon[]; categories: { name: string } | { name: string }[] | null };
+type Product = { id: string; name: string; description: string | null; base_price: number | string; promotional_price: number | string | null; preparation_time?: number | null; availability_status: string; category_id: string | null; sku?: string | null; stock_quantity?: number | string; minimum_stock?: number | string; track_stock?: boolean; available_delivery?: boolean; available_pickup?: boolean; available_dine_in?: boolean; addons?: Addon[]; categories: { name: string } | { name: string }[] | null };
 type Addon = { name: string; description: string; required: boolean; min: number; max: number; options: { name: string; price: number }[] };
 type Variant = { name: string; price: number; stock: number };
 
@@ -26,7 +26,7 @@ export function ProductCenter({ categories, products }: { categories: Category[]
   }).sort((a, b) => {
     const categoryA = categories.find(item => item.id === a.category_id)?.sort_order ?? Number.MAX_SAFE_INTEGER;
     const categoryB = categories.find(item => item.id === b.category_id)?.sort_order ?? Number.MAX_SAFE_INTEGER;
-    return categoryA - categoryB || Number(a.sort_order || 0) - Number(b.sort_order || 0) || a.name.localeCompare(b.name, "pt-BR");
+    return categoryA - categoryB || a.name.localeCompare(b.name, "pt-BR");
   }), [products, categories, search, category]);
   const active = products.filter(product => product.availability_status === "available").length;
   const lowStock = products.filter(product => product.track_stock && Number(product.stock_quantity || 0) <= 5).length;
