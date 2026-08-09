@@ -177,7 +177,7 @@ const integratedProductSchema = z.object({
   availableDineIn: z.boolean(),
 });
 
-type AddonInput = { name: string; required?: boolean; min?: number; max?: number; options?: { name: string; price?: number }[] };
+type AddonInput = { name: string; description?: string; required?: boolean; min?: number; max?: number; options?: { name: string; price?: number }[] };
 type VariantInput = { name: string; price?: number; stock?: number };
 
 function parseJsonList<T>(value: FormDataEntryValue | null): T[] {
@@ -237,7 +237,7 @@ export async function createIntegratedProduct(formData: FormData) {
     const max = Math.max(1, Math.min(Number(group.max || 1), options.length));
     const min = group.required ? Math.max(1, Math.min(Number(group.min || 1), max)) : 0;
     const { data: createdGroup, error: groupError } = await supabase.from("product_option_groups").insert({
-      company_id: company.id, product_id: product.id, name, min_selection: min, max_selection: max,
+      company_id: company.id, product_id: product.id, name, description: String(group.description || "").trim() || null, min_selection: min, max_selection: max,
       sort_order: groupIndex, is_active: true,
     }).select("id").single();
     if (groupError || !createdGroup) continue;
@@ -305,6 +305,30 @@ export async function updateIntegratedProduct(formData: FormData) {
     updated_at: new Date().toISOString(),
   }).eq("id", productId).eq("company_id", company.id);
   if (error) redirect(`/produtos?erro=${encodeURIComponent(error.message)}`);
+
+  if (formData.has("addonsJson")) {
+    const addons = parseJsonList<AddonInput>(formData.get("addonsJson"));
+    const { error: removeError } = await supabase.from("product_option_groups").delete().eq("company_id", company.id).eq("product_id", productId);
+    if (removeError) redirect(`/produtos?erro=${encodeURIComponent(removeError.message)}`);
+    for (const [groupIndex, group] of addons.entries()) {
+      const name = String(group.name || "").trim();
+      const options = (group.options || []).filter(option => String(option.name || "").trim());
+      if (!name || !options.length) continue;
+      const max = Math.max(1, Math.min(Number(group.max || options.length || 1), options.length));
+      const min = group.required ? Math.max(1, Math.min(Number(group.min || 1), max)) : 0;
+      const { data: createdGroup, error: groupError } = await supabase.from("product_option_groups").insert({
+        company_id: company.id, product_id: productId, name,
+        description: String(group.description || "").trim() || null,
+        min_selection: min, max_selection: max, sort_order: groupIndex, is_active: true,
+      }).select("id").single();
+      if (groupError || !createdGroup) redirect(`/produtos?erro=${encodeURIComponent(groupError?.message || "Erro ao salvar complementos")}`);
+      const { error: optionsError } = await supabase.from("product_options").insert(options.map((option, index) => ({
+        company_id: company.id, group_id: createdGroup.id, name: String(option.name).trim(),
+        price_delta: Math.max(0, Number(option.price || 0)), sort_order: index, is_active: true,
+      })));
+      if (optionsError) redirect(`/produtos?erro=${encodeURIComponent(optionsError.message)}`);
+    }
+  }
 
   const image = formData.get("image");
   if (image instanceof File && image.size > 0) {
