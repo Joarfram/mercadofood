@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { ImagePlus, Package, Pencil, Plus, Search, Store, Trash2, X } from "lucide-react";
 import { createIntegratedProduct, deleteProduct, toggleProduct, updateIntegratedProduct } from "./actions";
 
@@ -50,15 +50,19 @@ export function ProductCenter({ categories, products }: { categories: Category[]
       </div>
       <div className="divide-y">
         {!filtered.length && <div className="p-10 text-center text-slate-500"><Package className="mx-auto mb-3"/><p>Nenhum produto encontrado.</p></div>}
-        {filtered.map(product => {
+        {filtered.map((product, index) => {
           const cat = Array.isArray(product.categories) ? product.categories[0] : product.categories;
           const available = product.availability_status === "available";
-          return <article key={product.id} className="flex flex-col gap-4 p-4 md:flex-row md:items-center">
+          const previousCategoryId = index > 0 ? filtered[index - 1]?.category_id : undefined;
+          const startsCategory = index === 0 || previousCategoryId !== product.category_id;
+          return <Fragment key={product.id}>
+          {startsCategory && <div className="flex items-center justify-between border-y border-emerald-100 bg-emerald-50/70 px-4 py-3 first:border-t-0"><div><p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Categoria</p><h2 className="font-bold text-slate-900">{cat?.name || "Sem categoria"}</h2></div><span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-emerald-800 shadow-sm">{filtered.filter(item => item.category_id === product.category_id).length} {filtered.filter(item => item.category_id === product.category_id).length === 1 ? "produto" : "produtos"}</span></div>}
+          <article className="flex flex-col gap-4 p-4 md:flex-row md:items-center">
             <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700"><Store size={24}/></div>
             <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-bold text-slate-900">{product.name}</h3><span className={`rounded-full px-2 py-1 text-xs font-semibold ${available ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{available ? "Disponível" : "Pausado"}</span></div><p className="truncate text-sm text-slate-500">{cat?.name || "Sem categoria"}{product.sku ? ` • SKU ${product.sku}` : ""}</p></div>
             <strong className="text-slate-900">{money(product.promotional_price || product.base_price)}</strong>
             <div className="flex flex-wrap gap-2"><button type="button" onClick={() => beginEdit(product)} className="flex items-center gap-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800"><Pencil size={15}/>Editar</button><button type="button" onClick={() => setDeleting(product)} className="flex items-center gap-1 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700"><Trash2 size={15}/>Excluir</button><form action={toggleProduct}><input type="hidden" name="productId" value={product.id}/><input type="hidden" name="nextStatus" value={available ? "unavailable" : "available"}/><button className="rounded-xl border px-3 py-2 text-sm font-semibold">{available ? "Pausar" : "Ativar"}</button></form></div>
-          </article>;
+          </article></Fragment>;
         })}
       </div>
     </section>
