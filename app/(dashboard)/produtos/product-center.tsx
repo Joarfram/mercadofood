@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ImagePlus, Package, Plus, Search, Store, Trash2, X } from "lucide-react";
-import { createIntegratedProduct, toggleProduct } from "./actions";
+import { ImagePlus, Package, Pencil, Plus, Search, Store, Trash2, X } from "lucide-react";
+import { createIntegratedProduct, deleteProduct, toggleProduct, updateIntegratedProduct } from "./actions";
 
 type Category = { id: string; name: string; is_active: boolean };
-type Product = { id: string; name: string; description: string | null; base_price: number | string; promotional_price: number | string | null; availability_status: string; category_id: string | null; sku?: string | null; stock_quantity?: number | string; track_stock?: boolean; categories: { name: string } | { name: string }[] | null };
+type Product = { id: string; name: string; description: string | null; base_price: number | string; promotional_price: number | string | null; preparation_time?: number | null; availability_status: string; category_id: string | null; sku?: string | null; stock_quantity?: number | string; minimum_stock?: number | string; track_stock?: boolean; available_delivery?: boolean; available_pickup?: boolean; available_dine_in?: boolean; categories: { name: string } | { name: string }[] | null };
 type Addon = { name: string; required: boolean; min: number; max: number; options: { name: string; price: number }[] };
 type Variant = { name: string; price: number; stock: number };
 
@@ -13,6 +13,8 @@ const money = (value: number | string | null) => new Intl.NumberFormat("pt-BR", 
 
 export function ProductCenter({ categories, products }: { categories: Category[]; products: Product[] }) {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Product | null>(null);
+  const [deleting, setDeleting] = useState<Product | null>(null);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [addons, setAddons] = useState<Addon[]>([]);
@@ -49,7 +51,7 @@ export function ProductCenter({ categories, products }: { categories: Category[]
             <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700"><Store size={24}/></div>
             <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-bold text-slate-900">{product.name}</h3><span className={`rounded-full px-2 py-1 text-xs font-semibold ${available ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{available ? "Disponível" : "Pausado"}</span></div><p className="truncate text-sm text-slate-500">{cat?.name || "Sem categoria"}{product.sku ? ` • SKU ${product.sku}` : ""}</p></div>
             <strong className="text-slate-900">{money(product.promotional_price || product.base_price)}</strong>
-            <div className="flex gap-2"><a href={`/produtos/${product.id}/complementos`} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-700">Adicionais</a><form action={toggleProduct}><input type="hidden" name="productId" value={product.id}/><input type="hidden" name="nextStatus" value={available ? "unavailable" : "available"}/><button className="rounded-xl border px-3 py-2 text-sm font-semibold">{available ? "Pausar" : "Ativar"}</button></form></div>
+            <div className="flex flex-wrap gap-2"><button type="button" onClick={() => setEditing(product)} className="flex items-center gap-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800"><Pencil size={15}/>Editar</button><button type="button" onClick={() => setDeleting(product)} className="flex items-center gap-1 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700"><Trash2 size={15}/>Excluir</button><a href={`/produtos/${product.id}/complementos`} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-700">Adicionais</a><form action={toggleProduct}><input type="hidden" name="productId" value={product.id}/><input type="hidden" name="nextStatus" value={available ? "unavailable" : "available"}/><button className="rounded-xl border px-3 py-2 text-sm font-semibold">{available ? "Pausar" : "Ativar"}</button></form></div>
           </article>;
         })}
       </div>
@@ -91,6 +93,32 @@ export function ProductCenter({ categories, products }: { categories: Category[]
         </div>
         <footer className="flex justify-end gap-3 border-t bg-white px-5 py-4"><button type="button" onClick={close} className="rounded-xl border px-5 py-3 font-semibold">Cancelar</button><button className="rounded-xl bg-emerald-700 px-6 py-3 font-bold text-white hover:bg-emerald-800">Salvar produto</button></footer>
       </form>
+    </div>}
+
+    {editing && <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/55 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label={`Editar ${editing.name}`}>
+      <form action={updateIntegratedProduct} className="flex max-h-[96vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
+        <input type="hidden" name="productId" value={editing.id}/>
+        <header className="flex items-center justify-between border-b px-5 py-4 sm:px-7"><div><p className="text-xs font-bold uppercase tracking-wider text-emerald-700">Editar produto</p><h2 className="text-xl font-bold text-slate-900">{editing.name}</h2></div><button type="button" onClick={() => setEditing(null)} className="rounded-full p-2 hover:bg-slate-100" aria-label="Fechar"><X/></button></header>
+        <div className="overflow-y-auto p-5 sm:p-7"><div className="grid gap-4 sm:grid-cols-2">
+          <label className="text-sm font-semibold">Nome<input name="name" required minLength={2} defaultValue={editing.name} className="mt-1 w-full rounded-xl border p-3 font-normal"/></label>
+          <label className="text-sm font-semibold">Categoria<select name="categoryId" defaultValue={editing.category_id || ""} className="mt-1 w-full rounded-xl border p-3 font-normal"><option value="">Sem categoria</option>{categories.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+          <label className="text-sm font-semibold">Código interno (SKU)<input name="sku" defaultValue={editing.sku || ""} className="mt-1 w-full rounded-xl border p-3 font-normal" placeholder="Ex.: ACA-001"/></label>
+          <label className="text-sm font-semibold">Tempo de preparo<input name="preparationTime" type="number" min="0" max="240" defaultValue={editing.preparation_time || 0} className="mt-1 w-full rounded-xl border p-3 font-normal"/></label>
+          <label className="text-sm font-semibold sm:col-span-2">Descrição<textarea name="description" maxLength={500} rows={3} defaultValue={editing.description || ""} className="mt-1 w-full rounded-xl border p-3 font-normal"/></label>
+          <label className="text-sm font-semibold">Preço normal<input name="basePrice" type="number" min="0.01" step="0.01" required defaultValue={Number(editing.base_price)} className="mt-1 w-full rounded-xl border p-3 font-normal"/></label>
+          <label className="text-sm font-semibold">Preço promocional<input name="promotionalPrice" type="number" min="0.01" step="0.01" defaultValue={editing.promotional_price ? Number(editing.promotional_price) : ""} className="mt-1 w-full rounded-xl border p-3 font-normal" placeholder="Opcional"/></label>
+          <label className="text-sm font-semibold">Quantidade em estoque<input name="stockQuantity" type="number" min="0" step="0.001" defaultValue={Number(editing.stock_quantity || 0)} className="mt-1 w-full rounded-xl border p-3 font-normal"/></label>
+          <label className="text-sm font-semibold">Alerta de estoque baixo<input name="minimumStock" type="number" min="0" step="0.001" defaultValue={Number(editing.minimum_stock || 0)} className="mt-1 w-full rounded-xl border p-3 font-normal"/></label>
+          <label className="flex min-h-24 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-emerald-200 bg-emerald-50/50 text-center sm:col-span-2"><ImagePlus className="mb-1 text-emerald-700"/><span className="text-sm font-semibold">Adicionar uma nova foto (opcional)</span><input name="image" type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only"/></label>
+          <div className="space-y-3 rounded-xl bg-slate-50 p-4 sm:col-span-2"><label className="flex items-center gap-2 font-semibold"><input name="trackStock" type="checkbox" defaultChecked={Boolean(editing.track_stock)} className="accent-emerald-700"/>Controlar estoque</label><label className="flex items-center gap-2 font-semibold"><input name="available" type="checkbox" defaultChecked={editing.availability_status === "available"} className="accent-emerald-700"/>Disponível para venda</label><div className="grid gap-2 sm:grid-cols-3"><label><input name="availableDelivery" type="checkbox" defaultChecked={editing.available_delivery !== false} className="mr-2 accent-emerald-700"/>Delivery</label><label><input name="availablePickup" type="checkbox" defaultChecked={editing.available_pickup !== false} className="mr-2 accent-emerald-700"/>Retirada</label><label><input name="availableDineIn" type="checkbox" defaultChecked={editing.available_dine_in !== false} className="mr-2 accent-emerald-700"/>No local</label></div></div>
+          <a href={`/produtos/${editing.id}/complementos`} className="rounded-xl border border-orange-200 bg-orange-50 p-3 text-center text-sm font-semibold text-orange-700 sm:col-span-2">Editar adicionais e complementos deste produto</a>
+        </div></div>
+        <footer className="flex justify-end gap-3 border-t px-5 py-4"><button type="button" onClick={() => setEditing(null)} className="rounded-xl border px-5 py-3 font-semibold">Cancelar</button><button className="rounded-xl bg-emerald-700 px-6 py-3 font-bold text-white">Salvar alterações</button></footer>
+      </form>
+    </div>}
+
+    {deleting && <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={`Excluir ${deleting.name}`}>
+      <form action={deleteProduct} className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"><input type="hidden" name="productId" value={deleting.id}/><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-red-700"><Trash2/></div><h2 className="mt-4 text-center text-xl font-bold text-slate-900">Excluir produto?</h2><p className="mt-2 text-center text-sm leading-6 text-slate-600">Você está prestes a excluir <strong>{deleting.name}</strong>, suas fotos e configurações. O histórico dos pedidos já realizados será preservado.</p><div className="mt-6 grid grid-cols-2 gap-3"><button type="button" onClick={() => setDeleting(null)} className="rounded-xl border px-4 py-3 font-semibold">Cancelar</button><button className="rounded-xl bg-red-600 px-4 py-3 font-bold text-white hover:bg-red-700">Confirmar exclusão</button></div></form>
     </div>}
   </>;
 }

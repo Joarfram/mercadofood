@@ -274,6 +274,59 @@ export async function createIntegratedProduct(formData: FormData) {
   redirect("/produtos?sucesso=Produto%20cadastrado%20com%20todas%20as%20configurações");
 }
 
+export async function updateIntegratedProduct(formData: FormData) {
+  const productId = String(formData.get("productId") || "");
+  if (!z.string().uuid().safeParse(productId).success) redirect("/produtos?erro=Produto%20inválido");
+  const parsed = integratedProductSchema.safeParse({
+    name: formData.get("name"), description: formData.get("description"), sku: formData.get("sku"),
+    basePrice: formData.get("basePrice"), promotionalPrice: formData.get("promotionalPrice") || "",
+    categoryId: formData.get("categoryId"), newCategory: "", preparationTime: formData.get("preparationTime") || 0,
+    trackStock: formData.get("trackStock") === "on", stockQuantity: formData.get("stockQuantity") || 0,
+    minimumStock: formData.get("minimumStock") || 0, available: formData.get("available") === "on",
+    availableDelivery: formData.get("availableDelivery") === "on",
+    availablePickup: formData.get("availablePickup") === "on", availableDineIn: formData.get("availableDineIn") === "on",
+  });
+  if (!parsed.success) redirect(`/produtos?erro=${encodeURIComponent(parsed.error.issues[0]?.message || "Dados inválidos")}`);
+  if (parsed.data.promotionalPrice && Number(parsed.data.promotionalPrice) >= parsed.data.basePrice) {
+    redirect("/produtos?erro=O%20preço%20promocional%20deve%20ser%20menor%20que%20o%20preço%20normal");
+  }
+  if (!parsed.data.availableDelivery && !parsed.data.availablePickup && !parsed.data.availableDineIn) {
+    redirect("/produtos?erro=Selecione%20ao%20menos%20um%20canal%20de%20venda");
+  }
+  const { supabase, company, user } = await requirePlanModule("products");
+  const { error } = await supabase.from("products").update({
+    name: parsed.data.name, description: parsed.data.description || null, sku: parsed.data.sku || null,
+    base_price: parsed.data.basePrice, promotional_price: parsed.data.promotionalPrice || null,
+    category_id: parsed.data.categoryId || null, preparation_time: parsed.data.preparationTime || null,
+    availability_status: parsed.data.available ? "available" : "unavailable",
+    track_stock: parsed.data.trackStock, stock_quantity: parsed.data.stockQuantity,
+    minimum_stock: parsed.data.minimumStock, available_delivery: parsed.data.availableDelivery,
+    available_pickup: parsed.data.availablePickup, available_dine_in: parsed.data.availableDineIn,
+    updated_at: new Date().toISOString(),
+  }).eq("id", productId).eq("company_id", company.id);
+  if (error) redirect(`/produtos?erro=${encodeURIComponent(error.message)}`);
+
+  const image = formData.get("image");
+  if (image instanceof File && image.size > 0) {
+    if (image.size > 8 * 1024 * 1024 || !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(image.type)) {
+      redirect("/produtos?erro=A%20imagem%20deve%20ser%20JPG,%20PNG,%20WEBP%20ou%20GIF%20com%20até%208MB");
+    }
+    const extension = image.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+    const storagePath = `${company.id}/product/${productId}/${crypto.randomUUID()}.${extension}`;
+    const { error: uploadError } = await supabase.storage.from("company-media").upload(storagePath, await image.arrayBuffer(), { contentType: image.type, upsert: false });
+    if (!uploadError) {
+      const { data: url } = supabase.storage.from("company-media").getPublicUrl(storagePath);
+      const { data: lastAsset } = await supabase.from("media_assets").select("sort_order").eq("company_id", company.id).eq("entity_type", "product").eq("entity_id", productId).order("sort_order", { ascending: false }).limit(1).maybeSingle();
+      await supabase.from("media_assets").insert({ company_id: company.id, entity_type: "product", entity_id: productId,
+        kind: "gallery", storage_path: storagePath, public_url: url.publicUrl, alt_text: parsed.data.name,
+        mime_type: image.type, byte_size: image.size, sort_order: Number(lastAsset?.sort_order ?? -1) + 1, created_by: user.id });
+    }
+  }
+  revalidatePath("/produtos");
+  revalidatePath(`/cardapio/${company.slug}`);
+  redirect("/produtos?sucesso=Alterações%20do%20produto%20salvas");
+}
+
 export async function updateProduct(formData: FormData) {
   const parsed = updateProductSchema.safeParse({
     productId: formData.get("productId"),
