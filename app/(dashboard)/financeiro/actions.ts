@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getCurrentCompany, requirePlanModule } from "@/lib/auth/current-company";
+import { requirePlanModule } from "@/lib/auth/current-company";
 
 function amountFrom(value: FormDataEntryValue | null) {
   const parsed = Number(String(value || "0").replace(",", "."));
@@ -10,7 +10,7 @@ function amountFrom(value: FormDataEntryValue | null) {
 }
 
 export async function openCashSession(formData: FormData) {
-  const { supabase, company, user } = await getCurrentCompany();
+  const { supabase, company, user } = await requirePlanModule("finance");
   const openingBalance = amountFrom(formData.get("openingBalance"));
   if (openingBalance < 0) redirect("/financeiro?erro=O saldo inicial não pode ser negativo.");
 
@@ -30,7 +30,7 @@ export async function openCashSession(formData: FormData) {
 }
 
 export async function addCashMovement(formData: FormData) {
-  const { supabase, company, user } = await getCurrentCompany();
+  const { supabase, company, user } = await requirePlanModule("finance");
   const sessionId = String(formData.get("sessionId") || "");
   const movementType = String(formData.get("movementType") || "expense");
   const paymentMethod = String(formData.get("paymentMethod") || "cash");
@@ -157,7 +157,7 @@ export async function createCounterSale(formData: FormData) {
 }
 
 export async function closeCashSession(formData: FormData) {
-  const { supabase, company, user } = await getCurrentCompany();
+  const { supabase, company, user } = await requirePlanModule("finance");
   const sessionId = String(formData.get("sessionId") || "");
   const countedBalance = amountFrom(formData.get("countedBalance"));
   const expectedBalance = amountFrom(formData.get("expectedBalance"));

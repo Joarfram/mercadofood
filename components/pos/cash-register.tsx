@@ -48,14 +48,14 @@ export function CashRegister({ sessionId, products }: { sessionId: string; produ
     if (method !== "cash") setReceived("");
   }
 
-  return <section className="rounded-3xl border border-emerald-200 bg-white p-4 shadow-sm md:p-6">
+  return <section className="min-w-0 max-w-full overflow-hidden rounded-3xl border border-emerald-200 bg-white p-4 shadow-sm md:p-6">
     <div className="flex flex-col gap-2 border-b pb-5 md:flex-row md:items-center md:justify-between">
       <div><p className="text-sm font-bold uppercase tracking-wide text-emerald-700">Venda no balcão</p><h2 className="text-2xl font-black">Caixa rápido</h2><p className="text-sm text-gray-500">Selecione os produtos, receba o pagamento e envie o pedido para a cozinha.</p></div>
       <div className="rounded-2xl bg-emerald-50 px-5 py-3 text-right"><p className="text-xs font-semibold text-emerald-700">Total da venda</p><strong className="text-3xl text-emerald-800">{money(total)}</strong></div>
     </div>
 
-    <div className="mt-5 grid gap-6 xl:grid-cols-[1fr_410px]">
-      <div>
+    <div className="mt-5 grid min-w-0 max-w-full gap-6 xl:grid-cols-[minmax(0,1fr)_410px]">
+      <div className="min-w-0">
         <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={19}/><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar produto pelo nome" className="w-full rounded-xl border py-3 pl-10 pr-4"/></div>
         <div className="mt-3 flex gap-2 overflow-x-auto pb-2">{categories.map(item => <button key={item} type="button" onClick={() => setCategory(item)} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold ${category === item ? "bg-orange-500 text-white" : "bg-gray-100 text-gray-700"}`}>{item}</button>)}</div>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

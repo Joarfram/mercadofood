@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getCurrentCompany } from "@/lib/auth/current-company";
+import { requirePlanModule } from "@/lib/auth/current-company";
 
 const methods = ["pix", "cash", "debit_card", "credit_card", "card_on_delivery", "online_card", "other"];
 
@@ -13,7 +13,7 @@ export async function updatePayment(formData: FormData) {
   const received = Number(formData.get("amountReceived") || 0);
   if (!orderId || !methods.includes(method) || !["pending", "paid", "canceled", "refunded"].includes(status)) return;
 
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("payments");
   const { data: order, error: orderError } = await supabase
     .from("orders")
     .select("id,total")

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getCurrentCompany } from "@/lib/auth/current-company";
+import { requirePlanModule } from "@/lib/auth/current-company";
 
 const allowedTransitions: Record<string, string[]> = {
   new: ["accepted", "canceled"],
@@ -16,7 +16,7 @@ export async function advanceKitchenOrder(formData: FormData) {
   const nextStatus = String(formData.get("nextStatus") || "");
   if (!orderId || !allowedTransitions[currentStatus]?.includes(nextStatus)) return;
 
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("kitchen");
   const timestamps: Record<string, string> = {
     accepted: "accepted_at",
     preparing: "started_at",

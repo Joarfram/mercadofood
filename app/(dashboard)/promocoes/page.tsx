@@ -1,4 +1,4 @@
-import { getCurrentCompany } from "@/lib/auth/current-company";
+import { requirePlanModule } from "@/lib/auth/current-company";
 import { createCoupon, createPromotion, toggleCoupon, togglePromotion } from "./actions";
 
 function money(v:number|string|null|undefined){return new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(Number(v||0))}
@@ -6,7 +6,7 @@ function date(v:string|null|undefined){return v?new Date(v).toLocaleDateString("
 
 export default async function PromocoesPage({searchParams}:{searchParams:Promise<{erro?:string;sucesso?:string}>}){
   const query=await searchParams;
-  const {supabase,company}=await getCurrentCompany();
+  const {supabase,company}=await requirePlanModule("promotions");
   const [{data:coupons},{data:promotions},{data:redemptions}]=await Promise.all([
     supabase.from("coupons").select("*").eq("company_id",company.id).order("created_at",{ascending:false}),
     supabase.from("promotions").select("*").eq("company_id",company.id).order("created_at",{ascending:false}),

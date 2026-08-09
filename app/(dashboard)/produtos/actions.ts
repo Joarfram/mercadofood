@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { getCurrentCompany } from "@/lib/auth/current-company";
+import { requirePlanModule } from "@/lib/auth/current-company";
 
 const productSchema = z.object({
   name: z.string().trim().min(2, "Informe o nome do produto."),
@@ -23,7 +23,7 @@ const updateProductSchema = productSchema.extend({
 export async function createCategory(formData: FormData) {
   const name = String(formData.get("name") || "").trim();
   if (name.length < 2) redirect("/produtos?erro=Informe%20uma%20categoria%20válida");
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("products");
   const { data: lastCategory } = await supabase
     .from("categories")
     .select("sort_order")
@@ -47,7 +47,7 @@ export async function updateCategory(formData: FormData) {
   if (!z.string().uuid().safeParse(categoryId).success || name.length < 2) {
     redirect("/produtos?erro=Informe%20uma%20categoria%20válida");
   }
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("products");
   const { error } = await supabase
     .from("categories")
     .update({ name, updated_at: new Date().toISOString() })
@@ -63,7 +63,7 @@ export async function toggleCategory(formData: FormData) {
   const categoryId = String(formData.get("categoryId") || "");
   const nextActive = String(formData.get("nextActive") || "") === "true";
   if (!z.string().uuid().safeParse(categoryId).success) redirect("/produtos?erro=Categoria%20inválida");
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("products");
   const { error } = await supabase
     .from("categories")
     .update({ is_active: nextActive, updated_at: new Date().toISOString() })
@@ -78,7 +78,7 @@ export async function toggleCategory(formData: FormData) {
 export async function deleteCategory(formData: FormData) {
   const categoryId = String(formData.get("categoryId") || "");
   if (!z.string().uuid().safeParse(categoryId).success) redirect("/produtos?erro=Categoria%20inválida");
-  const { supabase, company, role } = await getCurrentCompany();
+  const { supabase, company, role } = await requirePlanModule("products");
   if (role !== "owner" && role !== "manager") {
     redirect("/produtos?erro=Somente%20o%20propriet%C3%A1rio%20ou%20gerente%20pode%20excluir%20uma%20categoria");
   }
@@ -143,7 +143,7 @@ export async function createProduct(formData: FormData) {
   });
   if (!parsed.success) redirect(`/produtos?erro=${encodeURIComponent(parsed.error.issues[0]?.message || "Dados inválidos")}`);
 
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("products");
   const { error } = await supabase.from("products").insert({
     company_id: company.id,
     name: parsed.data.name,
@@ -178,7 +178,7 @@ export async function updateProduct(formData: FormData) {
     redirect("/produtos?erro=O%20preço%20promocional%20deve%20ser%20menor%20que%20o%20preço%20normal");
   }
 
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("products");
   const { error } = await supabase
     .from("products")
     .update({
@@ -203,7 +203,7 @@ export async function updateProduct(formData: FormData) {
 export async function deleteProduct(formData: FormData) {
   const productId = String(formData.get("productId") || "");
   if (!z.string().uuid().safeParse(productId).success) redirect("/produtos?erro=Produto%20inválido");
-  const { supabase, company, role } = await getCurrentCompany();
+  const { supabase, company, role } = await requirePlanModule("products");
   if (role !== "owner" && role !== "manager") {
     redirect("/produtos?erro=Somente%20o%20propriet%C3%A1rio%20ou%20gerente%20pode%20excluir%20um%20produto");
   }
@@ -245,7 +245,7 @@ export async function deleteProduct(formData: FormData) {
 export async function toggleProduct(formData: FormData) {
   const productId = String(formData.get("productId") || "");
   const nextStatus = String(formData.get("nextStatus") || "unavailable");
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("products");
   await supabase.from("products").update({ availability_status: nextStatus }).eq("id", productId).eq("company_id", company.id);
   revalidatePath("/produtos");
 }

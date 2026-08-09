@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getCurrentCompany } from "@/lib/auth/current-company";
+import { requirePlanModule } from "@/lib/auth/current-company";
 import { companyRoles } from "@/lib/auth/permissions";
 import { isPlanCode, plans } from "@/lib/billing/plans";
 
@@ -11,7 +11,7 @@ function appUrl() {
 }
 
 export async function createInvite(formData: FormData) {
-  const { supabase, user, company, role } = await getCurrentCompany();
+  const { supabase, user, company, role } = await requirePlanModule("team");
   if (!(["owner", "manager"] as string[]).includes(role)) redirect("/sem-permissao");
 
   const email = String(formData.get("email") || "").trim().toLowerCase();
@@ -46,7 +46,7 @@ export async function createInvite(formData: FormData) {
 }
 
 export async function updateMember(formData: FormData) {
-  const { supabase, company, role } = await getCurrentCompany();
+  const { supabase, company, role } = await requirePlanModule("team");
   if (!(["owner", "manager"] as string[]).includes(role)) redirect("/sem-permissao");
 
   const memberId = String(formData.get("memberId") || "");
@@ -63,7 +63,7 @@ export async function updateMember(formData: FormData) {
 }
 
 export async function cancelInvite(formData: FormData) {
-  const { supabase, company, role } = await getCurrentCompany();
+  const { supabase, company, role } = await requirePlanModule("team");
   if (!(["owner", "manager"] as string[]).includes(role)) redirect("/sem-permissao");
   const inviteId = String(formData.get("inviteId") || "");
   await supabase.from("company_invites").delete().eq("id", inviteId).eq("company_id", company.id);

@@ -1,4 +1,4 @@
-# MercadoFood v2.7
+# MercadoFood v2.8
 
 ## Novidades da versão
 
@@ -51,7 +51,7 @@ repositório.
 
 No Supabase, aplique os arquivos de `supabase/migrations` em ordem crescente
 pelo prefixo numérico, de `0001_initial_schema.sql` até
-`0031_plan_change_requests.sql`. A sequência não possui um arquivo `0013`;
+`0038_staff_order_transaction.sql`. A sequência não possui um arquivo `0013`;
 isso é intencional e não impede a execução. Não execute `0024` antes das
 anteriores, pois ela depende das tabelas `companies` e `company_members`.
 

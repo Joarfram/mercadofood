@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getCurrentCompany } from "@/lib/auth/current-company";
+import { requirePlanModule } from "@/lib/auth/current-company";
 
 function num(value: FormDataEntryValue | null, fallback = 0) {
   const parsed = Number(String(value ?? fallback).replace(",", "."));
@@ -10,7 +10,7 @@ function num(value: FormDataEntryValue | null, fallback = 0) {
 }
 
 export async function createCoupon(formData: FormData) {
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("promotions");
   const code = String(formData.get("code") || "").trim().toUpperCase().replace(/\s+/g, "");
   const name = String(formData.get("name") || "").trim();
   const discountType = String(formData.get("discountType") || "percentage");
@@ -36,7 +36,7 @@ export async function createCoupon(formData: FormData) {
 }
 
 export async function createPromotion(formData: FormData) {
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("promotions");
   const title = String(formData.get("title") || "").trim();
   if (title.length < 3) redirect("/promocoes?erro=Informe o título da promoção.");
   const { error } = await supabase.from("promotions").insert({
@@ -54,7 +54,7 @@ export async function createPromotion(formData: FormData) {
 }
 
 export async function toggleCoupon(formData: FormData) {
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("promotions");
   const id = String(formData.get("id") || "");
   const active = String(formData.get("active")) === "true";
   await supabase.from("coupons").update({ is_active: !active, updated_at: new Date().toISOString() }).eq("id", id).eq("company_id", company.id);
@@ -62,7 +62,7 @@ export async function toggleCoupon(formData: FormData) {
 }
 
 export async function togglePromotion(formData: FormData) {
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("promotions");
   const id = String(formData.get("id") || "");
   const active = String(formData.get("active")) === "true";
   await supabase.from("promotions").update({ is_active: !active, updated_at: new Date().toISOString() }).eq("id", id).eq("company_id", company.id);

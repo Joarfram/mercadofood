@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getCurrentCompany } from "@/lib/auth/current-company";
+import { requirePlanModule } from "@/lib/auth/current-company";
 import { createOption, createOptionGroup, toggleGroup, toggleOption, updateOption, updateOptionGroup } from "./actions";
 import { DeleteGroupForm, DeleteOptionForm } from "./delete-controls";
 
@@ -8,7 +8,7 @@ const money = (value: number | string | null) => new Intl.NumberFormat("pt-BR", 
 export default async function ComplementosPage({ params, searchParams }: { params: Promise<{ productId: string }>; searchParams: Promise<{ erro?: string; sucesso?: string }> }) {
   const { productId } = await params;
   const query = await searchParams;
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("products");
   const [{ data: product }, { data: groups }] = await Promise.all([
     supabase.from("products").select("id, name, base_price").eq("id", productId).eq("company_id", company.id).single(),
     supabase.from("product_option_groups").select("id, name, description, group_type, min_selection, max_selection, free_selection, is_active, product_options(id, name, price_delta, max_quantity, is_active)").eq("product_id", productId).eq("company_id", company.id).order("sort_order"),

@@ -2,13 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getCurrentCompany } from "@/lib/auth/current-company";
+import { requirePlanModule } from "@/lib/auth/current-company";
 import { buildPixPayload } from "@/lib/payments/pix";
 
 export async function generatePix(formData: FormData) {
   const orderId = String(formData.get("orderId") || "");
   if (!orderId) return;
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("payments");
   const [{ data: order }, { data: settings }] = await Promise.all([
     supabase.from("orders").select("id,order_number,total").eq("id", orderId).eq("company_id", company.id).single(),
     supabase.from("company_pix_settings").select("pix_key,merchant_name,merchant_city,description,is_active").eq("company_id", company.id).maybeSingle(),

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getCurrentCompany } from "@/lib/auth/current-company";
+import { requirePlanModule } from "@/lib/auth/current-company";
 
 function amount(value: FormDataEntryValue | null) {
   const parsed = Number(String(value || "0").replace(",", "."));
@@ -10,7 +10,7 @@ function amount(value: FormDataEntryValue | null) {
 }
 
 export async function createIngredient(formData: FormData) {
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("stock");
   const name = String(formData.get("name") || "").trim();
   const unit = String(formData.get("unit") || "un");
   const currentStock = amount(formData.get("currentStock"));
@@ -24,7 +24,7 @@ export async function createIngredient(formData: FormData) {
 }
 
 export async function addInventoryMovement(formData: FormData) {
-  const { supabase, company, user } = await getCurrentCompany();
+  const { supabase, company, user } = await requirePlanModule("stock");
   const ingredientId = String(formData.get("ingredientId") || "");
   const type = String(formData.get("movementType") || "entry");
   const quantityInput = amount(formData.get("quantity"));
@@ -44,7 +44,7 @@ export async function addInventoryMovement(formData: FormData) {
 }
 
 export async function saveRecipeItem(formData: FormData) {
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("stock");
   const productId = String(formData.get("productId") || "");
   const ingredientId = String(formData.get("ingredientId") || "");
   const quantity = amount(formData.get("quantity"));
@@ -56,7 +56,7 @@ export async function saveRecipeItem(formData: FormData) {
 }
 
 export async function removeRecipeItem(formData: FormData) {
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("stock");
   const id = String(formData.get("recipeItemId") || "");
   await supabase.from("recipe_items").delete().eq("id", id).eq("company_id", company.id);
   revalidatePath("/estoque");

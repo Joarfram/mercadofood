@@ -1,5 +1,5 @@
 import { createOrder, updateOrderStatus } from "./actions";
-import { getCurrentCompany } from "@/lib/auth/current-company";
+import { requirePlanModule } from "@/lib/auth/current-company";
 
 const labels: Record<string,string> = { new:"Novo", accepted:"Aceito", preparing:"Em preparo", ready:"Pronto", out_for_delivery:"Em entrega", delivered:"Entregue", canceled:"Cancelado" };
 const next: Record<string,string | undefined> = { new:"accepted", accepted:"preparing", preparing:"ready", ready:"out_for_delivery", out_for_delivery:"delivered" };
@@ -7,7 +7,8 @@ function money(value: number | string | null) { return new Intl.NumberFormat("pt
 
 export default async function PedidosPage({ searchParams }: { searchParams: Promise<{ erro?: string; sucesso?: string }> }) {
   const query = await searchParams;
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("orders");
+  const idempotencyKey = crypto.randomUUID();
   const [{ data: products }, { data: orders }] = await Promise.all([
     supabase.from("products").select("id, name, base_price").eq("company_id", company.id).eq("availability_status", "available").eq("is_active", true).order("name"),
     supabase.from("orders").select("id, order_number, customer_name, customer_phone, status, service_type, subtotal, discount_amount, total, coupon_code, loyalty_points_redeemed, payment_method, payment_status, change_amount, created_at, order_items(product_name, quantity)").eq("company_id", company.id).order("created_at", { ascending:false }).limit(50),
@@ -20,6 +21,7 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
 
     <section className="grid gap-5 xl:grid-cols-[380px_1fr]">
       <form action={createOrder} className="h-fit rounded-2xl border bg-white p-5 shadow-sm">
+        <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
         <h2 className="text-xl font-bold">Novo pedido</h2>
         <label className="mt-4 block text-sm font-semibold">Cliente</label><input name="customerName" required className="mt-1 w-full rounded-xl border px-3 py-3" />
         <label className="mt-3 block text-sm font-semibold">WhatsApp</label><input name="customerPhone" className="mt-1 w-full rounded-xl border px-3 py-3" placeholder="79 99999-9999" />

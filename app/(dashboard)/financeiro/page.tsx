@@ -53,7 +53,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
   const totalSales = (paidOrders || []).reduce((s, o) => s + Number(o.total), 0);
   const expectedCash = opening + cashSales + manualIn - manualOut;
 
-  return <main className="space-y-6">
+  return <main className="min-w-0 max-w-full space-y-6">
     <header>
       <p className="text-sm font-semibold text-emerald-700">Controle diário</p>
       <h1 className="text-3xl font-bold">Caixa e pagamentos</h1>
@@ -80,7 +80,7 @@ export default async function FinanceiroPage({ searchParams }: { searchParams: P
 
       <CashRegister sessionId={session.id} products={posProducts}/>
 
-      <section id="pagamentos" className="scroll-mt-5 rounded-3xl border bg-white p-5 shadow-sm">
+      <section id="pagamentos" className="min-w-0 max-w-full scroll-mt-5 overflow-hidden rounded-3xl border bg-white p-4 shadow-sm sm:p-5">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><p className="text-sm font-bold uppercase tracking-wide text-emerald-700">Pedidos e recebimentos</p><h2 className="text-2xl font-black">Pagamentos</h2><p className="text-sm text-gray-500">Os pendentes aparecem primeiro. Atualize a forma, o valor recebido e o status.</p></div><div className="rounded-2xl bg-orange-50 px-5 py-3 text-right"><p className="text-xs font-semibold text-orange-700">A receber</p><strong className="text-2xl text-orange-700">{money(pendingTotal)}</strong><p className="text-xs text-orange-700">{pendingPayments.length} pedido(s)</p></div></div>
         <div className="mt-5 space-y-3">
           {!orderedPayments.length && <p className="rounded-xl bg-gray-50 p-5 text-sm text-gray-500">Nenhum pagamento registrado.</p>}

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getCurrentCompany } from "@/lib/auth/current-company";
+import { requirePlanModule } from "@/lib/auth/current-company";
 
 function numberValue(value: FormDataEntryValue | null, fallback = 0) {
   const parsed = Number(String(value ?? fallback).replace(",", "."));
@@ -10,7 +10,7 @@ function numberValue(value: FormDataEntryValue | null, fallback = 0) {
 }
 
 export async function createCustomer(formData: FormData) {
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("customers");
   const name = String(formData.get("name") || "").trim();
   const phone = String(formData.get("phone") || "").replace(/\D/g, "");
   const email = String(formData.get("email") || "").trim() || null;
@@ -25,7 +25,7 @@ export async function createCustomer(formData: FormData) {
 }
 
 export async function saveLoyaltySettings(formData: FormData) {
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("customers");
   const payload = {
     company_id: company.id,
     is_enabled: formData.get("isEnabled") === "on",
@@ -44,7 +44,7 @@ export async function saveLoyaltySettings(formData: FormData) {
 }
 
 export async function adjustCustomerPoints(formData: FormData) {
-  const { supabase, company, user } = await getCurrentCompany();
+  const { supabase, company, user } = await requirePlanModule("customers");
   const customerId = String(formData.get("customerId") || "");
   const points = Math.trunc(numberValue(formData.get("points")));
   const description = String(formData.get("description") || "Ajuste manual").trim();

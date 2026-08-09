@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { getCurrentCompany } from "@/lib/auth/current-company";
+import { requirePlanModule } from "@/lib/auth/current-company";
 
 const groupSchema = z.object({
   productId: z.string().uuid(),
@@ -35,7 +35,7 @@ export async function createOptionGroup(formData: FormData) {
   if (parsed.data.minSelection > parsed.data.maxSelection) {
     redirect(`/produtos/${parsed.data.productId}/complementos?erro=${encodeURIComponent("O mínimo não pode ser maior que o máximo")}`);
   }
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("products");
   const { error } = await supabase.from("product_option_groups").insert({
     company_id: company.id,
     product_id: parsed.data.productId,
@@ -65,7 +65,7 @@ export async function updateOptionGroup(formData: FormData) {
   });
   if (!parsed.success || !z.string().uuid().safeParse(groupId).success) redirect("/produtos?erro=Dados%20inválidos");
   if (parsed.data.minSelection > parsed.data.maxSelection) redirect(`/produtos/${parsed.data.productId}/complementos?erro=${encodeURIComponent("O mínimo não pode ser maior que o máximo")}`);
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("products");
   const { error } = await supabase.from("product_option_groups").update({
     name: parsed.data.name,
     description: parsed.data.description || null,
@@ -83,7 +83,7 @@ export async function deleteOptionGroup(formData: FormData) {
   const productId = String(formData.get("productId") || "");
   const groupId = String(formData.get("groupId") || "");
   if (!z.string().uuid().safeParse(productId).success || !z.string().uuid().safeParse(groupId).success) redirect("/produtos?erro=Dados%20inválidos");
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("products");
   const { error } = await supabase.from("product_option_groups").delete().eq("id", groupId).eq("product_id", productId).eq("company_id", company.id);
   if (error) redirect(`/produtos/${productId}/complementos?erro=${encodeURIComponent(error.message)}`);
   revalidatePath(`/produtos/${productId}/complementos`);
@@ -99,7 +99,7 @@ export async function createOption(formData: FormData) {
   if (!productId || !groupId || name.length < 2 || !Number.isFinite(priceDelta) || priceDelta < 0) {
     redirect(`/produtos/${productId}/complementos?erro=${encodeURIComponent("Preencha a opção corretamente")}`);
   }
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("products");
   const { error } = await supabase.from("product_options").insert({
     company_id: company.id,
     group_id: groupId,
@@ -120,7 +120,7 @@ export async function updateOption(formData: FormData) {
   const priceDelta = parseMoney(formData.get("priceDelta"));
   const maxQuantity = Number(formData.get("maxQuantity") || 1);
   if (!z.string().uuid().safeParse(productId).success || !z.string().uuid().safeParse(optionId).success || name.length < 2 || !Number.isFinite(priceDelta) || priceDelta < 0 || !Number.isInteger(maxQuantity) || maxQuantity < 1) redirect(`/produtos/${productId}/complementos?erro=${encodeURIComponent("Preencha a opção corretamente")}`);
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("products");
   const { error } = await supabase.from("product_options").update({ name, price_delta: priceDelta, max_quantity: maxQuantity }).eq("id", optionId).eq("company_id", company.id);
   if (error) redirect(`/produtos/${productId}/complementos?erro=${encodeURIComponent(error.message)}`);
   revalidatePath(`/produtos/${productId}/complementos`);
@@ -131,7 +131,7 @@ export async function deleteOption(formData: FormData) {
   const productId = String(formData.get("productId") || "");
   const optionId = String(formData.get("optionId") || "");
   if (!z.string().uuid().safeParse(productId).success || !z.string().uuid().safeParse(optionId).success) redirect("/produtos?erro=Dados%20inválidos");
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("products");
   const { error } = await supabase.from("product_options").delete().eq("id", optionId).eq("company_id", company.id);
   if (error) redirect(`/produtos/${productId}/complementos?erro=${encodeURIComponent(error.message)}`);
   revalidatePath(`/produtos/${productId}/complementos`);
@@ -142,7 +142,7 @@ export async function toggleGroup(formData: FormData) {
   const productId = String(formData.get("productId") || "");
   const groupId = String(formData.get("groupId") || "");
   const active = String(formData.get("active")) === "true";
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("products");
   await supabase.from("product_option_groups").update({ is_active: active }).eq("id", groupId).eq("company_id", company.id);
   revalidatePath(`/produtos/${productId}/complementos`);
 }
@@ -151,7 +151,7 @@ export async function toggleOption(formData: FormData) {
   const productId = String(formData.get("productId") || "");
   const optionId = String(formData.get("optionId") || "");
   const active = String(formData.get("active")) === "true";
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("products");
   await supabase.from("product_options").update({ is_active: active }).eq("id", optionId).eq("company_id", company.id);
   revalidatePath(`/produtos/${productId}/complementos`);
 }

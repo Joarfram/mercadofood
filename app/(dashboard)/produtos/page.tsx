@@ -1,5 +1,5 @@
 import { createCategory, createProduct, toggleProduct, updateProduct } from "./actions";
-import { getCurrentCompany } from "@/lib/auth/current-company";
+import { requirePlanModule } from "@/lib/auth/current-company";
 import { CategoryManager } from "./category-manager";
 import { MediaManager } from "@/components/media/media-manager";
 import type { MediaAsset } from "@/lib/media/types";
@@ -11,7 +11,7 @@ function money(value: number | string | null) {
 
 export default async function ProdutosPage({ searchParams }: { searchParams: Promise<{ erro?: string; sucesso?: string }> }) {
   const query = await searchParams;
-  const { supabase, company } = await getCurrentCompany();
+  const { supabase, company } = await requirePlanModule("products");
   const [{ data: categories }, { data: products }, { data: productAssets }] = await Promise.all([
     supabase.from("categories").select("id, name, is_active, sort_order").eq("company_id", company.id).order("sort_order").order("name"),
     supabase.from("products").select("id, name, description, base_price, promotional_price, preparation_time, availability_status, category_id, image_fit, image_position, categories(name)").eq("company_id", company.id).order("created_at", { ascending: false }),
