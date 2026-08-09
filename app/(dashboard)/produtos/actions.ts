@@ -159,6 +159,121 @@ export async function createProduct(formData: FormData) {
   redirect("/produtos?sucesso=Produto%20cadastrado");
 }
 
+const integratedProductSchema = z.object({
+  name: z.string().trim().min(2, "Informe o nome do produto."),
+  description: z.string().trim().max(500).optional(),
+  sku: z.string().trim().max(50).optional(),
+  basePrice: z.coerce.number().min(0.01, "Informe um preço válido."),
+  promotionalPrice: z.union([z.literal(""), z.coerce.number().min(0.01)]).optional(),
+  categoryId: z.string().uuid().optional().or(z.literal("")),
+  newCategory: z.string().trim().max(80).optional(),
+  preparationTime: z.coerce.number().int().min(0).max(240),
+  trackStock: z.boolean(),
+  stockQuantity: z.coerce.number().min(0),
+  minimumStock: z.coerce.number().min(0),
+  available: z.boolean(),
+  availableDelivery: z.boolean(),
+  availablePickup: z.boolean(),
+  availableDineIn: z.boolean(),
+});
+
+type AddonInput = { name: string; required?: boolean; min?: number; max?: number; options?: { name: string; price?: number }[] };
+type VariantInput = { name: string; price?: number; stock?: number };
+
+function parseJsonList<T>(value: FormDataEntryValue | null): T[] {
+  try {
+    const parsed = JSON.parse(String(value || "[]"));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function createIntegratedProduct(formData: FormData) {
+  const parsed = integratedProductSchema.safeParse({
+    name: formData.get("name"), description: formData.get("description"), sku: formData.get("sku"),
+    basePrice: formData.get("basePrice"), promotionalPrice: formData.get("promotionalPrice") || "",
+    categoryId: formData.get("categoryId"), newCategory: formData.get("newCategory"),
+    preparationTime: formData.get("preparationTime") || 0,
+    trackStock: formData.get("trackStock") === "on", stockQuantity: formData.get("stockQuantity") || 0,
+    minimumStock: formData.get("minimumStock") || 0, available: formData.get("available") === "on",
+    availableDelivery: formData.get("availableDelivery") === "on",
+    availablePickup: formData.get("availablePickup") === "on", availableDineIn: formData.get("availableDineIn") === "on",
+  });
+  if (!parsed.success) redirect(`/produtos?erro=${encodeURIComponent(parsed.error.issues[0]?.message || "Dados inválidos")}`);
+  if (parsed.data.promotionalPrice && Number(parsed.data.promotionalPrice) >= parsed.data.basePrice) {
+    redirect("/produtos?erro=O%20preço%20promocional%20deve%20ser%20menor%20que%20o%20preço%20normal");
+  }
+  if (!parsed.data.availableDelivery && !parsed.data.availablePickup && !parsed.data.availableDineIn) {
+    redirect("/produtos?erro=Selecione%20ao%20menos%20um%20canal%20de%20venda");
+  }
+
+  const addons = parseJsonList<AddonInput>(formData.get("addonsJson"));
+  const variants = parseJsonList<VariantInput>(formData.get("variantsJson"));
+  const { supabase, company, user } = await requirePlanModule("products");
+  let categoryId = parsed.data.categoryId || null;
+  if (!categoryId && parsed.data.newCategory && parsed.data.newCategory.length >= 2) {
+    const { data: category, error } = await supabase.from("categories").insert({ company_id: company.id, name: parsed.data.newCategory }).select("id").single();
+    if (error) redirect(`/produtos?erro=${encodeURIComponent(error.message)}`);
+    categoryId = category.id;
+  }
+
+  const { data: product, error } = await supabase.from("products").insert({
+    company_id: company.id, name: parsed.data.name, description: parsed.data.description || null,
+    sku: parsed.data.sku || null, base_price: parsed.data.basePrice,
+    promotional_price: parsed.data.promotionalPrice || null, category_id: categoryId,
+    preparation_time: parsed.data.preparationTime || null,
+    availability_status: parsed.data.available ? "available" : "unavailable", is_active: true,
+    track_stock: parsed.data.trackStock, stock_quantity: parsed.data.stockQuantity,
+    minimum_stock: parsed.data.minimumStock, available_delivery: parsed.data.availableDelivery,
+    available_pickup: parsed.data.availablePickup, available_dine_in: parsed.data.availableDineIn,
+  }).select("id").single();
+  if (error || !product) redirect(`/produtos?erro=${encodeURIComponent(error?.message || "Não foi possível criar o produto")}`);
+
+  for (const [groupIndex, group] of addons.entries()) {
+    const name = String(group.name || "").trim();
+    const options = (group.options || []).filter(option => String(option.name || "").trim());
+    if (!name || !options.length) continue;
+    const max = Math.max(1, Math.min(Number(group.max || 1), options.length));
+    const min = group.required ? Math.max(1, Math.min(Number(group.min || 1), max)) : 0;
+    const { data: createdGroup, error: groupError } = await supabase.from("product_option_groups").insert({
+      company_id: company.id, product_id: product.id, name, min_selection: min, max_selection: max,
+      sort_order: groupIndex, is_active: true,
+    }).select("id").single();
+    if (groupError || !createdGroup) continue;
+    await supabase.from("product_options").insert(options.map((option, index) => ({
+      company_id: company.id, group_id: createdGroup.id, name: String(option.name).trim(),
+      price_delta: Math.max(0, Number(option.price || 0)), sort_order: index, is_active: true,
+    })));
+  }
+
+  const cleanVariants = variants.filter(variant => String(variant.name || "").trim());
+  if (cleanVariants.length) await supabase.from("product_variants").insert(cleanVariants.map((variant, index) => ({
+    company_id: company.id, product_id: product.id, name: String(variant.name).trim(),
+    price_delta: Number(variant.price || 0), stock_quantity: Math.max(0, Number(variant.stock || 0)), sort_order: index,
+  })));
+
+  const image = formData.get("image");
+  if (image instanceof File && image.size > 0) {
+    if (image.size > 8 * 1024 * 1024 || !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(image.type)) {
+      redirect("/produtos?erro=A%20imagem%20deve%20ser%20JPG,%20PNG,%20WEBP%20ou%20GIF%20com%20até%208MB");
+    }
+    const extension = image.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+    const storagePath = `${company.id}/product/${product.id}/${crypto.randomUUID()}.${extension}`;
+    const { error: uploadError } = await supabase.storage.from("company-media").upload(storagePath, await image.arrayBuffer(), { contentType: image.type, upsert: false });
+    if (!uploadError) {
+      const { data: url } = supabase.storage.from("company-media").getPublicUrl(storagePath);
+      await supabase.from("media_assets").insert({ company_id: company.id, entity_type: "product", entity_id: product.id,
+        kind: "gallery", storage_path: storagePath, public_url: url.publicUrl, alt_text: parsed.data.name,
+        mime_type: image.type, byte_size: image.size, sort_order: 0, created_by: user.id });
+    }
+  }
+
+  revalidatePath("/produtos");
+  revalidatePath(`/cardapio/${company.slug}`);
+  redirect("/produtos?sucesso=Produto%20cadastrado%20com%20todas%20as%20configurações");
+}
+
 export async function updateProduct(formData: FormData) {
   const parsed = updateProductSchema.safeParse({
     productId: formData.get("productId"),

@@ -16,6 +16,7 @@ type TrackingData = {
   order_number: string;
   customer_name: string;
   driver_name?: string | null;
+  confirmation_code?: string | null;
   delivery_address?: { neighborhood?: string | null; city?: string | null } | null;
   started_at?: string | null;
   completed_at?: string | null;
@@ -108,6 +109,12 @@ export function CustomerTracking({ code }: { code: string }) {
       <h1 className="mt-1 text-2xl font-bold">{isCompleted ? "Pedido entregue!" : isDelivering ? "Seu pedido está a caminho" : "Estamos preparando sua entrega"}</h1>
       <p className="mt-2 text-sm text-emerald-100">Olá, {data.customer_name}. Esta página atualiza automaticamente.</p>
     </section>
+
+    {isDelivering && data.confirmation_code && <section className="rounded-3xl border-2 border-orange-300 bg-orange-50 p-5 text-center shadow-sm">
+      <p className="text-sm font-bold uppercase tracking-wide text-orange-700">Código para receber o pedido</p>
+      <p className="mt-2 text-4xl font-black tracking-[0.25em] text-slate-900">{data.confirmation_code}</p>
+      <p className="mt-3 text-sm text-orange-900">Informe este código ao entregador somente quando ele chegar com seu pedido.</p>
+    </section>}
 
     <section className="rounded-3xl bg-white p-5 shadow-sm">
       <div className="grid grid-cols-4 gap-2">

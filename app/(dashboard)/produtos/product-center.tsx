@@ -1,0 +1,96 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { ImagePlus, Package, Plus, Search, Store, Trash2, X } from "lucide-react";
+import { createIntegratedProduct, toggleProduct } from "./actions";
+
+type Category = { id: string; name: string; is_active: boolean };
+type Product = { id: string; name: string; description: string | null; base_price: number | string; promotional_price: number | string | null; availability_status: string; category_id: string | null; sku?: string | null; stock_quantity?: number | string; track_stock?: boolean; categories: { name: string } | { name: string }[] | null };
+type Addon = { name: string; required: boolean; min: number; max: number; options: { name: string; price: number }[] };
+type Variant = { name: string; price: number; stock: number };
+
+const money = (value: number | string | null) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value || 0));
+
+export function ProductCenter({ categories, products }: { categories: Category[]; products: Product[] }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("all");
+  const [addons, setAddons] = useState<Addon[]>([]);
+  const [variants, setVariants] = useState<Variant[]>([]);
+  const filtered = useMemo(() => products.filter(product => {
+    const matchesText = `${product.name} ${product.description || ""} ${product.sku || ""}`.toLowerCase().includes(search.toLowerCase());
+    return matchesText && (category === "all" || product.category_id === category);
+  }), [products, search, category]);
+  const active = products.filter(product => product.availability_status === "available").length;
+  const lowStock = products.filter(product => product.track_stock && Number(product.stock_quantity || 0) <= 5).length;
+
+  function close() { setOpen(false); setAddons([]); setVariants([]); }
+  function addAddon() { setAddons(items => [...items, { name: "", required: false, min: 0, max: 1, options: [{ name: "", price: 0 }] }]); }
+
+  return <>
+    <section className="grid gap-3 sm:grid-cols-3">
+      <div className="rounded-2xl border bg-white p-4 shadow-sm"><p className="text-sm text-slate-500">Produtos cadastrados</p><strong className="mt-1 block text-2xl text-slate-900">{products.length}</strong></div>
+      <div className="rounded-2xl border bg-white p-4 shadow-sm"><p className="text-sm text-slate-500">Disponíveis para venda</p><strong className="mt-1 block text-2xl text-emerald-700">{active}</strong></div>
+      <div className="rounded-2xl border bg-white p-4 shadow-sm"><p className="text-sm text-slate-500">Estoque baixo</p><strong className="mt-1 block text-2xl text-orange-600">{lowStock}</strong></div>
+    </section>
+
+    <section className="rounded-2xl border bg-white shadow-sm">
+      <div className="flex flex-col gap-3 border-b p-4 lg:flex-row lg:items-center">
+        <div className="relative flex-1"><Search className="absolute left-3 top-3.5 text-slate-400" size={18}/><input value={search} onChange={e => setSearch(e.target.value)} className="w-full rounded-xl border py-3 pl-10 pr-3" placeholder="Buscar produto, descrição ou SKU"/></div>
+        <select value={category} onChange={e => setCategory(e.target.value)} className="rounded-xl border px-3 py-3"><option value="all">Todas as categorias</option>{categories.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+        <button onClick={() => setOpen(true)} className="flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 font-bold text-white shadow-sm hover:bg-emerald-800"><Plus size={18}/>Novo produto</button>
+      </div>
+      <div className="divide-y">
+        {!filtered.length && <div className="p-10 text-center text-slate-500"><Package className="mx-auto mb-3"/><p>Nenhum produto encontrado.</p></div>}
+        {filtered.map(product => {
+          const cat = Array.isArray(product.categories) ? product.categories[0] : product.categories;
+          const available = product.availability_status === "available";
+          return <article key={product.id} className="flex flex-col gap-4 p-4 md:flex-row md:items-center">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700"><Store size={24}/></div>
+            <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-bold text-slate-900">{product.name}</h3><span className={`rounded-full px-2 py-1 text-xs font-semibold ${available ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{available ? "Disponível" : "Pausado"}</span></div><p className="truncate text-sm text-slate-500">{cat?.name || "Sem categoria"}{product.sku ? ` • SKU ${product.sku}` : ""}</p></div>
+            <strong className="text-slate-900">{money(product.promotional_price || product.base_price)}</strong>
+            <div className="flex gap-2"><a href={`/produtos/${product.id}/complementos`} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-700">Adicionais</a><form action={toggleProduct}><input type="hidden" name="productId" value={product.id}/><input type="hidden" name="nextStatus" value={available ? "unavailable" : "available"}/><button className="rounded-xl border px-3 py-2 text-sm font-semibold">{available ? "Pausar" : "Ativar"}</button></form></div>
+          </article>;
+        })}
+      </div>
+    </section>
+
+    {open && <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/55 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Novo produto">
+      <form action={createIntegratedProduct} className="flex max-h-[96vh] w-full max-w-6xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
+        <input type="hidden" name="addonsJson" value={JSON.stringify(addons)}/><input type="hidden" name="variantsJson" value={JSON.stringify(variants)}/>
+        <header className="flex items-center justify-between border-b px-5 py-4 sm:px-7"><div><p className="text-xs font-bold uppercase tracking-wider text-orange-600">Cadastro integrado</p><h2 className="text-xl font-bold text-slate-900">Novo produto</h2></div><button type="button" onClick={close} className="rounded-full p-2 hover:bg-slate-100" aria-label="Fechar"><X/></button></header>
+        <div className="overflow-y-auto p-5 sm:p-7">
+          <div className="grid gap-5 lg:grid-cols-2">
+            <fieldset className="space-y-4 rounded-2xl border p-4"><legend className="px-2 font-bold text-emerald-800">1. Informações principais</legend>
+              <label className="block text-sm font-semibold">Categoria<select name="categoryId" className="mt-1 w-full rounded-xl border p-3"><option value="">Sem categoria</option>{categories.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+              <label className="block text-sm font-semibold">Ou crie uma categoria<input name="newCategory" className="mt-1 w-full rounded-xl border p-3 font-normal" placeholder="Ex.: Hambúrgueres"/></label>
+              <label className="block text-sm font-semibold">Nome do produto<input name="name" required minLength={2} className="mt-1 w-full rounded-xl border p-3 font-normal" placeholder="Ex.: Acarajé completo"/></label>
+              <label className="block text-sm font-semibold">Código interno (SKU)<div className="mt-1 flex gap-2"><input name="sku" className="min-w-0 flex-1 rounded-xl border p-3 font-normal" placeholder="Ex.: ACA-001"/><button type="button" onClick={e => { const input = e.currentTarget.previousElementSibling as HTMLInputElement; input.value = `MF-${Date.now().toString().slice(-6)}`; }} className="rounded-xl border border-orange-300 px-3 text-sm text-orange-700">Gerar</button></div></label>
+              <label className="block text-sm font-semibold">Descrição<textarea name="description" maxLength={500} rows={4} className="mt-1 w-full rounded-xl border p-3 font-normal" placeholder="Ingredientes, tamanho e detalhes"/></label>
+            </fieldset>
+            <fieldset className="space-y-4 rounded-2xl border p-4"><legend className="px-2 font-bold text-emerald-800">2. Foto, preço e preparo</legend>
+              <label className="flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-emerald-200 bg-emerald-50/50 text-center"><ImagePlus className="mb-2 text-emerald-700"/><span className="font-semibold">Escolher foto do produto</span><small className="text-slate-500">JPG, PNG, WEBP ou GIF até 8 MB</small><input name="image" type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="sr-only"/></label>
+              <div className="grid grid-cols-2 gap-3"><label className="text-sm font-semibold">Preço de venda<input name="basePrice" type="number" min="0.01" step="0.01" required className="mt-1 w-full rounded-xl border p-3 font-normal" placeholder="0,00"/></label><label className="text-sm font-semibold">Preço promocional<input name="promotionalPrice" type="number" min="0.01" step="0.01" className="mt-1 w-full rounded-xl border p-3 font-normal" placeholder="Opcional"/></label></div>
+              <label className="block text-sm font-semibold">Tempo de preparo (minutos)<input name="preparationTime" type="number" min="0" max="240" defaultValue="20" className="mt-1 w-full rounded-xl border p-3 font-normal"/></label>
+            </fieldset>
+            <fieldset className="space-y-4 rounded-2xl border p-4"><legend className="px-2 font-bold text-emerald-800">3. Estoque e disponibilidade</legend>
+              <label className="flex items-center gap-2 font-semibold"><input name="trackStock" type="checkbox" className="h-4 w-4 accent-emerald-700"/>Controlar estoque deste produto</label>
+              <div className="grid grid-cols-2 gap-3"><label className="text-sm font-semibold">Quantidade<input name="stockQuantity" type="number" min="0" step="0.001" defaultValue="0" className="mt-1 w-full rounded-xl border p-3 font-normal"/></label><label className="text-sm font-semibold">Avisar quando restarem<input name="minimumStock" type="number" min="0" step="0.001" defaultValue="0" className="mt-1 w-full rounded-xl border p-3 font-normal"/></label></div>
+              <label className="flex items-center gap-2 font-semibold"><input name="available" type="checkbox" defaultChecked className="h-4 w-4 accent-emerald-700"/>Produto disponível para venda</label>
+              <div className="grid gap-2 sm:grid-cols-3"><label className="rounded-xl bg-emerald-50 p-3 text-sm font-semibold"><input name="availableDelivery" type="checkbox" defaultChecked className="mr-2 accent-emerald-700"/>Delivery</label><label className="rounded-xl bg-emerald-50 p-3 text-sm font-semibold"><input name="availablePickup" type="checkbox" defaultChecked className="mr-2 accent-emerald-700"/>Retirada</label><label className="rounded-xl bg-emerald-50 p-3 text-sm font-semibold"><input name="availableDineIn" type="checkbox" defaultChecked className="mr-2 accent-emerald-700"/>No local</label></div>
+            </fieldset>
+            <fieldset className="space-y-4 rounded-2xl border p-4"><legend className="px-2 font-bold text-emerald-800">4. Variações (opcional)</legend>
+              {variants.map((variant, index) => <div key={index} className="grid grid-cols-[1fr_100px_90px_auto] gap-2"><input value={variant.name} onChange={e => setVariants(items => items.map((v,i) => i === index ? {...v,name:e.target.value} : v))} className="rounded-xl border p-2" placeholder="Ex.: Grande"/><input value={variant.price} type="number" step="0.01" onChange={e => setVariants(items => items.map((v,i) => i === index ? {...v,price:Number(e.target.value)} : v))} className="rounded-xl border p-2" title="Acréscimo"/><input value={variant.stock} type="number" min="0" onChange={e => setVariants(items => items.map((v,i) => i === index ? {...v,stock:Number(e.target.value)} : v))} className="rounded-xl border p-2" title="Estoque"/><button type="button" onClick={() => setVariants(items => items.filter((_,i) => i !== index))}><Trash2 size={17} className="text-red-600"/></button></div>)}
+              <button type="button" onClick={() => setVariants(items => [...items,{name:"",price:0,stock:0}])} className="rounded-xl border border-orange-300 px-3 py-2 text-sm font-semibold text-orange-700">+ Adicionar variação</button>
+            </fieldset>
+            <fieldset className="space-y-4 rounded-2xl border p-4 lg:col-span-2"><legend className="px-2 font-bold text-emerald-800">5. Adicionais e complementos (opcional)</legend>
+              {addons.map((group, groupIndex) => <div key={groupIndex} className="rounded-xl bg-slate-50 p-3"><div className="flex gap-2"><input value={group.name} onChange={e => setAddons(items => items.map((g,i) => i === groupIndex ? {...g,name:e.target.value} : g))} className="flex-1 rounded-xl border p-2" placeholder="Nome do grupo: Molhos"/><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={group.required} onChange={e => setAddons(items => items.map((g,i) => i === groupIndex ? {...g,required:e.target.checked} : g))}/>Obrigatório</label><button type="button" onClick={() => setAddons(items => items.filter((_,i) => i !== groupIndex))}><Trash2 size={17} className="text-red-600"/></button></div>{group.options.map((option, optionIndex) => <div key={optionIndex} className="mt-2 flex gap-2 pl-3"><input value={option.name} onChange={e => setAddons(items => items.map((g,i) => i === groupIndex ? {...g,options:g.options.map((o,j) => j === optionIndex ? {...o,name:e.target.value} : o)} : g))} className="flex-1 rounded-xl border p-2" placeholder="Opção: Molho especial"/><input value={option.price} onChange={e => setAddons(items => items.map((g,i) => i === groupIndex ? {...g,options:g.options.map((o,j) => j === optionIndex ? {...o,price:Number(e.target.value)} : o)} : g))} type="number" step="0.01" min="0" className="w-28 rounded-xl border p-2" placeholder="R$"/></div>)}<button type="button" onClick={() => setAddons(items => items.map((g,i) => i === groupIndex ? {...g,options:[...g.options,{name:"",price:0}],max:g.max+1} : g))} className="mt-2 text-sm font-semibold text-emerald-700">+ Opção</button></div>)}
+              <button type="button" onClick={addAddon} className="rounded-xl border border-orange-300 px-3 py-2 text-sm font-semibold text-orange-700">+ Criar grupo de adicionais</button>
+            </fieldset>
+          </div>
+        </div>
+        <footer className="flex justify-end gap-3 border-t bg-white px-5 py-4"><button type="button" onClick={close} className="rounded-xl border px-5 py-3 font-semibold">Cancelar</button><button className="rounded-xl bg-emerald-700 px-6 py-3 font-bold text-white hover:bg-emerald-800">Salvar produto</button></footer>
+      </form>
+    </div>}
+  </>;
+}

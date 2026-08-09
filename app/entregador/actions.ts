@@ -100,13 +100,12 @@ export async function confirmOwnPayout(formData: FormData) {
 const transitions: Record<string, { next: string; event: string; timestamp?: string }> = {
   accepted: { next: "to_store", event: "to_store" },
   to_store: { next: "waiting_pickup", event: "arrived_store", timestamp: "arrived_store_at" },
-  waiting_pickup: { next: "delivering", event: "picked_up", timestamp: "picked_up_at" },
-  delivering: { next: "completed", event: "completed", timestamp: "completed_at" },
 };
 
 export async function advanceOwnDelivery(formData: FormData) {
   const deliveryId = String(formData.get("deliveryId") || "");
   const currentStatus = String(formData.get("currentStatus") || "");
+  if (currentStatus === "waiting_pickup") return startOwnDelivery(formData);
   const transition = transitions[currentStatus];
   if (!transition) return;
   const { supabase, driver } = await currentDriver();
@@ -164,4 +163,53 @@ export async function advanceOwnDelivery(formData: FormData) {
   }
   revalidatePath("/entregador");
   if (transition.next === "completed") redirect("/entregador?entrega=concluida");
+}
+
+export async function startOwnDelivery(formData: FormData) {
+  const deliveryId = String(formData.get("deliveryId") || "");
+  const { supabase, driver } = await currentDriver();
+  const { data: delivery } = await supabase.from("deliveries")
+    .select("id, order_id, tracking_code, orders(order_number, customer_name, customer_phone), drivers(name), companies(name)")
+    .eq("id", deliveryId).eq("driver_id", driver.id).single();
+  if (!delivery) redirect("/entregador?erro=Entrega%20não%20encontrada");
+  const { data, error } = await supabase.rpc("start_delivery_with_confirmation", { p_delivery_id: deliveryId });
+  if (error) redirect(`/entregador?erro=${encodeURIComponent(error.message)}`);
+  const result = data as { ok?: boolean; confirmation_code?: string } | null;
+  if (!result?.ok || !result.confirmation_code) redirect("/entregador?erro=Não%20foi%20possível%20gerar%20o%20código");
+  const order = Array.isArray(delivery.orders) ? delivery.orders[0] : delivery.orders;
+  const driverInfo = Array.isArray(delivery.drivers) ? delivery.drivers[0] : delivery.drivers;
+  const company = Array.isArray(delivery.companies) ? delivery.companies[0] : delivery.companies;
+  await queueWhatsAppNotification({
+    supabase, companyId: driver.company_id, deliveryId: delivery.id, recipientType: "customer",
+    recipientName: order?.customer_name, phone: order?.customer_phone || "", template: "customer_out_for_delivery",
+    message: customerOutForDeliveryMessage({ customerName: order?.customer_name, orderNumber: order?.order_number || "—",
+      storeName: company?.name || "MercadoFood", driverName: driverInfo?.name,
+      trackingCode: delivery.tracking_code, confirmationCode: result.confirmation_code }),
+    metadata: { order_id: delivery.order_id, tracking_code: delivery.tracking_code },
+  });
+  revalidatePath("/entregador");
+  redirect("/entregador?sucesso=Pedido%20retirado.%20Código%20enviado%20ao%20cliente");
+}
+
+export async function confirmOwnDelivery(formData: FormData) {
+  const deliveryId = String(formData.get("deliveryId") || "");
+  const code = String(formData.get("confirmationCode") || "").replace(/\D/g, "");
+  if (code.length !== 6) redirect("/entregador?erro=Digite%20o%20código%20de%206%20dígitos");
+  const { supabase, driver } = await currentDriver();
+  const { data: delivery } = await supabase.from("deliveries")
+    .select("id, order_id, orders(order_number, customer_name, customer_phone), companies(name)")
+    .eq("id", deliveryId).eq("driver_id", driver.id).single();
+  if (!delivery) redirect("/entregador?erro=Entrega%20não%20encontrada");
+  const { data, error } = await supabase.rpc("confirm_delivery_with_code", { p_delivery_id: deliveryId, p_code: code });
+  if (error) redirect(`/entregador?erro=${encodeURIComponent(error.message)}`);
+  const result = data as { ok?: boolean; message?: string } | null;
+  if (!result?.ok) redirect(`/entregador?erro=${encodeURIComponent(result?.message || "Código inválido")}`);
+  const order = Array.isArray(delivery.orders) ? delivery.orders[0] : delivery.orders;
+  const company = Array.isArray(delivery.companies) ? delivery.companies[0] : delivery.companies;
+  await queueWhatsAppNotification({ supabase, companyId: driver.company_id, deliveryId: delivery.id,
+    recipientType: "customer", recipientName: order?.customer_name, phone: order?.customer_phone || "",
+    template: "customer_delivered", message: customerDeliveredMessage({ customerName: order?.customer_name,
+      orderNumber: order?.order_number || "—", storeName: company?.name || "MercadoFood" }), metadata: { order_id: delivery.order_id } });
+  revalidatePath("/entregador");
+  redirect("/entregador?entrega=concluida");
 }

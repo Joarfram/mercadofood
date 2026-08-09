@@ -58,11 +58,14 @@ export function customerOutForDeliveryMessage(input: {
   storeName: string;
   driverName?: string | null;
   trackingCode: string;
+  confirmationCode?: string;
 }) {
   return [
     `Olá, ${input.customerName?.split(" ")[0] || "cliente"}!`,
     `Seu pedido #${input.orderNumber} da ${input.storeName} saiu para entrega.`,
     input.driverName ? `Entregador: ${input.driverName.split(" ")[0]}` : null,
+    input.confirmationCode ? `Código de confirmação: ${input.confirmationCode}` : null,
+    input.confirmationCode ? "Informe este código somente quando o entregador chegar com o pedido." : null,
     "Acompanhe pelo link:",
     trackingUrl(input.trackingCode),
   ].filter(Boolean).join("\n");
