@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requirePlanModule } from "@/lib/auth/current-company";
+import { MonthlyCalendar, type DailyReport } from "./monthly-calendar";
 
 function money(value: number | string | null | undefined) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value || 0));
@@ -8,28 +9,34 @@ function percent(value: number) { return `${value.toFixed(1)}%`; }
 function isoStart(date: string) { return new Date(`${date}T00:00:00`).toISOString(); }
 function isoEnd(date: string) { return new Date(`${date}T23:59:59.999`).toISOString(); }
 
-export default async function RelatoriosPage({ searchParams }: { searchParams: Promise<{ inicio?: string; fim?: string }> }) {
+export default async function RelatoriosPage({ searchParams }: { searchParams: Promise<{ mes?: string }> }) {
   const query = await searchParams;
   const today = new Date();
-  const defaultStart = new Date(today); defaultStart.setDate(today.getDate() - 29);
-  const inicio = query.inicio || defaultStart.toISOString().slice(0,10);
-  const fim = query.fim || today.toISOString().slice(0,10);
+  const requestedMonth = /^\d{4}-\d{2}$/.test(query.mes || "") ? query.mes! : `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2,"0")}`;
+  const [year, monthNumber] = requestedMonth.split("-").map(Number);
+  const inicio = `${requestedMonth}-01`;
+  const fim = `${requestedMonth}-${String(new Date(year, monthNumber, 0).getDate()).padStart(2,"0")}`;
+  const previousDate = new Date(year, monthNumber - 2, 1);
+  const previousMonth = `${previousDate.getFullYear()}-${String(previousDate.getMonth() + 1).padStart(2,"0")}`;
+  const previousStart = `${previousMonth}-01`;
+  const previousEnd = `${previousMonth}-${String(new Date(previousDate.getFullYear(), previousDate.getMonth() + 1, 0).getDate()).padStart(2,"0")}`;
   const { supabase, company } = await requirePlanModule("reports");
 
-  const { data: orders } = await supabase.from("orders")
-    .select("id,order_number,status,payment_status,payment_method,total,delivery_fee,service_type,created_at,delivered_at,canceled_at")
-    .eq("company_id", company.id).gte("created_at", isoStart(inicio)).lte("created_at", isoEnd(fim)).order("created_at", { ascending: false });
+  const [{ data: orders }, { data: previousOrders }, { data: deliveries }, { data: movements }] = await Promise.all([
+    supabase.from("orders").select("id,order_number,status,payment_status,payment_method,total,discount,delivery_fee,service_type,created_at,delivered_at,canceled_at").eq("company_id", company.id).gte("created_at", isoStart(inicio)).lte("created_at", isoEnd(fim)).order("created_at", { ascending: false }),
+    supabase.from("orders").select("status,payment_status,total").eq("company_id", company.id).gte("created_at", isoStart(previousStart)).lte("created_at", isoEnd(previousEnd)),
+    supabase.from("deliveries").select("id,status,delivery_value,created_at,completed_at,driver:drivers(name)").eq("company_id", company.id).gte("created_at", isoStart(inicio)).lte("created_at", isoEnd(fim)),
+    supabase.from("cash_movements").select("movement_type,amount,occurred_at").eq("company_id", company.id).gte("occurred_at", isoStart(inicio)).lte("occurred_at", isoEnd(fim)),
+  ]);
 
   const ids = (orders || []).map(o => o.id);
   const { data: items } = ids.length ? await supabase.from("order_items")
     .select("order_id,product_name,quantity,total_price").eq("company_id", company.id).in("order_id", ids) : { data: [] as any[] };
-  const { data: deliveries } = await supabase.from("deliveries")
-    .select("id,status,delivery_value,created_at,completed_at,driver:drivers(name)")
-    .eq("company_id", company.id).gte("created_at", isoStart(inicio)).lte("created_at", isoEnd(fim));
-
   const valid = (orders || []).filter(o => o.status !== "canceled");
   const paid = valid.filter(o => o.payment_status === "paid");
   const revenue = paid.reduce((s,o) => s + Number(o.total), 0);
+  const previousRevenue = (previousOrders || []).filter(o => o.status !== "canceled" && o.payment_status === "paid").reduce((sum,o) => sum + Number(o.total), 0);
+  const revenueChange = previousRevenue ? (revenue - previousRevenue) / previousRevenue * 100 : revenue ? 100 : 0;
   const ticket = paid.length ? revenue / paid.length : 0;
   const delivered = valid.filter(o => o.status === "delivered").length;
   const canceled = (orders || []).filter(o => o.status === "canceled").length;
@@ -56,28 +63,68 @@ export default async function RelatoriosPage({ searchParams }: { searchParams: P
   const maxDayRevenue = Math.max(1,...days.map(([,v])=>v.revenue));
 
   const completedDeliveries = (deliveries || []).filter(d => d.status === "completed");
+  const monthlyExpenses = (movements || []).filter(movement => movement.movement_type === "expense").reduce((sum,movement) => sum + Number(movement.amount), 0);
+  const monthlyRefunds = (movements || []).filter(movement => movement.movement_type === "refund").reduce((sum,movement) => sum + Number(movement.amount), 0);
+  const monthlyDriverCost = completedDeliveries.reduce((sum,delivery) => sum + Number(delivery.delivery_value || 0), 0);
+  const monthlyNet = revenue - monthlyExpenses - monthlyRefunds - monthlyDriverCost;
   const avgMinutes = completedDeliveries.length ? completedDeliveries.reduce((sum,d)=> {
     if (!d.completed_at) return sum;
     return sum + (new Date(d.completed_at).getTime()-new Date(d.created_at).getTime())/60000;
   },0)/completedDeliveries.length : 0;
 
+  const dailyReports: DailyReport[] = days.map(([date]) => {
+    const dayOrders = (orders || []).filter(order => order.created_at.slice(0,10) === date);
+    const validOrders = dayOrders.filter(order => order.status !== "canceled");
+    const paidOrders = validOrders.filter(order => order.payment_status === "paid");
+    const dayMovements = (movements || []).filter(movement => movement.occurred_at.slice(0,10) === date);
+    const expenses = dayMovements.filter(movement => movement.movement_type === "expense").reduce((sum,movement) => sum + Number(movement.amount), 0);
+    const refunds = dayMovements.filter(movement => movement.movement_type === "refund").reduce((sum,movement) => sum + Number(movement.amount), 0);
+    const dayDeliveries = completedDeliveries.filter(delivery => delivery.created_at.slice(0,10) === date);
+    const driverCost = dayDeliveries.reduce((sum,delivery) => sum + Number(delivery.delivery_value || 0), 0);
+    const productTotals = new Map<string,{quantity:number,total:number}>();
+    const dayOrderIds = new Set(validOrders.map(order => order.id));
+    for (const item of items || []) if (dayOrderIds.has(item.order_id)) {
+      const current = productTotals.get(item.product_name) || { quantity:0, total:0 };
+      current.quantity += Number(item.quantity); current.total += Number(item.total_price); productTotals.set(item.product_name, current);
+    }
+    const payments = new Map<string,number>();
+    for (const order of paidOrders) payments.set(order.payment_method || "other", (payments.get(order.payment_method || "other") || 0) + Number(order.total));
+    const services = new Map<string,number>();
+    for (const order of validOrders) services.set(order.service_type || "other", (services.get(order.service_type || "other") || 0) + 1);
+    const received = paidOrders.reduce((sum,order) => sum + Number(order.total), 0);
+    return {
+      date,
+      sales: validOrders.reduce((sum,order) => sum + Number(order.total), 0),
+      received, expenses, refunds, driverCost, net: received - expenses - refunds - driverCost,
+      paid: paidOrders.length,
+      pending: validOrders.filter(order => order.payment_status !== "paid" && order.payment_status !== "canceled" && order.payment_status !== "refunded").length,
+      canceled: dayOrders.filter(order => order.status === "canceled").length,
+      orders: dayOrders.map(order => ({ number: order.order_number, time: new Date(order.created_at).toLocaleTimeString("pt-BR", {hour:"2-digit",minute:"2-digit"}), status: order.status, paymentStatus: order.payment_status, paymentMethod: order.payment_method || "other", serviceType: order.service_type || "other", total: Number(order.total) })),
+      products: [...productTotals.entries()].map(([name,value]) => ({ name, ...value })).sort((a,b) => b.quantity - a.quantity),
+      payments: [...payments.entries()].map(([name,total]) => ({name,total})).sort((a,b) => b.total - a.total),
+      services: [...services.entries()].map(([name,quantity]) => ({name,quantity})),
+    };
+  });
+
   return <main className="space-y-6">
     <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
       <div><p className="text-sm font-semibold text-emerald-700">Indicadores do negócio</p><h1 className="text-3xl font-bold">Relatórios</h1><p className="text-gray-500">Acompanhe vendas, produtos, pagamentos e entregas por período.</p></div>
       <form className="flex flex-wrap items-end gap-2 rounded-2xl border bg-white p-3 shadow-sm">
-        <label className="text-xs font-semibold text-gray-600">Início<input name="inicio" type="date" defaultValue={inicio} className="mt-1 block rounded-lg border px-3 py-2" /></label>
-        <label className="text-xs font-semibold text-gray-600">Fim<input name="fim" type="date" defaultValue={fim} className="mt-1 block rounded-lg border px-3 py-2" /></label>
-        <button className="rounded-lg bg-emerald-700 px-4 py-2 font-semibold text-white">Aplicar</button>
+        <label className="text-xs font-semibold text-gray-600">Mês do relatório<input name="mes" type="month" defaultValue={requestedMonth} className="mt-1 block rounded-lg border px-3 py-2" /></label>
+        <button className="rounded-lg bg-emerald-700 px-4 py-2 font-semibold text-white">Ver mês</button>
       </form>
     </header>
 
-    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-      <Card label="Faturamento recebido" value={money(revenue)} note={`${paid.length} pedidos pagos`} />
+    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+      <Card label="Faturamento recebido" value={money(revenue)} note={`${revenueChange >= 0 ? "+" : ""}${revenueChange.toFixed(1)}% sobre o mês anterior`} />
       <Card label="Ticket médio" value={money(ticket)} note="Por pedido pago" />
       <Card label="Pedidos" value={String(orders?.length || 0)} note={`${delivered} entregues`} />
       <Card label="Cancelamento" value={percent(cancelRate)} note={`${canceled} cancelados`} tone="orange" />
       <Card label="Tempo médio entrega" value={avgMinutes ? `${Math.round(avgMinutes)} min` : "—"} note={`${completedDeliveries.length} concluídas`} />
+      <Card label="Resultado líquido" value={money(monthlyNet)} note="Recebido menos despesas, estornos e motoboys" tone={monthlyNet < 0 ? "orange" : undefined} />
     </section>
+
+    <MonthlyCalendar month={requestedMonth} reports={dailyReports}/>
 
     <section className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
       <div className="rounded-2xl border bg-white p-5 shadow-sm">
