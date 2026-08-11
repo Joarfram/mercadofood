@@ -180,6 +180,24 @@ const integratedProductSchema = z.object({
 type AddonInput = { name: string; description?: string; required?: boolean; min?: number; max?: number; options?: { name: string; price?: number }[] };
 type VariantInput = { name: string; price?: number; stock?: number };
 
+const importedMenuSchema = z.array(z.object({
+  category: z.string().trim().max(80),
+  name: z.string().trim().min(2).max(120),
+  description: z.string().trim().max(500),
+  price: z.coerce.number().positive().max(1000000),
+})).min(1).max(100);
+
+export type MenuImportResult = {
+  ok: boolean;
+  message: string;
+  imported?: number;
+  skipped?: number;
+};
+
+function normalizeMenuText(value: string) {
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLocaleLowerCase("pt-BR");
+}
+
 function parseJsonList<T>(value: FormDataEntryValue | null): T[] {
   try {
     const parsed = JSON.parse(String(value || "[]"));
@@ -440,4 +458,83 @@ export async function toggleProduct(formData: FormData) {
   const { supabase, company } = await requirePlanModule("products");
   await supabase.from("products").update({ availability_status: nextStatus }).eq("id", productId).eq("company_id", company.id);
   revalidatePath("/produtos");
+}
+
+export async function importReviewedMenu(rawProducts: unknown): Promise<MenuImportResult> {
+  const parsed = importedMenuSchema.safeParse(rawProducts);
+  if (!parsed.success) {
+    return { ok: false, message: parsed.error.issues[0]?.message || "Revise os produtos antes de importar." };
+  }
+
+  const { supabase, company } = await requirePlanModule("products");
+  const [{ data: existingCategories, error: categoryLookupError }, { data: existingProducts, error: productLookupError }] = await Promise.all([
+    supabase.from("categories").select("id, name, sort_order").eq("company_id", company.id).order("sort_order"),
+    supabase.from("products").select("name, category_id").eq("company_id", company.id),
+  ]);
+  if (categoryLookupError || productLookupError) {
+    return { ok: false, message: "Não foi possível conferir os dados atuais do cardápio." };
+  }
+
+  const categoryByName = new Map((existingCategories || []).map(item => [normalizeMenuText(item.name), item.id]));
+  let nextSortOrder = Math.max(-1, ...(existingCategories || []).map(item => Number(item.sort_order ?? -1))) + 1;
+
+  for (const product of parsed.data) {
+    const categoryName = product.category.trim();
+    const categoryKey = normalizeMenuText(categoryName);
+    if (!categoryName || categoryByName.has(categoryKey)) continue;
+    const { data: created, error } = await supabase.from("categories").insert({
+      company_id: company.id,
+      name: categoryName,
+      sort_order: nextSortOrder++,
+      is_active: true,
+    }).select("id").single();
+    if (error || !created) return { ok: false, message: `Não foi possível criar a categoria ${categoryName}.` };
+    categoryByName.set(categoryKey, created.id);
+  }
+
+  const existingKeys = new Set((existingProducts || []).map(product =>
+    `${product.category_id || "none"}::${normalizeMenuText(product.name)}`,
+  ));
+  const rows: Array<Record<string, unknown>> = [];
+  let skipped = 0;
+
+  for (const product of parsed.data) {
+    const categoryId = categoryByName.get(normalizeMenuText(product.category)) || null;
+    const key = `${categoryId || "none"}::${normalizeMenuText(product.name)}`;
+    if (existingKeys.has(key)) {
+      skipped += 1;
+      continue;
+    }
+    existingKeys.add(key);
+    rows.push({
+      company_id: company.id,
+      category_id: categoryId,
+      name: product.name,
+      description: product.description || null,
+      base_price: product.price,
+      availability_status: "unavailable",
+      is_active: true,
+      track_stock: false,
+      stock_quantity: 0,
+      minimum_stock: 0,
+      available_delivery: true,
+      available_pickup: true,
+      available_dine_in: true,
+    });
+  }
+
+  if (!rows.length) {
+    return { ok: false, message: "Todos os itens selecionados já existem neste cardápio.", imported: 0, skipped };
+  }
+  const { error: insertError } = await supabase.from("products").insert(rows);
+  if (insertError) return { ok: false, message: "Não foi possível salvar os produtos importados." };
+
+  revalidatePath("/produtos");
+  revalidatePath(`/cardapio/${company.slug}`);
+  return {
+    ok: true,
+    imported: rows.length,
+    skipped,
+    message: `${rows.length} ${rows.length === 1 ? "produto importado" : "produtos importados"} como pausados${skipped ? `; ${skipped} repetidos foram ignorados` : ""}.`,
+  };
 }

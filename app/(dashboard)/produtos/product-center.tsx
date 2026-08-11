@@ -3,6 +3,7 @@
 import { Fragment, useMemo, useState } from "react";
 import { ImagePlus, Package, Pencil, Plus, Search, Store, Trash2, X } from "lucide-react";
 import { createIntegratedProduct, deleteProduct, toggleProduct, updateIntegratedProduct } from "./actions";
+import { MenuPhotoImporter } from "./menu-photo-importer";
 
 type Category = { id: string; name: string; is_active: boolean; sort_order: number };
 type Product = { id: string; name: string; description: string | null; base_price: number | string; promotional_price: number | string | null; preparation_time?: number | null; availability_status: string; category_id: string | null; sku?: string | null; stock_quantity?: number | string; minimum_stock?: number | string; track_stock?: boolean; available_delivery?: boolean; available_pickup?: boolean; available_dine_in?: boolean; addons?: Addon[]; categories: { name: string } | { name: string }[] | null };
@@ -46,6 +47,7 @@ export function ProductCenter({ categories, products }: { categories: Category[]
       <div className="flex flex-col gap-3 border-b p-4 lg:flex-row lg:items-center">
         <div className="relative flex-1"><Search className="absolute left-3 top-3.5 text-slate-400" size={18}/><input value={search} onChange={e => setSearch(e.target.value)} className="w-full rounded-xl border py-3 pl-10 pr-3" placeholder="Buscar produto, descrição ou SKU"/></div>
         <select value={category} onChange={e => setCategory(e.target.value)} className="rounded-xl border px-3 py-3"><option value="all">Todas as categorias</option>{categories.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+        <MenuPhotoImporter/>
         <button onClick={() => setOpen(true)} className="flex items-center justify-center gap-2 rounded-xl bg-emerald-700 px-5 py-3 font-bold text-white shadow-sm hover:bg-emerald-800"><Plus size={18}/>Novo produto</button>
       </div>
       <div className="divide-y">
