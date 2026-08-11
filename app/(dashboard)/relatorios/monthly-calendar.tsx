@@ -22,7 +22,7 @@ export type DailyReport = {
 
 const money = (value: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 const paymentLabels: Record<string,string> = { pix:"PIX", cash:"Dinheiro", debit_card:"Cartão de débito", credit_card:"Cartão de crédito", card_on_delivery:"Cartão na entrega", online_card:"Cartão online", other:"Outro" };
-const serviceLabels: Record<string,string> = { delivery:"Delivery", pickup:"Retirada", dine_in:"Consumo no local" };
+const serviceLabels: Record<string,string> = { delivery:"Delivery", pickup:"Retirada", dine_in:"Consumo no local", counter:"Balcão", table:"Mesa", other:"Outro" };
 const statusLabels: Record<string,string> = { paid:"Pago", pending:"Pendente", canceled:"Cancelado", refunded:"Estornado" };
 
 export function MonthlyCalendar({ month, reports }: { month: string; reports: DailyReport[] }) {
