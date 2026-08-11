@@ -34,9 +34,13 @@ export async function Sidebar() {
   const relatedPlan = Array.isArray(subscription?.subscription_plans) ? subscription?.subscription_plans[0] : subscription?.subscription_plans;
   const planCode = isPlanCode(relatedPlan?.code) ? relatedPlan.code : "basic";
   const visibleItems = items.filter(item => canAccess(role,item.module)).map(item => ({ ...item, allowed: planAllows(planCode, item.module) }));
-  const { count: unreadMessages } = canAccess(role,"messages")
-    ? await supabase.from("customer_messages").select("id",{count:"exact",head:true}).eq("company_id",company.id).eq("status","new")
-    : { count: 0 };
+  const [{ count: unreadFeedback }, { data: unreadWhatsApp }] = canAccess(role,"messages")
+    ? await Promise.all([
+      supabase.from("customer_messages").select("id",{count:"exact",head:true}).eq("company_id",company.id).eq("status","new"),
+      supabase.from("whatsapp_conversations").select("unread_count").eq("company_id",company.id).gt("unread_count",0),
+    ])
+    : [{ count: 0 }, { data: [] }];
+  const unreadMessages = Number(unreadFeedback || 0) + (unreadWhatsApp || []).reduce((sum,item) => sum + Number(item.unread_count || 0), 0);
   return <><MobileNavigation companyName={company.name} items={visibleItems.map(item => ({ href: item.allowed ? item.href : `/assinatura?bloqueado=${item.module}`, label: item.label, locked: !item.allowed, badge: item.module === "messages" ? unreadMessages || 0 : 0 }))}/><aside className="hidden min-h-screen border-r border-emerald-950 bg-[#063D2F] p-4 text-white shadow-xl md:flex md:w-64 md:flex-col">
     <div className="flex items-center gap-3 border-b border-white/10 px-2 py-4"><div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white shadow-md"><BrandMark size={42}/></div><div className="min-w-0"><p className="font-bold">Mercado<span className="text-orange-400">Food</span></p><p className="truncate text-xs text-emerald-100/80">{company.name}</p><p className="text-[11px] font-semibold text-emerald-300">{roleLabels[role]}</p></div></div>
     <nav className="mt-6 space-y-2">{visibleItems.map(({href,label,icon:Icon,module,allowed}) => {

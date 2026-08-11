@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Building2, KeyRound, Truck, Store, QrCode } from "lucide-react";
+import { Building2, KeyRound, Truck, Store, QrCode, MessageCircle } from "lucide-react";
 import { getCurrentCompany } from "@/lib/auth/current-company";
 
 export default async function Page() {
@@ -7,6 +7,7 @@ export default async function Page() {
   const cards = [
     { href: "/configuracoes/cardapio", title: "Cardápio e QR Code", description: "Aparência, banner, horários, bairros, taxas e link público.", icon: QrCode },
     { href: "/configuracoes/pix", title: "PIX", description: "Chave, recebedor e cidade para gerar cobranças.", icon: KeyRound },
+    { href: "/configuracoes/whatsapp", title: "WhatsApp e chatbot", description: "Conecte o número, configure respostas automáticas e faça um teste.", icon: MessageCircle },
     { href: "/configuracoes/cardapio", title: "Dados da empresa", description: "Nome, endereço, WhatsApp e identidade visual.", icon: Building2 },
     { href: "/configuracoes/cardapio", title: "Entrega", description: "Taxas, bairros, pedido mínimo e previsão.", icon: Truck },
     { href: `/cardapio/${company.slug}`, title: "Visualizar cardápio", description: "Abra o cardápio público que seus clientes verão.", icon: Store },
