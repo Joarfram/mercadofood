@@ -7,4 +7,12 @@
 - Impressão e reimpressão do pedido pelo painel de Pedidos, com itens, complementos, observações, cliente, endereço, valores, pagamento e troco conforme as preferências da impressora.
 - RLS: somente proprietário e gerente da empresa.
 
-Impressão USB silenciosa e automática exige um conector local no Windows. A preferência já fica armazenada para essa próxima integração.
+## Conector Windows
+
+Ao editar uma impressora, o proprietário pode baixar um conector exclusivo. Ele consulta uma fila segura a cada cinco segundos e imprime diretamente pelo nome configurado no Windows.
+
+- Dinheiro e cartão na entrega entram na fila imediatamente.
+- PIX e pagamentos online entram somente quando o pedido fica pago.
+- A combinação pedido/impressora é única e evita impressão duplicada.
+- Falhas voltam para a fila, com no máximo cinco tentativas.
+- O token do conector é armazenado apenas como hash no banco.
