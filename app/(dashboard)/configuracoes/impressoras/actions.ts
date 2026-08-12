@@ -58,7 +58,8 @@ export async function savePrinter(formData: FormData) {
   const { error } = await query;
   if (error) redirect(`/configuracoes/impressoras?erro=${encodeURIComponent(error.message)}`);
   revalidatePath("/configuracoes/impressoras");
-  redirect("/configuracoes/impressoras?sucesso=Impressora%20salva");
+  const editQuery = parsed.data.id ? `editar=${parsed.data.id}&` : "";
+  redirect(`/configuracoes/impressoras?${editQuery}sucesso=Impressora%20salva`);
 }
 
 export async function togglePrinter(formData: FormData) {
