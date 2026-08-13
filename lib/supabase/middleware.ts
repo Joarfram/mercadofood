@@ -22,6 +22,7 @@ export async function updateSession(request: NextRequest) {
     "/entregadores",
     "/configuracoes",
     "/midias"
+    ,"/master"
   ].some((path) => request.nextUrl.pathname.startsWith(path));
 
   // Rotas públicas não precisam consultar a sessão. Além de reduzir latência,

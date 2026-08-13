@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { Building2, KeyRound, Truck, Store, QrCode, MessageCircle, Printer } from "lucide-react";
+import { Building2, KeyRound, Truck, Store, QrCode, MessageCircle, Printer, Headphones } from "lucide-react";
 import { getCurrentCompany } from "@/lib/auth/current-company";
 
 export default async function Page() {
   const { company } = await getCurrentCompany();
   const cards = [
+    { href: "/configuracoes/suporte", title: "Suporte remoto", description: "Gere um código temporário e acompanhe os atendimentos.", icon: Headphones },
     { href: "/configuracoes/cardapio", title: "Cardápio e QR Code", description: "Aparência, banner, horários, bairros, taxas e link público.", icon: QrCode },
     { href: "/configuracoes/pix", title: "PIX", description: "Chave, recebedor e cidade para gerar cobranças.", icon: KeyRound },
     { href: "/configuracoes/whatsapp", title: "WhatsApp e chatbot", description: "Conecte o número, configure respostas automáticas e faça um teste.", icon: MessageCircle },

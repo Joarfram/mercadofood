@@ -33,7 +33,9 @@ export async function Sidebar() {
   const { data: subscription } = await supabase.from("company_subscriptions").select("status, subscription_plans(code)").eq("company_id", company.id).maybeSingle();
   const relatedPlan = Array.isArray(subscription?.subscription_plans) ? subscription?.subscription_plans[0] : subscription?.subscription_plans;
   const planCode = isPlanCode(relatedPlan?.code) ? relatedPlan.code : "basic";
-  const visibleItems = items.filter(item => canAccess(role,item.module)).map(item => ({ ...item, allowed: planAllows(planCode, item.module) }));
+  const roleItems = items.filter(item => canAccess(role,item.module));
+  const entitlementResults = await Promise.all(roleItems.map(item => supabase.rpc("company_plan_allows",{target_company:company.id,requested_module:item.module})));
+  const visibleItems = roleItems.map((item,index) => ({ ...item, allowed: entitlementResults[index].error ? planAllows(planCode,item.module) : Boolean(entitlementResults[index].data) }));
   const [{ count: unreadFeedback }, { data: unreadWhatsApp }] = canAccess(role,"messages")
     ? await Promise.all([
       supabase.from("customer_messages").select("id",{count:"exact",head:true}).eq("company_id",company.id).eq("status","new"),

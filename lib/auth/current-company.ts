@@ -3,6 +3,13 @@ import { createClient } from "@/lib/supabase/server";
 import type { CompanyRole, ModuleKey } from "./permissions";
 import { canAccess } from "./permissions";
 import { isPlanCode, planAllows } from "@/lib/billing/plans";
+import { cookies } from "next/headers";
+
+type SupportContext = {
+  id: string;
+  accessLevel: "viewer" | "support";
+  expiresAt: string;
+};
 
 export async function getCurrentCompany() {
   const supabase = await createClient();
@@ -11,6 +18,28 @@ export async function getCurrentCompany() {
 
   if (!user) redirect("/login");
 
+  const supportSessionId = (await cookies()).get("mf_support_session")?.value;
+  if (supportSessionId) {
+    const { data: supportRows } = await supabase.rpc("get_support_context", {
+      target_session: supportSessionId
+    });
+    const support = supportRows?.[0];
+    if (support) {
+      const mappedRole: CompanyRole = support.access_level === "viewer" ? "viewer" : "manager";
+      return {
+        supabase,
+        user,
+        company: { id: support.company_id, name: support.company_name, slug: support.company_slug },
+        role: mappedRole,
+        supportSession: {
+          id: support.session_id,
+          accessLevel: support.access_level,
+          expiresAt: support.expires_at
+        } as SupportContext
+      };
+    }
+  }
+
   const { data: owned } = await supabase
     .from("companies")
     .select("id, name, slug")
@@ -18,7 +47,7 @@ export async function getCurrentCompany() {
     .limit(1)
     .maybeSingle();
 
-  if (owned) return { supabase, user, company: owned, role: "owner" as CompanyRole };
+  if (owned) return { supabase, user, company: owned, role: "owner" as CompanyRole, supportSession: null };
 
   const { data: membership } = await supabase
     .from("company_members")
@@ -33,7 +62,7 @@ export async function getCurrentCompany() {
     : membership?.companies;
 
   if (!company) redirect("/cadastro");
-  return { supabase, user, company, role: membership!.role as CompanyRole };
+  return { supabase, user, company, role: membership!.role as CompanyRole, supportSession: null };
 }
 
 export async function requireModule(module: ModuleKey) {
@@ -57,7 +86,12 @@ export async function requirePlanModule(module: ModuleKey) {
   }
   const relatedPlan = Array.isArray(data.subscription_plans) ? data.subscription_plans[0] : data.subscription_plans;
   const planCode = relatedPlan?.code;
+  const { data: databaseAllows, error: entitlementError } = await context.supabase.rpc("company_plan_allows", {
+    target_company: context.company.id,
+    requested_module: module
+  });
   const active = data.status === "active" || data.status === "trialing";
-  if (!active || !isPlanCode(planCode) || !planAllows(planCode, module)) redirect(`/assinatura?bloqueado=${module}`);
+  const allowed = entitlementError ? (isPlanCode(planCode) && planAllows(planCode,module)) : Boolean(databaseAllows);
+  if (!active || !isPlanCode(planCode) || !allowed) redirect(`/assinatura?bloqueado=${module}`);
   return { ...context, planCode };
 }
