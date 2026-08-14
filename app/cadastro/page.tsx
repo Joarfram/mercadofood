@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { signup } from "./actions";
 import { BrandMark } from "@/components/brand/brand-mark";
+import { PasswordInput } from "@/components/auth/password-input";
 
 export default async function SignupPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const params = await searchParams;
@@ -14,7 +15,7 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
       <form action={signup} className="mt-6 space-y-4">
         <label className="block text-sm font-semibold">Nome da empresa<input required name="companyName" className="mt-1 w-full rounded-xl border px-4 py-3 font-normal outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"/></label>
         <label className="block text-sm font-semibold">E-mail do proprietário<input required name="email" type="email" className="mt-1 w-full rounded-xl border px-4 py-3 font-normal outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"/></label>
-        <label className="block text-sm font-semibold">Senha<input required name="password" type="password" minLength={6} className="mt-1 w-full rounded-xl border px-4 py-3 font-normal outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"/></label>
+        <label className="block text-sm font-semibold">Senha<PasswordInput required name="password" minLength={6} autoComplete="new-password" className="w-full rounded-xl border px-4 py-3 font-normal outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"/></label>
         <button className="w-full rounded-xl bg-emerald-700 py-3 font-bold text-white transition hover:bg-orange-500">Criar empresa</button>
       </form>
       <p className="mt-5 text-center text-sm text-gray-600">Já possui conta? <Link href="/login" className="font-bold text-emerald-700">Entrar</Link></p>

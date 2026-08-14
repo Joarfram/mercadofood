@@ -21,6 +21,7 @@ export async function saveMenuSettings(formData: FormData) {
     accent_color: String(formData.get("accentColor") || "#F97316"),
     secondary_color: String(formData.get("secondaryColor") || "#F97316"),
     menu_layout: String(formData.get("menuLayout") || "cards"),
+    menu_theme: ["light", "dark"].includes(String(formData.get("menuTheme"))) ? String(formData.get("menuTheme")) : "light",
     menu_message: String(formData.get("menuMessage") || "").trim() || null,
     whatsapp: String(formData.get("whatsapp") || "").replace(/\D/g, "") || null,
     address_line: String(formData.get("addressLine") || "").trim() || null,

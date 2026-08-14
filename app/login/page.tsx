@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { login } from "./actions";
 import { BrandMark } from "@/components/brand/brand-mark";
+import { PasswordInput } from "@/components/auth/password-input";
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const params = await searchParams;
@@ -18,7 +19,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       <form action={login} className="mt-6 space-y-4">
         <input type="hidden" name="next" value={next}/>
         <label className="block text-sm font-semibold">E-mail<input required name="email" type="email" className="mt-1 w-full rounded-xl border px-4 py-3 font-normal outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"/></label>
-        <label className="block text-sm font-semibold">Senha<input required name="password" type="password" minLength={6} className="mt-1 w-full rounded-xl border px-4 py-3 font-normal outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"/></label>
+        <label className="block text-sm font-semibold">Senha<PasswordInput required name="password" minLength={6} autoComplete="current-password" className="w-full rounded-xl border px-4 py-3 font-normal outline-none transition focus:border-orange-500 focus:ring-2 focus:ring-orange-100"/></label>
         <div className="text-right"><Link href="/recuperar-senha" className="text-sm font-semibold text-emerald-700 hover:text-orange-500">Esqueci minha senha</Link></div>
         <button className="w-full rounded-xl bg-emerald-700 py-3 font-bold text-white transition hover:bg-orange-500">Entrar</button>
       </form>

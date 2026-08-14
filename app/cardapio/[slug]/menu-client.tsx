@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
+import { useMemo, useState, useTransition, type CSSProperties } from "react";
+import { Clock3, Minus, Plus, Search, ShoppingCart, Trash2 } from "lucide-react";
 import { previewPublicCoupon, submitPublicOrder } from "./actions";
 import { PublicFeedback } from "@/components/feedback/public-feedback";
 
@@ -40,6 +40,7 @@ type MenuData = {
     banner_url?: string;
     primary_color?: string;
     accent_color?: string;
+    menu_theme?: "light" | "dark";
     menu_message?: string;
     delivery_minimum: number;
     default_delivery_fee: number;
@@ -264,6 +265,14 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
     });
   }
 
+  const darkTheme = menu.company.menu_theme === "dark";
+  const surface = darkTheme ? "border-slate-700 bg-[#1b1b1d] text-white" : "border-slate-200 bg-white text-slate-950";
+  const mutedText = darkTheme ? "text-slate-300" : "text-slate-600";
+  const menuStyle = {
+    "--menu-primary": menu.company.primary_color || "#15803D",
+    "--menu-accent": menu.company.accent_color || "#F97316",
+  } as CSSProperties;
+
   if (success) return (
     <main className="min-h-screen bg-[#fffaf5] p-6 flex items-center justify-center">
       <section className="w-full max-w-lg rounded-3xl bg-white p-8 text-center shadow-xl border border-green-100">
@@ -278,53 +287,47 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
   );
 
   return (
-    <main className="min-h-screen bg-[#fffaf5] pb-28">
-      <header className="text-white" style={{ backgroundColor: menu.company.primary_color || "#15803D" }}>
-        <div className="mx-auto max-w-6xl p-5 md:p-8">
-          <div className="flex items-center gap-5 md:gap-7">
-            {menu.company.logo_url ? <img src={menu.company.logo_url} alt={`Logomarca da ${menu.company.name}`} className="h-28 w-28 shrink-0 rounded-3xl border-4 border-white bg-white object-contain p-1 shadow-xl md:h-36 md:w-36" /> : <div className="grid h-28 w-28 shrink-0 place-items-center rounded-3xl border-4 border-white/30 bg-white/20 text-5xl shadow-xl md:h-36 md:w-36">🍔</div>}
-            <div><p className="text-sm text-white/80">Cardápio MercadoFood</p><h1 className="text-2xl font-black sm:text-3xl md:text-4xl">{menu.company.name}</h1><p className="mt-1 text-sm">{menu.company.is_open ? "🟢 Aberto agora" : "🔴 Fechado no momento"}</p></div>
-          </div>
-          {menu.company.menu_message && <p className="mt-4 rounded-xl bg-white/10 p-3">{menu.company.menu_message}</p>}
+    <main style={menuStyle} className={`min-h-screen pb-28 transition-colors ${darkTheme ? "bg-[#0f0f10] text-white" : "bg-[#f7f7f5] text-slate-950"}`}>
+      <header className={`sticky top-0 z-20 border-b backdrop-blur-xl ${darkTheme ? "border-slate-800 bg-[#111113]/95" : "border-slate-200 bg-white/95"}`}>
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
+          <strong className="text-lg">Mercado<span className="text-[var(--menu-accent)]">Food</span></strong>
+          <div className={`hidden max-w-sm flex-1 items-center gap-2 rounded-xl border px-3 md:flex ${darkTheme ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"}`}><Search size={18} className={mutedText}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar no cardápio" className="w-full bg-transparent py-2.5 outline-none"/></div>
+          <button type="button" onClick={() => cart.length && setCheckoutOpen(true)} aria-label="Abrir carrinho" className="relative grid h-10 w-10 place-items-center rounded-xl bg-[var(--menu-primary)] text-white"><ShoppingCart size={20}/>{cart.length > 0 && <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-xs font-black">{cart.reduce((sum,item)=>sum+item.quantity,0)}</span>}</button>
         </div>
       </header>
 
-      {menu.company.banner_url && <section className="mx-auto max-w-6xl px-4 pt-5 md:px-6">
-        <div className="aspect-[16/7] max-h-[420px] overflow-hidden rounded-3xl border-4 border-white bg-white shadow-lg">
-          <img src={menu.company.banner_url} alt={`Banner da ${menu.company.name}`} className="h-full w-full object-cover"/>
+      <section className="relative overflow-hidden border-b border-white/10 bg-[#171719] text-white">
+        {menu.company.banner_url && <img src={menu.company.banner_url} alt={`Banner da ${menu.company.name}`} className="absolute inset-0 h-full w-full object-cover opacity-40"/>}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/60 to-black/25"/>
+        <div className="relative mx-auto flex min-h-52 max-w-7xl items-center gap-4 px-4 py-8 md:min-h-64 md:gap-7 md:px-6">
+          {menu.company.logo_url ? <img src={menu.company.logo_url} alt={`Logomarca da ${menu.company.name}`} className="h-20 w-20 shrink-0 rounded-2xl border-2 border-white bg-white object-contain p-1 shadow-2xl md:h-28 md:w-28"/> : <div className="grid h-20 w-20 shrink-0 place-items-center rounded-2xl border-2 border-white/30 bg-white/10 text-4xl md:h-28 md:w-28">🍔</div>}
+          <div><p className="text-xs font-bold uppercase tracking-[.2em] text-white/70">Cardápio digital</p><h1 className="mt-1 text-2xl font-black sm:text-3xl md:text-4xl">{menu.company.name}</h1><div className="mt-3 flex flex-wrap items-center gap-2 text-sm"><span className={`rounded-full px-3 py-1 font-bold ${menu.company.is_open ? "bg-green-600" : "bg-red-600"}`}>{menu.company.is_open ? "Aberto" : "Fechado"}</span><span className="flex items-center gap-1 rounded-full bg-white/10 px-3 py-1"><Clock3 size={15}/>{serviceConfig.average_delivery_minutes} min</span></div>{menu.company.menu_message && <p className="mt-3 max-w-2xl text-sm text-white/80">{menu.company.menu_message}</p>}</div>
         </div>
-      </section>}
-
-      <section className="mx-auto max-w-6xl p-4 md:p-6">
-        {menu.promotions.length > 0 && <div className="mb-5 flex gap-3 overflow-x-auto pb-2">{menu.promotions.map(promotion => <article key={promotion.id} className="min-w-[260px] overflow-hidden rounded-2xl bg-orange-100">{promotion.image_url && <img src={promotion.image_url} alt={promotion.title} className="aspect-[16/7] w-full object-cover"/>}<div className="p-4"><strong>{promotion.title}</strong><p className="text-sm text-gray-700">{promotion.description}</p></div></article>)}</div>}
-        {hasCombos && <a href={`/cardapio/${menu.company.slug}/combos`} className="mb-5 flex items-center justify-between rounded-2xl bg-gradient-to-r from-orange-500 to-orange-400 p-5 text-white shadow-sm"><div><p className="text-sm font-bold text-white/80">Monte do seu jeito</p><strong className="text-xl">Ver combos completos</strong></div><span className="rounded-xl bg-white/20 px-4 py-2 font-black">Abrir →</span></a>}
-        <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar no cardápio" className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-4 shadow-sm outline-none focus:ring-2 focus:ring-green-600" />
-        <nav className="mt-4 flex gap-2 overflow-x-auto pb-2">
-          <button onClick={() => setCategoryId("all")} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-bold ${categoryId === "all" ? "bg-green-700 text-white" : "bg-white border"}`}>Todos</button>
-          {menu.categories.map(category => <button key={category.id} onClick={() => setCategoryId(category.id)} className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-bold ${categoryId === category.id ? "bg-green-700 text-white" : "bg-white border"}`}>{category.name}</button>)}
-        </nav>
-
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {products.map(product => {
-            const quantityInCart = productQuantities[product.id] || 0;
-            return <article key={product.id} className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm">
-            <div className="aspect-square bg-white p-2">{product.image_url ? <img src={product.image_url} alt={product.name} className="h-full w-full object-contain" style={{ objectPosition: product.image_position || "center" }} /> : <div className="grid h-full place-items-center bg-orange-50 text-6xl">🍽️</div>}</div>
-            <div className="p-5"><h2 className="text-lg font-black">{product.name}</h2><p className="mt-1 min-h-10 text-sm text-gray-600">{product.description}</p>
-              <div className="mt-4 flex items-center justify-between gap-3"><div>{product.original_price && <span className="mr-2 text-xs text-gray-400 line-through">{money(Number(product.original_price))}</span>}<strong className="text-lg text-green-700">{money(Number(product.price))}</strong></div>
-                {quantityInCart > 0 ? <div className="flex items-center gap-2 rounded-full border border-green-200 bg-green-50 p-1" aria-label={`Quantidade de ${product.name}`}>
-                  <button type="button" aria-label={`Diminuir ${product.name}`} onClick={() => changeProductQuantity(product.id, -1)} className="grid h-9 w-9 place-items-center rounded-full bg-white text-green-800 shadow-sm"><Minus size={17} /></button>
-                  <strong className="min-w-6 text-center text-green-800">{quantityInCart}</strong>
-                  <button type="button" aria-label={`Aumentar ${product.name}`} onClick={() => changeProductQuantity(product.id, 1)} className="grid h-9 w-9 place-items-center rounded-full bg-green-700 text-white"><Plus size={17} /></button>
-                </div> : <button onClick={() => openProduct(product)} className="rounded-xl bg-orange-500 px-4 py-2 font-bold text-white">Adicionar</button>}
-              </div>
-              {quantityInCart > 0 && (product.option_groups || []).length > 0 && <button type="button" onClick={() => openProduct(product)} className="mt-3 w-full text-sm font-bold text-orange-600">+ Adicionar outra opção</button>}
-            </div>
-          </article>})}
-        </div>
-        {!products.length && <div className="mt-6 rounded-2xl border border-dashed bg-white p-10 text-center text-gray-500">Nenhum produto encontrado nesta seleção.</div>}
       </section>
 
-      {cart.length > 0 && <div className="fixed bottom-0 left-0 right-0 z-30 border-t bg-white p-3 shadow-2xl md:p-4"><div className="mx-auto flex max-w-6xl items-center justify-between gap-3"><div><strong>{cart.reduce((sum, item) => sum + item.quantity, 0)} item(ns)</strong><p className="text-sm text-gray-600">Subtotal {money(subtotal)}</p></div><button onClick={() => setCheckoutOpen(true)} className="flex items-center gap-2 rounded-xl bg-green-700 px-4 py-3 text-sm font-black text-white md:px-6 md:text-base"><ShoppingCart size={18} /> Ver carrinho e finalizar</button></div></div>}
+      <section className="mx-auto max-w-7xl p-4 md:p-6">
+        <div className={`flex items-center gap-2 rounded-2xl border px-4 md:hidden ${surface}`}><Search size={19} className={mutedText}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar no cardápio" className="w-full bg-transparent py-3.5 outline-none"/></div>
+        <nav className="mt-4 flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none]">
+          <button onClick={() => setCategoryId("all")} className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold ${categoryId === "all" ? "bg-[var(--menu-primary)] text-white" : surface}`}>Mais pedidos</button>
+          {menu.categories.map(category => <button key={category.id} onClick={() => setCategoryId(category.id)} className={`whitespace-nowrap rounded-xl border px-4 py-2.5 text-sm font-bold ${categoryId === category.id ? "border-transparent bg-[var(--menu-primary)] text-white" : surface}`}>{category.name}</button>)}
+        </nav>
+
+        {menu.promotions.length > 0 && <div className="mt-5 flex gap-3 overflow-x-auto pb-2">{menu.promotions.map(promotion => <article key={promotion.id} className={`min-w-[260px] overflow-hidden rounded-2xl border ${surface}`}>{promotion.image_url && <img src={promotion.image_url} alt={promotion.title} className="aspect-[16/7] w-full object-cover"/>}<div className="p-4"><strong>{promotion.title}</strong><p className={`text-sm ${mutedText}`}>{promotion.description}</p></div></article>)}</div>}
+        {hasCombos && <a href={`/cardapio/${menu.company.slug}/combos`} className="mt-5 flex items-center justify-between rounded-2xl bg-[var(--menu-accent)] p-5 text-white shadow-sm"><div><p className="text-sm font-bold text-white/80">Monte do seu jeito</p><strong className="text-xl">Ver combos completos</strong></div><span className="rounded-xl bg-white/20 px-4 py-2 font-black">Abrir →</span></a>}
+
+        <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="grid content-start gap-3 md:grid-cols-2">
+            {products.map(product => { const quantityInCart = productQuantities[product.id] || 0; return <article key={product.id} className={`grid min-h-40 grid-cols-[minmax(120px,38%)_1fr] overflow-hidden rounded-2xl border shadow-sm ${surface}`}>
+              <div className={darkTheme ? "bg-[#121214]" : "bg-slate-50"}>{product.image_url ? <img src={product.image_url} alt={product.name} loading="lazy" className={`h-full min-h-40 w-full ${product.image_fit === "contain" ? "object-contain p-2" : "object-cover"}`} style={{objectPosition:product.image_position||"center"}}/> : <div className="grid h-full min-h-40 place-items-center text-5xl">🍽️</div>}</div>
+              <div className="flex min-w-0 flex-col p-4"><h2 className="text-base font-black leading-tight sm:text-lg">{product.name}</h2><p className={`mt-2 line-clamp-3 text-sm ${mutedText}`}>{product.description}</p><div className="mt-auto flex items-end justify-between gap-2 pt-4"><div>{product.original_price && <span className={`block text-xs line-through ${mutedText}`}>{money(Number(product.original_price))}</span>}<strong className="text-lg text-[var(--menu-primary)]">{money(Number(product.price))}</strong></div>{quantityInCart > 0 ? <div className="flex items-center gap-1 rounded-xl border border-green-700 p-1"><button type="button" aria-label={`Diminuir ${product.name}`} onClick={()=>changeProductQuantity(product.id,-1)} className="grid h-8 w-8 place-items-center rounded-lg"><Minus size={16}/></button><strong>{quantityInCart}</strong><button type="button" aria-label={`Aumentar ${product.name}`} onClick={()=>changeProductQuantity(product.id,1)} className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--menu-primary)] text-white"><Plus size={16}/></button></div> : <button type="button" aria-label={`Adicionar ${product.name}`} onClick={()=>openProduct(product)} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[var(--menu-primary)] text-white shadow"><Plus size={21}/></button>}</div>{quantityInCart > 0 && product.option_groups.length > 0 && <button type="button" onClick={()=>openProduct(product)} className="mt-2 text-left text-xs font-bold text-[var(--menu-accent)]">+ Outra opção</button>}</div>
+            </article>})}
+            {!products.length && <div className={`rounded-2xl border border-dashed p-10 text-center md:col-span-2 ${surface} ${mutedText}`}>Nenhum produto encontrado nesta seleção.</div>}
+          </div>
+          <aside className={`hidden h-fit rounded-2xl border p-5 shadow-sm lg:sticky lg:top-20 lg:block ${surface}`}><h2 className="flex items-center gap-2 text-xl font-black"><ShoppingCart size={20}/> Seu pedido</h2>{cart.length === 0 ? <p className={`mt-5 text-sm ${mutedText}`}>Seu carrinho está vazio. Escolha um produto para começar.</p> : <><div className="mt-4 max-h-[48vh] space-y-3 overflow-y-auto">{cart.map(item=><div key={item.key} className={`border-b pb-3 ${darkTheme?"border-slate-700":"border-slate-200"}`}><div className="flex justify-between gap-2"><strong className="text-sm">{item.quantity}× {item.product.name}</strong><span className="text-sm">{money((Number(item.product.price)+item.optionUnitTotal)*item.quantity)}</span></div><div className="mt-2 flex items-center gap-2"><button onClick={()=>changeCartQuantity(item.key,-1)} className="rounded-lg border p-1"><Minus size={14}/></button><span className="text-sm font-bold">{item.quantity}</span><button onClick={()=>changeCartQuantity(item.key,1)} className="rounded-lg bg-[var(--menu-primary)] p-1 text-white"><Plus size={14}/></button></div></div>)}</div><div className="mt-4 flex justify-between border-t pt-4 text-lg"><span>Subtotal</span><strong>{money(subtotal)}</strong></div><button onClick={()=>setCheckoutOpen(true)} className="mt-4 w-full rounded-xl bg-[var(--menu-primary)] py-3 font-black text-white">Finalizar pedido</button></>}</aside>
+        </div>
+      </section>
+
+      {cart.length > 0 && <div className={`fixed bottom-0 left-0 right-0 z-30 border-t p-3 shadow-2xl lg:hidden ${darkTheme ? "border-slate-700 bg-[#171719]" : "border-slate-200 bg-white"}`}><button onClick={()=>setCheckoutOpen(true)} className="mx-auto flex w-full max-w-lg items-center justify-between rounded-2xl bg-[var(--menu-primary)] px-5 py-4 font-black text-white"><span className="flex items-center gap-2"><ShoppingCart size={20}/> Ver carrinho</span><span>{money(subtotal)}</span></button></div>}
 
       {selectedProduct && <div className="fixed inset-0 z-40 flex items-end bg-black/50 md:items-center md:justify-center"><section className="max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6 md:max-w-xl md:rounded-3xl"><button onClick={() => setSelectedProduct(null)} className="float-right text-2xl">×</button><h2 className="text-2xl font-black">{selectedProduct.name}</h2><p className="mt-2 text-gray-600">{selectedProduct.description}</p>
         {(selectedProduct.option_groups || []).map(group => {

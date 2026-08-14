@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { driverSignIn } from "../actions";
 import { InstallDriverApp } from "@/components/delivery/install-driver-app";
+import { PasswordInput } from "@/components/auth/password-input";
 
 export default async function DriverLogin({ searchParams }: { searchParams: Promise<{ erro?: string; sucesso?: string }> }) {
   const q = await searchParams;
@@ -11,7 +12,7 @@ export default async function DriverLogin({ searchParams }: { searchParams: Prom
       {q.sucesso && <p className="mt-5 rounded-xl bg-emerald-500/15 p-3 text-sm text-emerald-200">{q.sucesso}</p>}
       <form action={driverSignIn} className="mt-6 space-y-4">
         <div><label className="text-sm font-semibold">E-mail cadastrado pela loja</label><input name="email" type="email" required className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3" /></div>
-        <div><label className="text-sm font-semibold">Senha</label><input name="password" type="password" required className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3" /></div>
+        <div><label className="text-sm font-semibold">Senha</label><PasswordInput name="password" required autoComplete="current-password" className="w-full rounded-xl border border-slate-700 bg-slate-800 px-4 py-3" /></div>
         <button className="w-full rounded-xl bg-emerald-600 py-3 font-bold">Entrar no aplicativo</button>
       </form>
       <div className="mt-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-center">

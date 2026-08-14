@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { roleLabels, type CompanyRole } from "@/lib/auth/permissions";
 import { acceptInvite } from "./actions";
+import { PasswordInput } from "@/components/auth/password-input";
 
 export default async function InvitePage({ params, searchParams }: { params: Promise<{token:string}>, searchParams: Promise<Record<string,string|string[]|undefined>> }) {
   const { token } = await params;
@@ -25,7 +26,7 @@ export default async function InvitePage({ params, searchParams }: { params: Pro
       <label className="block text-sm font-semibold">Nome<input required name="name" className="mt-1 w-full rounded-xl border px-4 py-3 font-normal"/></label>
       <label className="block text-sm font-semibold">Telefone<input name="phone" className="mt-1 w-full rounded-xl border px-4 py-3 font-normal"/></label>
       <label className="block text-sm font-semibold">E-mail<input required readOnly={Boolean(auth.user)} name="email" type="email" defaultValue={auth.user?.email || invite.email} className="mt-1 w-full rounded-xl border px-4 py-3 font-normal disabled:bg-gray-50"/></label>
-      {!auth.user && <label className="block text-sm font-semibold">Crie uma senha<input required name="password" type="password" minLength={6} className="mt-1 w-full rounded-xl border px-4 py-3 font-normal"/></label>}
+      {!auth.user && <label className="block text-sm font-semibold">Crie uma senha<PasswordInput required name="password" minLength={6} autoComplete="new-password" className="w-full rounded-xl border px-4 py-3 font-normal"/></label>}
       <button className="w-full rounded-xl bg-emerald-700 py-3 font-bold text-white">Aceitar convite</button>
     </form>}
   </section></main>;
