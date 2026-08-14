@@ -16,3 +16,38 @@ body {
 * {
   box-sizing: border-box;
 }
+
+/* O tema escolhido pela empresa acompanha todas as telas do painel. */
+.mf-dashboard-theme { background:var(--mf-bg); color:var(--mf-text); transition:background-color .2s,color .2s; }
+.mf-dashboard-theme main { color:var(--mf-text); }
+.mf-dashboard-theme .bg-white { background-color:var(--mf-surface) !important; }
+.mf-dashboard-theme .bg-gray-50,
+.mf-dashboard-theme .bg-slate-50 { background-color:color-mix(in srgb,var(--mf-surface) 82%,var(--mf-bg)) !important; }
+.mf-dashboard-theme .text-gray-900,
+.mf-dashboard-theme .text-slate-950 { color:var(--mf-text) !important; }
+.mf-dashboard-theme .text-gray-700,
+.mf-dashboard-theme .text-gray-600,
+.mf-dashboard-theme .text-gray-500,
+.mf-dashboard-theme .text-slate-600,
+.mf-dashboard-theme .text-slate-500 { color:var(--mf-muted) !important; }
+.mf-dashboard-theme .border,
+.mf-dashboard-theme .border-b,
+.mf-dashboard-theme .border-t,
+.mf-dashboard-theme .divide-y > :not([hidden]) ~ :not([hidden]) { border-color:var(--mf-border) !important; }
+.mf-dashboard-theme input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+.mf-dashboard-theme select,
+.mf-dashboard-theme textarea { background:var(--mf-surface); border-color:var(--mf-border); color:var(--mf-text); }
+.mf-dashboard-theme input::placeholder,
+.mf-dashboard-theme textarea::placeholder { color:var(--mf-muted); opacity:.8; }
+.mf-dashboard-theme [class*="bg-emerald-7"],
+.mf-dashboard-theme [class*="bg-green-7"],
+.mf-dashboard-theme [class*="bg-orange-5"] { background-color:var(--mf-primary) !important; }
+.mf-dashboard-theme [class*="text-emerald-7"],
+.mf-dashboard-theme [class*="text-green-7"],
+.mf-dashboard-theme [class*="text-orange-6"] { color:var(--mf-primary) !important; }
+.mf-dashboard-theme [class*="border-emerald"],
+.mf-dashboard-theme [class*="border-green"] { border-color:color-mix(in srgb,var(--mf-primary) 45%,var(--mf-border)) !important; }
+.mf-dashboard-theme[data-dark="true"] { color-scheme:dark; }
+.mf-dashboard-theme[data-dark="true"] .shadow-sm,
+.mf-dashboard-theme[data-dark="true"] .shadow-md,
+.mf-dashboard-theme[data-dark="true"] .shadow-xl { box-shadow:0 8px 28px rgb(0 0 0 / .2); }

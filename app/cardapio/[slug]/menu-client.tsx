@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition, type CSSProperties } from "react";
 import { Clock3, Minus, Plus, Search, ShoppingCart, Trash2 } from "lucide-react";
 import { previewPublicCoupon, submitPublicOrder } from "./actions";
 import { PublicFeedback } from "@/components/feedback/public-feedback";
+import { getBrandTheme } from "@/lib/brand/themes";
 
 type Option = { id: string; name: string; price_delta: number; max_quantity?: number };
 type Group = {
@@ -40,7 +41,7 @@ type MenuData = {
     banner_url?: string;
     primary_color?: string;
     accent_color?: string;
-    menu_theme?: "light" | "dark";
+    menu_theme?: string;
     menu_message?: string;
     delivery_minimum: number;
     default_delivery_fee: number;
@@ -265,12 +266,18 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
     });
   }
 
-  const darkTheme = menu.company.menu_theme === "dark";
-  const surface = darkTheme ? "border-slate-700 bg-[#1b1b1d] text-white" : "border-slate-200 bg-white text-slate-950";
-  const mutedText = darkTheme ? "text-slate-300" : "text-slate-600";
+  const selectedBrandTheme = getBrandTheme(menu.company.menu_theme);
+  const darkTheme = selectedBrandTheme.dark;
+  const surface = "border-[var(--menu-border)] bg-[var(--menu-surface)] text-[var(--menu-text)]";
+  const mutedText = "text-[var(--menu-muted)]";
   const menuStyle = {
-    "--menu-primary": menu.company.primary_color || "#15803D",
-    "--menu-accent": menu.company.accent_color || "#F97316",
+    "--menu-primary": selectedBrandTheme.colors.primary,
+    "--menu-accent": selectedBrandTheme.colors.accent,
+    "--menu-bg": selectedBrandTheme.colors.background,
+    "--menu-surface": selectedBrandTheme.colors.surface,
+    "--menu-text": selectedBrandTheme.colors.text,
+    "--menu-muted": selectedBrandTheme.colors.muted,
+    "--menu-border": selectedBrandTheme.colors.border,
   } as CSSProperties;
 
   if (success) return (
@@ -287,11 +294,11 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
   );
 
   return (
-    <main style={menuStyle} className={`min-h-screen pb-28 transition-colors ${darkTheme ? "bg-[#0f0f10] text-white" : "bg-[#f7f7f5] text-slate-950"}`}>
-      <header className={`sticky top-0 z-20 border-b backdrop-blur-xl ${darkTheme ? "border-slate-800 bg-[#111113]/95" : "border-slate-200 bg-white/95"}`}>
+    <main style={menuStyle} className="min-h-screen bg-[var(--menu-bg)] pb-28 text-[var(--menu-text)] transition-colors">
+      <header className="sticky top-0 z-20 border-b border-[var(--menu-border)] bg-[var(--menu-surface)]/95 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
           <strong className="text-lg">Mercado<span className="text-[var(--menu-accent)]">Food</span></strong>
-          <div className={`hidden max-w-sm flex-1 items-center gap-2 rounded-xl border px-3 md:flex ${darkTheme ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-slate-50"}`}><Search size={18} className={mutedText}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar no cardápio" className="w-full bg-transparent py-2.5 outline-none"/></div>
+          <div className="hidden max-w-sm flex-1 items-center gap-2 rounded-xl border border-[var(--menu-border)] bg-[var(--menu-bg)] px-3 md:flex"><Search size={18} className={mutedText}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar no cardápio" className="w-full bg-transparent py-2.5 outline-none"/></div>
           <button type="button" onClick={() => cart.length && setCheckoutOpen(true)} aria-label="Abrir carrinho" className="relative grid h-10 w-10 place-items-center rounded-xl bg-[var(--menu-primary)] text-white"><ShoppingCart size={20}/>{cart.length > 0 && <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-xs font-black">{cart.reduce((sum,item)=>sum+item.quantity,0)}</span>}</button>
         </div>
       </header>
@@ -318,7 +325,7 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
         <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="grid content-start gap-3 md:grid-cols-2">
             {products.map(product => { const quantityInCart = productQuantities[product.id] || 0; return <article key={product.id} className={`grid min-h-40 grid-cols-[minmax(120px,38%)_1fr] overflow-hidden rounded-2xl border shadow-sm ${surface}`}>
-              <div className={darkTheme ? "bg-[#121214]" : "bg-slate-50"}>{product.image_url ? <img src={product.image_url} alt={product.name} loading="lazy" className={`h-full min-h-40 w-full ${product.image_fit === "contain" ? "object-contain p-2" : "object-cover"}`} style={{objectPosition:product.image_position||"center"}}/> : <div className="grid h-full min-h-40 place-items-center text-5xl">🍽️</div>}</div>
+              <div className="bg-[var(--menu-bg)]">{product.image_url ? <img src={product.image_url} alt={product.name} loading="lazy" className={`h-full min-h-40 w-full ${product.image_fit === "contain" ? "object-contain p-2" : "object-cover"}`} style={{objectPosition:product.image_position||"center"}}/> : <div className="grid h-full min-h-40 place-items-center text-5xl">🍽️</div>}</div>
               <div className="flex min-w-0 flex-col p-4"><h2 className="text-base font-black leading-tight sm:text-lg">{product.name}</h2><p className={`mt-2 line-clamp-3 text-sm ${mutedText}`}>{product.description}</p><div className="mt-auto flex items-end justify-between gap-2 pt-4"><div>{product.original_price && <span className={`block text-xs line-through ${mutedText}`}>{money(Number(product.original_price))}</span>}<strong className="text-lg text-[var(--menu-primary)]">{money(Number(product.price))}</strong></div>{quantityInCart > 0 ? <div className="flex items-center gap-1 rounded-xl border border-green-700 p-1"><button type="button" aria-label={`Diminuir ${product.name}`} onClick={()=>changeProductQuantity(product.id,-1)} className="grid h-8 w-8 place-items-center rounded-lg"><Minus size={16}/></button><strong>{quantityInCart}</strong><button type="button" aria-label={`Aumentar ${product.name}`} onClick={()=>changeProductQuantity(product.id,1)} className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--menu-primary)] text-white"><Plus size={16}/></button></div> : <button type="button" aria-label={`Adicionar ${product.name}`} onClick={()=>openProduct(product)} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[var(--menu-primary)] text-white shadow"><Plus size={21}/></button>}</div>{quantityInCart > 0 && product.option_groups.length > 0 && <button type="button" onClick={()=>openProduct(product)} className="mt-2 text-left text-xs font-bold text-[var(--menu-accent)]">+ Outra opção</button>}</div>
             </article>})}
             {!products.length && <div className={`rounded-2xl border border-dashed p-10 text-center md:col-span-2 ${surface} ${mutedText}`}>Nenhum produto encontrado nesta seleção.</div>}

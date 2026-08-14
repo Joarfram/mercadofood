@@ -29,7 +29,7 @@ export async function getCurrentCompany() {
       return {
         supabase,
         user,
-        company: { id: support.company_id, name: support.company_name, slug: support.company_slug },
+        company: { id: support.company_id, name: support.company_name, slug: support.company_slug, menu_theme: "burger_night" },
         role: mappedRole,
         supportSession: {
           id: support.session_id,
@@ -42,7 +42,7 @@ export async function getCurrentCompany() {
 
   const { data: owned } = await supabase
     .from("companies")
-    .select("id, name, slug")
+    .select("id, name, slug, menu_theme")
     .eq("owner_id", user.id)
     .limit(1)
     .maybeSingle();
@@ -51,7 +51,7 @@ export async function getCurrentCompany() {
 
   const { data: membership } = await supabase
     .from("company_members")
-    .select("company_id, role, is_active, companies(id, name, slug)")
+    .select("company_id, role, is_active, companies(id, name, slug, menu_theme)")
     .eq("user_id", user.id)
     .eq("is_active", true)
     .limit(1)

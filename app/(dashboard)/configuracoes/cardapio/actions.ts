@@ -3,12 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentCompany } from "@/lib/auth/current-company";
+import { getBrandTheme, isBrandThemeId } from "@/lib/brand/themes";
 
 const money = (value: FormDataEntryValue | null) => Number(String(value || "0").replace(",", ".")) || 0;
 const checked = (formData: FormData, name: string) => formData.get(name) === "on";
 
 export async function saveMenuSettings(formData: FormData) {
   const { supabase, company } = await getCurrentCompany();
+  const requestedTheme = String(formData.get("menuTheme") || "burger_night");
+  const selectedTheme = getBrandTheme(isBrandThemeId(requestedTheme) ? requestedTheme : "burger_night");
   const payload = {
     menu_is_active: checked(formData, "menuIsActive"),
     pickup_enabled: checked(formData, "pickupEnabled"),
@@ -17,11 +20,11 @@ export async function saveMenuSettings(formData: FormData) {
     slug: String(formData.get("slug") || "").trim().toLowerCase().replace(/[^a-z0-9-]/g, "-"),
     logo_url: String(formData.get("logoUrl") || "").trim() || null,
     banner_url: String(formData.get("bannerUrl") || "").trim() || null,
-    primary_color: String(formData.get("primaryColor") || "#15803D"),
-    accent_color: String(formData.get("accentColor") || "#F97316"),
-    secondary_color: String(formData.get("secondaryColor") || "#F97316"),
+    primary_color: selectedTheme.colors.primary,
+    accent_color: selectedTheme.colors.accent,
+    secondary_color: selectedTheme.colors.secondary,
     menu_layout: String(formData.get("menuLayout") || "cards"),
-    menu_theme: ["light", "dark"].includes(String(formData.get("menuTheme"))) ? String(formData.get("menuTheme")) : "light",
+    menu_theme: selectedTheme.id,
     menu_message: String(formData.get("menuMessage") || "").trim() || null,
     whatsapp: String(formData.get("whatsapp") || "").replace(/\D/g, "") || null,
     address_line: String(formData.get("addressLine") || "").trim() || null,
@@ -36,6 +39,7 @@ export async function saveMenuSettings(formData: FormData) {
   const { error } = await supabase.from("companies").update(payload).eq("id", company.id);
   if (error) redirect(`/configuracoes/cardapio?erro=${encodeURIComponent(error.message)}`);
   revalidatePath("/configuracoes/cardapio");
+  revalidatePath("/dashboard");
   revalidatePath(`/cardapio/${payload.slug}`);
   redirect("/configuracoes/cardapio?sucesso=Configurações%20salvas");
 }
