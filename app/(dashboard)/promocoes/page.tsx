@@ -1,5 +1,7 @@
 import { requirePlanModule } from "@/lib/auth/current-company";
 import { createCoupon, createPromotion, toggleCoupon, togglePromotion } from "./actions";
+import { MediaManager } from "@/components/media/media-manager";
+import type { MediaAsset } from "@/lib/media/types";
 
 function money(v:number|string|null|undefined){return new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(Number(v||0))}
 function date(v:string|null|undefined){return v?new Date(v).toLocaleDateString("pt-BR"):"Sem limite"}
@@ -7,10 +9,11 @@ function date(v:string|null|undefined){return v?new Date(v).toLocaleDateString("
 export default async function PromocoesPage({searchParams}:{searchParams:Promise<{erro?:string;sucesso?:string}>}){
   const query=await searchParams;
   const {supabase,company}=await requirePlanModule("promotions");
-  const [{data:coupons},{data:promotions},{data:redemptions}]=await Promise.all([
+  const [{data:coupons},{data:promotions},{data:redemptions},{data:promotionMedia}]=await Promise.all([
     supabase.from("coupons").select("*").eq("company_id",company.id).order("created_at",{ascending:false}),
     supabase.from("promotions").select("*").eq("company_id",company.id).order("created_at",{ascending:false}),
     supabase.from("coupon_redemptions").select("discount_amount").eq("company_id",company.id),
+    supabase.from("media_assets").select("id,entity_id,storage_path,public_url,alt_text,mime_type,byte_size,sort_order").eq("company_id",company.id).eq("entity_type","promotion").eq("kind","gallery").order("sort_order"),
   ]);
   const activeCoupons=(coupons||[]).filter(c=>c.is_active).length;
   const totalDiscount=(redemptions||[]).reduce((s,r)=>s+Number(r.discount_amount||0),0);
@@ -28,6 +31,7 @@ export default async function PromocoesPage({searchParams}:{searchParams:Promise
     </section>
     <section className="grid gap-6 xl:grid-cols-2"><div className="rounded-2xl border bg-white p-5 shadow-sm"><h2 className="text-xl font-bold">Cupons cadastrados</h2><div className="mt-4 space-y-3">{coupons?.map(c=><article key={c.id} className="rounded-xl border p-4"><div className="flex items-start justify-between gap-3"><div><strong className="text-lg">{c.code}</strong><p className="text-sm text-gray-500">{c.name}</p><p className="mt-1 text-sm">{c.discount_type==="percentage"?`${c.discount_value}%`:money(c.discount_value)} de desconto • mínimo {money(c.minimum_order_value)}</p><p className="text-xs text-gray-500">Usos {c.usage_count}{c.usage_limit?`/${c.usage_limit}`:""} • até {date(c.ends_at)}</p></div><form action={toggleCoupon}><input type="hidden" name="id" value={c.id}/><input type="hidden" name="active" value={String(c.is_active)}/><button className={`rounded-full px-3 py-2 text-sm font-semibold ${c.is_active?"bg-emerald-50 text-emerald-800":"bg-gray-100 text-gray-600"}`}>{c.is_active?"Ativo":"Inativo"}</button></form></div></article>)}{!coupons?.length&&<p className="rounded-xl bg-gray-50 p-5 text-gray-500">Nenhum cupom.</p>}</div></div>
     <div className="rounded-2xl border bg-white p-5 shadow-sm"><h2 className="text-xl font-bold">Campanhas promocionais</h2><div className="mt-4 space-y-3">{promotions?.map(p=><article key={p.id} className="rounded-xl border p-4"><div className="flex items-start justify-between gap-3"><div><strong>{p.title}</strong><p className="text-sm text-gray-500">{p.description||p.promotion_type}</p><p className="text-xs text-gray-500">{date(p.starts_at)} até {date(p.ends_at)}</p></div><form action={togglePromotion}><input type="hidden" name="id" value={p.id}/><input type="hidden" name="active" value={String(p.is_active)}/><button className={`rounded-full px-3 py-2 text-sm font-semibold ${p.is_active?"bg-orange-50 text-orange-700":"bg-gray-100 text-gray-600"}`}>{p.is_active?"Ativa":"Inativa"}</button></form></div></article>)}{!promotions?.length&&<p className="rounded-xl bg-gray-50 p-5 text-gray-500">Nenhuma promoção.</p>}</div></div></section>
+    {!!promotions?.length&&<section className="space-y-4"><h2 className="text-xl font-bold">Imagens das promoções</h2>{promotions.map(p=><MediaManager key={p.id} companyId={company.id} entityType="promotion" entityId={p.id} initialAssets={(promotionMedia||[]).filter(asset=>asset.entity_id===p.id) as MediaAsset[]} title={p.title} description="Esta imagem aparece no destaque promocional do cardápio." maxFiles={1} aspect="wide" recommendedSize="1600 × 700 px (16:7)"/>)}</section>}
   </main>
 }
 function Card({label,value}:{label:string;value:string}){return <div className="rounded-2xl border bg-white p-5 shadow-sm"><p className="text-sm text-gray-500">{label}</p><strong className="mt-1 block text-2xl text-emerald-700">{value}</strong></div>}

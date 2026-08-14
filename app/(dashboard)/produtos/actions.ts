@@ -279,11 +279,18 @@ export async function createIntegratedProduct(formData: FormData) {
     const extension = image.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
     const storagePath = `${company.id}/product/${product.id}/${crypto.randomUUID()}.${extension}`;
     const { error: uploadError } = await supabase.storage.from("company-media").upload(storagePath, await image.arrayBuffer(), { contentType: image.type, upsert: false });
-    if (!uploadError) {
-      const { data: url } = supabase.storage.from("company-media").getPublicUrl(storagePath);
-      await supabase.from("media_assets").insert({ company_id: company.id, entity_type: "product", entity_id: product.id,
-        kind: "gallery", storage_path: storagePath, public_url: url.publicUrl, alt_text: parsed.data.name,
-        mime_type: image.type, byte_size: image.size, sort_order: 0, created_by: user.id });
+    if (uploadError) {
+      await supabase.from("products").delete().eq("id", product.id).eq("company_id", company.id);
+      redirect(`/produtos?erro=${encodeURIComponent(`Não foi possível enviar a foto: ${uploadError.message}`)}`);
+    }
+    const { data: url } = supabase.storage.from("company-media").getPublicUrl(storagePath);
+    const { error: assetError } = await supabase.from("media_assets").insert({ company_id: company.id, entity_type: "product", entity_id: product.id,
+      kind: "gallery", storage_path: storagePath, public_url: url.publicUrl, alt_text: parsed.data.name,
+      mime_type: image.type, byte_size: image.size, sort_order: 0, created_by: user.id });
+    if (assetError) {
+      await supabase.storage.from("company-media").remove([storagePath]);
+      await supabase.from("products").delete().eq("id", product.id).eq("company_id", company.id);
+      redirect(`/produtos?erro=${encodeURIComponent(`Não foi possível vincular a foto ao produto: ${assetError.message}`)}`);
     }
   }
 
@@ -356,12 +363,15 @@ export async function updateIntegratedProduct(formData: FormData) {
     const extension = image.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
     const storagePath = `${company.id}/product/${productId}/${crypto.randomUUID()}.${extension}`;
     const { error: uploadError } = await supabase.storage.from("company-media").upload(storagePath, await image.arrayBuffer(), { contentType: image.type, upsert: false });
-    if (!uploadError) {
-      const { data: url } = supabase.storage.from("company-media").getPublicUrl(storagePath);
-      const { data: lastAsset } = await supabase.from("media_assets").select("sort_order").eq("company_id", company.id).eq("entity_type", "product").eq("entity_id", productId).order("sort_order", { ascending: false }).limit(1).maybeSingle();
-      await supabase.from("media_assets").insert({ company_id: company.id, entity_type: "product", entity_id: productId,
-        kind: "gallery", storage_path: storagePath, public_url: url.publicUrl, alt_text: parsed.data.name,
-        mime_type: image.type, byte_size: image.size, sort_order: Number(lastAsset?.sort_order ?? -1) + 1, created_by: user.id });
+    if (uploadError) redirect(`/produtos?erro=${encodeURIComponent(`Não foi possível enviar a foto: ${uploadError.message}`)}`);
+    const { data: url } = supabase.storage.from("company-media").getPublicUrl(storagePath);
+    const { data: lastAsset } = await supabase.from("media_assets").select("sort_order").eq("company_id", company.id).eq("entity_type", "product").eq("entity_id", productId).order("sort_order", { ascending: false }).limit(1).maybeSingle();
+    const { error: assetError } = await supabase.from("media_assets").insert({ company_id: company.id, entity_type: "product", entity_id: productId,
+      kind: "gallery", storage_path: storagePath, public_url: url.publicUrl, alt_text: parsed.data.name,
+      mime_type: image.type, byte_size: image.size, sort_order: Number(lastAsset?.sort_order ?? -1) + 1, created_by: user.id });
+    if (assetError) {
+      await supabase.storage.from("company-media").remove([storagePath]);
+      redirect(`/produtos?erro=${encodeURIComponent(`Não foi possível vincular a foto ao produto: ${assetError.message}`)}`);
     }
   }
   revalidatePath("/produtos");

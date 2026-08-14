@@ -1,5 +1,7 @@
 import { getCurrentCompany } from "@/lib/auth/current-company";
 import { addProductToComboGroup, createCombo, createComboGroup, toggleCombo } from "./actions";
+import { MediaManager } from "@/components/media/media-manager";
+import type { MediaAsset } from "@/lib/media/types";
 
 function money(value: number | string | null) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value || 0));
@@ -8,11 +10,12 @@ function money(value: number | string | null) {
 export default async function CombosPage({ searchParams }: { searchParams: Promise<{ erro?: string; sucesso?: string }> }) {
   const query = await searchParams;
   const { supabase, company } = await getCurrentCompany();
-  const [{ data: categories }, { data: products }, { data: combos }, { data: groups }] = await Promise.all([
+  const [{ data: categories }, { data: products }, { data: combos }, { data: groups }, { data: comboMedia }] = await Promise.all([
     supabase.from("categories").select("id,name").eq("company_id", company.id).order("name"),
     supabase.from("products").select("id,name,base_price").eq("company_id", company.id).eq("is_active", true).order("name"),
-    supabase.from("combos").select("id,name,description,base_price,promotional_price,is_active,availability_status,combo_groups(id,name,min_selection,max_selection,free_selection,combo_group_products(id,price_delta,max_quantity,products(id,name)))").eq("company_id", company.id).order("created_at", { ascending: false }),
+    supabase.from("combos").select("id,name,description,image_url,base_price,promotional_price,is_active,availability_status,combo_groups(id,name,min_selection,max_selection,free_selection,combo_group_products(id,price_delta,max_quantity,products(id,name)))").eq("company_id", company.id).order("created_at", { ascending: false }),
     supabase.from("combo_groups").select("id,name,combo_id,combos(name)").eq("company_id", company.id).eq("is_active", true).order("name"),
+    supabase.from("media_assets").select("id,entity_id,storage_path,public_url,alt_text,mime_type,byte_size,sort_order").eq("company_id", company.id).eq("entity_type", "combo").eq("kind", "gallery").order("sort_order"),
   ]);
 
   return <main className="space-y-6">
@@ -82,6 +85,7 @@ export default async function CombosPage({ searchParams }: { searchParams: Promi
             <div><h3 className="text-lg font-bold">{combo.name}</h3><p className="text-sm text-gray-500">{combo.description || "Sem descrição"}</p><p className="mt-2 font-bold text-emerald-700">{money(combo.promotional_price ?? combo.base_price)}</p></div>
             <form action={toggleCombo}><input type="hidden" name="id" value={combo.id}/><input type="hidden" name="active" value={String(combo.is_active)}/><button className="rounded-xl border px-3 py-2 text-sm font-semibold">{combo.is_active ? "Pausar" : "Ativar"}</button></form>
           </div>
+          <div className="mt-4"><MediaManager companyId={company.id} entityType="combo" entityId={combo.id} initialAssets={(comboMedia || []).filter(asset => asset.entity_id === combo.id) as MediaAsset[]} title={`Foto de ${combo.name}`} description="Esta foto aparece na listagem de combos do cardápio." maxFiles={1}/></div>
           <div className="mt-4 space-y-3">
             {combo.combo_groups?.map(group => <div key={group.id} className="rounded-xl bg-gray-50 p-3">
               <div className="flex items-center justify-between"><strong>{group.name}</strong><span className="text-xs text-gray-500">{group.min_selection}–{group.max_selection} escolhas • {group.free_selection} grátis</span></div>

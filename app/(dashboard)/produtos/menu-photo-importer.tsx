@@ -22,6 +22,7 @@ export function MenuPhotoImporter() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [image, setImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [products, setProducts] = useState<ExtractedProduct[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [error, setError] = useState("");
@@ -32,6 +33,7 @@ export function MenuPhotoImporter() {
 
   function reset() {
     setImage(null);
+    setImagePreview(null);
     setProducts([]);
     setWarnings([]);
     setError("");
@@ -109,10 +111,10 @@ export function MenuPhotoImporter() {
               Envie uma foto nítida. A IA separará categoria, nome, descrição e preço. Você revisará tudo antes de salvar.
             </div>
             <label className="mt-5 flex min-h-64 cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed border-orange-300 bg-orange-50/50 p-6 text-center hover:bg-orange-50">
-              <Upload className="mb-3 text-orange-600" size={38}/>
+              {imagePreview ? <img src={imagePreview} alt="Pré-visualização do cardápio" className="mb-3 max-h-52 w-full rounded-2xl object-contain"/> : <Upload className="mb-3 text-orange-600" size={38}/>}
               <strong className="text-lg text-slate-900">{image ? image.name : "Clique para escolher a foto"}</strong>
               <span className="mt-1 text-sm text-slate-500">JPG, PNG ou WEBP com até 8 MB</span>
-              <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={event => { setImage(event.target.files?.[0] || null); setError(""); }}/>
+              <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={event => { const file = event.target.files?.[0] || null; setImage(file); setError(""); if (!file) return setImagePreview(null); const reader = new FileReader(); reader.onload = () => setImagePreview(typeof reader.result === "string" ? reader.result : null); reader.readAsDataURL(file); }}/>
             </label>
             <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600"><strong>Dica:</strong> fotografe de frente, com boa luz e sem cortar nomes ou preços. Fotos muito distantes podem gerar itens para revisão manual.</div>
           </div> : <div className="space-y-4">
