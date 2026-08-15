@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { Clock3, ChefHat, CheckCircle2, PackageCheck, RefreshCw, Search, Truck } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { advanceKitchenOrder } from "@/app/(dashboard)/cozinha/actions";
+import { NewOrderAlert } from "@/components/orders/new-order-alert";
 
 export type KitchenOrder = {
   id: string;
@@ -54,18 +54,6 @@ export function KitchenBoard({ initialOrders, companyId }: { initialOrders: Kitc
 
   useEffect(() => setOrders(initialOrders), [initialOrders]);
 
-  useEffect(() => {
-    let supabase;
-    try { supabase = createClient(); } catch { return; }
-    const channel = supabase
-      .channel(`kitchen-${companyId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders", filter: `company_id=eq.${companyId}` }, () => {
-        window.location.reload();
-      })
-      .subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  }, [companyId]);
-
   const filtered = useMemo(() => {
     const text = query.trim().toLowerCase();
     if (!text) return orders;
@@ -90,6 +78,7 @@ export function KitchenBoard({ initialOrders, companyId }: { initialOrders: Kitc
   }
 
   return <div className="space-y-5">
+    <NewOrderAlert companyId={companyId} sector="kitchen" reloadOnOrder/>
     <div className="flex flex-col gap-3 rounded-2xl border bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
       <div className="relative max-w-md flex-1">
         <Search className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />

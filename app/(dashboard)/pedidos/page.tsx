@@ -1,6 +1,7 @@
 import { createOrder, updateOrderStatus } from "./actions";
 import { requirePlanModule } from "@/lib/auth/current-company";
 import { PrintOrderButton } from "./print-order-button";
+import { NewOrderAlert } from "@/components/orders/new-order-alert";
 
 const labels: Record<string,string> = { new:"Novo", accepted:"Aceito", preparing:"Em preparo", ready:"Pronto", out_for_delivery:"Em entrega", delivered:"Entregue", canceled:"Cancelado" };
 const next: Record<string,string | undefined> = { new:"accepted", accepted:"preparing", preparing:"ready", ready:"out_for_delivery", out_for_delivery:"delivered" };
@@ -21,6 +22,7 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
     <header><p className="text-sm font-semibold text-emerald-700">Fluxo salvo no Supabase</p><h1 className="text-3xl font-bold">Pedidos</h1><p className="text-gray-500">Crie e atualize pedidos reais da {company.name}.</p></header>
     {query.erro && <div className="rounded-xl bg-red-50 p-4 text-red-700">{query.erro}</div>}
     {query.sucesso && <div className="rounded-xl bg-emerald-50 p-4 text-emerald-800">{query.sucesso}</div>}
+    <NewOrderAlert companyId={company.id} sector="counter"/>
 
     <section className="grid gap-5 xl:grid-cols-[380px_1fr]">
       <form action={createOrder} className="h-fit rounded-2xl border bg-white p-5 shadow-sm">
