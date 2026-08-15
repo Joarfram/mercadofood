@@ -225,6 +225,10 @@ export async function createIntegratedProduct(formData: FormData) {
   if (!parsed.data.availableDelivery && !parsed.data.availablePickup && !parsed.data.availableDineIn) {
     redirect("/produtos?erro=Selecione%20ao%20menos%20um%20canal%20de%20venda");
   }
+  const image = formData.get("image");
+  if (image instanceof File && image.size > 0 && (image.size > 8 * 1024 * 1024 || !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(image.type))) {
+    redirect("/produtos?erro=A%20imagem%20deve%20ser%20JPG,%20PNG,%20WEBP%20ou%20GIF%20com%20at%C3%A9%208MB");
+  }
 
   const addons = parseJsonList<AddonInput>(formData.get("addonsJson"));
   const variants = parseJsonList<VariantInput>(formData.get("variantsJson"));
@@ -271,7 +275,6 @@ export async function createIntegratedProduct(formData: FormData) {
     price_delta: Number(variant.price || 0), stock_quantity: Math.max(0, Number(variant.stock || 0)), sort_order: index,
   })));
 
-  const image = formData.get("image");
   if (image instanceof File && image.size > 0) {
     if (image.size > 8 * 1024 * 1024 || !["image/jpeg", "image/png", "image/webp", "image/gif"].includes(image.type)) {
       redirect("/produtos?erro=A%20imagem%20deve%20ser%20JPG,%20PNG,%20WEBP%20ou%20GIF%20com%20até%208MB");
