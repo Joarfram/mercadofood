@@ -368,10 +368,33 @@ export async function updateIntegratedProduct(formData: FormData) {
     const { error: uploadError } = await supabase.storage.from("company-media").upload(storagePath, await image.arrayBuffer(), { contentType: image.type, upsert: false });
     if (uploadError) redirect(`/produtos?erro=${encodeURIComponent(`Não foi possível enviar a foto: ${uploadError.message}`)}`);
     const { data: url } = supabase.storage.from("company-media").getPublicUrl(storagePath);
-    const { data: lastAsset } = await supabase.from("media_assets").select("sort_order").eq("company_id", company.id).eq("entity_type", "product").eq("entity_id", productId).order("sort_order", { ascending: false }).limit(1).maybeSingle();
+    const { data: currentAssets, error: assetsLookupError } = await supabase
+      .from("media_assets")
+      .select("id, sort_order")
+      .eq("company_id", company.id)
+      .eq("entity_type", "product")
+      .eq("entity_id", productId)
+      .eq("kind", "gallery")
+      .order("sort_order", { ascending: false })
+      .order("created_at", { ascending: false });
+    if (assetsLookupError) {
+      await supabase.storage.from("company-media").remove([storagePath]);
+      redirect(`/produtos?erro=${encodeURIComponent(`Não foi possível preparar a troca da foto: ${assetsLookupError.message}`)}`);
+    }
+    for (const asset of currentAssets || []) {
+      const { error: reorderError } = await supabase
+        .from("media_assets")
+        .update({ sort_order: Number(asset.sort_order) + 1, updated_at: new Date().toISOString() })
+        .eq("id", asset.id)
+        .eq("company_id", company.id);
+      if (reorderError) {
+        await supabase.storage.from("company-media").remove([storagePath]);
+        redirect(`/produtos?erro=${encodeURIComponent(`Não foi possível preparar a troca da foto: ${reorderError.message}`)}`);
+      }
+    }
     const { error: assetError } = await supabase.from("media_assets").insert({ company_id: company.id, entity_type: "product", entity_id: productId,
       kind: "gallery", storage_path: storagePath, public_url: url.publicUrl, alt_text: parsed.data.name,
-      mime_type: image.type, byte_size: image.size, sort_order: Number(lastAsset?.sort_order ?? -1) + 1, created_by: user.id });
+      mime_type: image.type, byte_size: image.size, sort_order: 0, created_by: user.id });
     if (assetError) {
       await supabase.storage.from("company-media").remove([storagePath]);
       redirect(`/produtos?erro=${encodeURIComponent(`Não foi possível vincular a foto ao produto: ${assetError.message}`)}`);
