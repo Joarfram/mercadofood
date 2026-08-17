@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { requirePlanModule } from "@/lib/auth/current-company";
 
 const allowedTransitions: Record<string, string[]> = {
@@ -14,7 +13,7 @@ export async function advanceKitchenOrder(formData: FormData) {
   const orderId = String(formData.get("orderId") || "");
   const currentStatus = String(formData.get("currentStatus") || "");
   const nextStatus = String(formData.get("nextStatus") || "");
-  if (!orderId || !allowedTransitions[currentStatus]?.includes(nextStatus)) return;
+  if (!orderId || !allowedTransitions[currentStatus]?.includes(nextStatus)) return { ok: false, message: "Etapa inválida para este pedido." };
 
   const { supabase, company } = await requirePlanModule("kitchen");
   const timestamps: Record<string, string> = {
@@ -27,13 +26,16 @@ export async function advanceKitchenOrder(formData: FormData) {
   const payload: Record<string, string> = { status: nextStatus };
   if (timestamps[nextStatus]) payload[timestamps[nextStatus]] = new Date().toISOString();
 
-  await supabase
+  const { data, error } = await supabase
     .from("orders")
     .update(payload)
     .eq("id", orderId)
     .eq("company_id", company.id)
-    .eq("status", currentStatus);
+    .eq("status", currentStatus)
+    .select("id")
+    .maybeSingle();
 
-  revalidatePath("/cozinha");
-  revalidatePath("/pedidos");
+  if (error) return { ok: false, message: error.message };
+  if (!data) return { ok: false, message: "O pedido já foi atualizado em outra tela. Clique em Atualizar." };
+  return { ok: true, message: "Pedido atualizado com sucesso." };
 }

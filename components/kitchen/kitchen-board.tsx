@@ -51,6 +51,8 @@ export function KitchenBoard({ initialOrders, companyId }: { initialOrders: Kitc
   const [orders, setOrders] = useState(initialOrders);
   const [query, setQuery] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   useEffect(() => setOrders(initialOrders), [initialOrders]);
 
@@ -71,14 +73,23 @@ export function KitchenBoard({ initialOrders, companyId }: { initialOrders: Kitc
     formData.set("orderId", order.id);
     formData.set("currentStatus", order.status);
     formData.set("nextStatus", step.status);
+    setUpdatingId(order.id);
+    setFeedback(null);
     startTransition(async () => {
-      await advanceKitchenOrder(formData);
-      setOrders((current) => current.map((item) => item.id === order.id ? { ...item, status: step.status } : item));
+      const result = await advanceKitchenOrder(formData);
+      if (result?.ok) {
+        setOrders((current) => current.map((item) => item.id === order.id ? { ...item, status: step.status } : item));
+        setFeedback({ type: "success", message: `Pedido #${order.order_number} atualizado com sucesso.` });
+      } else {
+        setFeedback({ type: "error", message: result?.message || "Não foi possível atualizar o pedido." });
+      }
+      setUpdatingId(null);
     });
   }
 
   return <div className="space-y-5">
     <NewOrderAlert companyId={companyId} sector="kitchen" reloadOnOrder/>
+    {feedback && <div role="status" className={`rounded-xl border p-4 font-semibold ${feedback.type === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-700"}`}>{feedback.message}</div>}
     <div className="flex flex-col gap-3 rounded-2xl border bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
       <div className="relative max-w-md flex-1">
         <Search className="absolute left-3 top-3.5 h-4 w-4 text-gray-400" />
@@ -112,8 +123,8 @@ export function KitchenBoard({ initialOrders, companyId }: { initialOrders: Kitc
                   {order.order_items.map((item, index) => <p key={`${item.product_name}-${index}`}><strong>{item.quantity}×</strong> {item.product_name}</p>)}
                 </div>
                 {order.notes && <p className="mb-3 rounded-lg bg-yellow-50 p-2 text-xs text-yellow-900"><strong>Observação:</strong> {order.notes}</p>}
-                {step && <button disabled={isPending} onClick={() => advance(order)} className="w-full rounded-xl bg-emerald-700 px-3 py-2.5 font-semibold text-white disabled:opacity-60">
-                  {step.label}
+                {step && <button disabled={isPending && updatingId === order.id} onClick={() => advance(order)} className="w-full rounded-xl bg-emerald-700 px-3 py-2.5 font-semibold text-white disabled:opacity-60">
+                  {isPending && updatingId === order.id ? "Atualizando..." : step.label}
                 </button>}
                 {order.status === "ready" && <p className="mt-2 flex items-center justify-center gap-1 text-xs text-gray-500"><Truck className="h-3.5 w-3.5" /> Próxima etapa: entrega</p>}
               </article>;
