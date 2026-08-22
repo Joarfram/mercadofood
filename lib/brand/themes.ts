@@ -13,4 +13,17 @@ export const brandThemes: Record<BrandThemeId, BrandTheme> = {
 
 export function isBrandThemeId(value:unknown):value is BrandThemeId{return typeof value==="string"&&brandThemeIds.includes(value as BrandThemeId)}
 export function getBrandTheme(value:unknown):BrandTheme{if(value==="dark")return brandThemes.burger_night;if(value==="light")return brandThemes.cafe_warm;return brandThemes[isBrandThemeId(value)?value:"burger_night"]}
-export function themeStyle(theme:BrandTheme):CSSProperties{return {"--mf-bg":theme.colors.background,"--mf-surface":theme.colors.surface,"--mf-sidebar":theme.colors.sidebar,"--mf-primary":theme.colors.primary,"--mf-accent":theme.colors.accent,"--mf-secondary":theme.colors.secondary,"--mf-text":theme.colors.text,"--mf-muted":theme.colors.muted,"--mf-border":theme.colors.border} as CSSProperties}
+
+function rgb(hex:string){const value=hex.replace("#","");return [0,2,4].map(index=>parseInt(value.slice(index,index+2),16)/255)}
+function luminance(hex:string){return rgb(hex).map(value=>value<=.04045?value/12.92:Math.pow((value+.055)/1.055,2.4)).reduce((sum,value,index)=>sum+value*[.2126,.7152,.0722][index],0)}
+export function contrastRatio(first:string,second:string){const [light,dark]=[luminance(first),luminance(second)].sort((a,b)=>b-a);return (light+.05)/(dark+.05)}
+export function foregroundFor(background:string){return contrastRatio(background,"#FFFFFF")>=4.5?"#FFFFFF":"#0B0F0E"}
+export function accessibleBrandText(color:string,surface:string,fallback:string){return contrastRatio(color,surface)>=4.5?color:fallback}
+
+export function themeStyle(theme:BrandTheme):CSSProperties{return {
+  "--mf-bg":theme.colors.background,"--mf-surface":theme.colors.surface,"--mf-sidebar":theme.colors.sidebar,
+  "--mf-primary":theme.colors.primary,"--mf-on-primary":foregroundFor(theme.colors.primary),
+  "--mf-accent":theme.colors.accent,"--mf-on-accent":foregroundFor(theme.colors.accent),
+  "--mf-action-text":accessibleBrandText(theme.colors.primary,theme.colors.surface,theme.colors.text),
+  "--mf-secondary":theme.colors.secondary,"--mf-text":theme.colors.text,"--mf-muted":theme.colors.muted,"--mf-border":theme.colors.border
+} as CSSProperties}

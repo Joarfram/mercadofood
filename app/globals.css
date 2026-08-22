@@ -19,6 +19,14 @@ body {
 
 /* O tema escolhido pela empresa acompanha todas as telas do painel. */
 .mf-dashboard-theme { background:var(--mf-bg); color:var(--mf-text); transition:background-color .2s,color .2s; }
+
+/* Dialogos brancos precisam permanecer legiveis mesmo dentro de temas escuros. */
+.mf-public-menu .fixed section.bg-white { color:#0f172a; color-scheme:light; }
+.mf-public-menu .fixed section.bg-white input,
+.mf-public-menu .fixed section.bg-white select,
+.mf-public-menu .fixed section.bg-white textarea { background-color:#fff; color:#0f172a; }
+.mf-public-menu .fixed section.bg-white input::placeholder,
+.mf-public-menu .fixed section.bg-white textarea::placeholder { color:#64748b; opacity:1; }
 .mf-dashboard-theme main { color:var(--mf-text); }
 .mf-dashboard-theme .bg-white { background-color:var(--mf-surface) !important; }
 .mf-dashboard-theme .bg-gray-50,
@@ -42,9 +50,13 @@ body {
 .mf-dashboard-theme [class*="bg-emerald-7"],
 .mf-dashboard-theme [class*="bg-green-7"],
 .mf-dashboard-theme [class*="bg-orange-5"] { background-color:var(--mf-primary) !important; }
+.mf-dashboard-theme [class*="bg-emerald-7"],
+.mf-dashboard-theme [class*="bg-green-7"],
+.mf-dashboard-theme [class*="bg-orange-5"],
+.mf-dashboard-theme [class*="bg-[var(--mf-primary)]"] { color:var(--mf-on-primary) !important; }
 .mf-dashboard-theme [class*="text-emerald-7"],
 .mf-dashboard-theme [class*="text-green-7"],
-.mf-dashboard-theme [class*="text-orange-6"] { color:var(--mf-primary) !important; }
+.mf-dashboard-theme [class*="text-orange-6"] { color:var(--mf-action-text) !important; }
 .mf-dashboard-theme [class*="border-emerald"],
 .mf-dashboard-theme [class*="border-green"] { border-color:color-mix(in srgb,var(--mf-primary) 45%,var(--mf-border)) !important; }
 .mf-dashboard-theme[data-dark="true"] { color-scheme:dark; }
