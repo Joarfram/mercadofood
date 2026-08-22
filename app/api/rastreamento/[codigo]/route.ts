@@ -16,16 +16,16 @@ export async function GET(
 
   try {
     const supabase = await createClient();
-    const { data, error } = await supabase.rpc("get_public_delivery_tracking", {
-      p_tracking_code: cleanCode,
+    const { data, error } = await supabase.rpc("get_public_order_tracking", {
+      p_code: cleanCode,
     });
 
     if (error) {
-      return NextResponse.json({ error: "Não foi possível consultar a entrega." }, { status: 500 });
+      return NextResponse.json({ error: "Não foi possível consultar o pedido." }, { status: 500 });
     }
 
     if (!data) {
-      return NextResponse.json({ error: "Entrega não encontrada." }, { status: 404 });
+      return NextResponse.json({ error: "Pedido não encontrado." }, { status: 404 });
     }
 
     return NextResponse.json(data, {

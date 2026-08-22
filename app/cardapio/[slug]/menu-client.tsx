@@ -5,6 +5,7 @@ import { Clock3, Minus, Plus, Search, ShoppingCart, Trash2 } from "lucide-react"
 import { previewPublicCoupon, submitPublicOrder } from "./actions";
 import { PublicFeedback } from "@/components/feedback/public-feedback";
 import { getBrandTheme } from "@/lib/brand/themes";
+import { RecentOrderLink, rememberPublicOrder } from "@/components/tracking/recent-order-link";
 
 type Option = { id: string; name: string; price_delta: number; max_quantity?: number };
 type Group = {
@@ -246,6 +247,7 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
     startTransition(async () => {
       const result = await submitPublicOrder(payload);
       if (!result.ok) { setError(result.error); return; }
+      rememberPublicOrder(menu.company.slug, { publicCode: result.data.public_code, orderNumber: result.data.order_number, total: Number(result.data.total), createdAt: new Date().toISOString() });
       setSuccess(result.data);
       setCart([]);
       setCheckoutOpen(false);
@@ -302,6 +304,8 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
           <button type="button" onClick={() => cart.length && setCheckoutOpen(true)} aria-label="Abrir carrinho" className="relative grid h-10 w-10 place-items-center rounded-xl bg-[var(--menu-primary)] text-white"><ShoppingCart size={20}/>{cart.length > 0 && <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-xs font-black">{cart.reduce((sum,item)=>sum+item.quantity,0)}</span>}</button>
         </div>
       </header>
+
+      <RecentOrderLink slug={menu.company.slug}/>
 
       <section className="relative overflow-hidden border-b border-white/10 bg-[#171719] text-white">
         {menu.company.banner_url && <img src={menu.company.banner_url} alt={`Banner da ${menu.company.name}`} className="absolute inset-0 h-full w-full object-cover opacity-40"/>}

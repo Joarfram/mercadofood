@@ -13,6 +13,8 @@ type TrackingLocation = {
 type TrackingData = {
   tracking_code: string;
   status: string;
+  order_status?: string;
+  service_type?: string;
   order_number: string;
   customer_name: string;
   driver_name?: string | null;
@@ -25,14 +27,27 @@ type TrackingData = {
   events?: Array<{ type: string; created_at: string }>;
 };
 
-const steps = [
+const deliverySteps = [
   { key: "preparing", label: "Preparando", icon: Store },
   { key: "waiting_pickup", label: "Aguardando retirada", icon: PackageCheck },
   { key: "delivering", label: "Saiu para entrega", icon: Bike },
   { key: "completed", label: "Entregue", icon: CheckCircle2 },
 ];
 
+const pickupSteps = [
+  { key: "new", label: "Recebido", icon: Clock3 },
+  { key: "preparing", label: "Preparando", icon: Store },
+  { key: "ready", label: "Pronto", icon: PackageCheck },
+  { key: "completed", label: "Retirado", icon: CheckCircle2 },
+];
+
 const statusRank: Record<string, number> = {
+  new: 0,
+  confirmed: 0,
+  preparing: 0,
+  ready: 1,
+  out_for_delivery: 2,
+  delivered: 3,
   waiting_assignment: 0,
   offered: 0,
   accepted: 0,
@@ -93,20 +108,23 @@ export function CustomerTracking({ code }: { code: string }) {
   }, [data?.last_location]);
 
   if (loading) {
-    return <div className="rounded-3xl bg-white p-8 text-center shadow-sm"><RefreshCw className="mx-auto animate-spin text-emerald-600"/><p className="mt-3 text-slate-600">Buscando sua entrega...</p></div>;
+    return <div className="rounded-3xl bg-white p-8 text-center shadow-sm"><RefreshCw className="mx-auto animate-spin text-emerald-600"/><p className="mt-3 text-slate-600">Buscando seu pedido...</p></div>;
   }
 
   if (!data) {
-    return <div className="rounded-3xl bg-white p-8 text-center shadow-sm"><MapPin className="mx-auto text-red-500" size={38}/><h2 className="mt-3 text-xl font-bold">Não encontramos a entrega</h2><p className="mt-2 text-slate-600">{error || "Confira o código recebido da loja."}</p><button onClick={load} className="mt-5 rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white">Tentar novamente</button></div>;
+    return <div className="rounded-3xl bg-white p-8 text-center shadow-sm"><MapPin className="mx-auto text-red-500" size={38}/><h2 className="mt-3 text-xl font-bold">Não encontramos o pedido</h2><p className="mt-2 text-slate-600">{error || "Confira o código recebido da loja."}</p><button onClick={load} className="mt-5 rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white">Tentar novamente</button></div>;
   }
 
-  const isCompleted = data.status === "completed";
+  const isCompleted = data.status === "completed" || data.status === "delivered";
   const isDelivering = data.status === "delivering";
+  const isPickup = data.service_type === "pickup";
+  const steps = isPickup ? pickupSteps : deliverySteps;
+  const heading = data.status === "canceled" ? "Pedido cancelado" : isCompleted ? "Pedido finalizado!" : isDelivering ? "Seu pedido está a caminho" : data.status === "ready" ? (isPickup ? "Seu pedido está pronto para retirada" : "Seu pedido está pronto") : data.status === "confirmed" || data.status === "preparing" ? "A loja aceitou e está preparando" : "Pedido enviado para a loja";
 
   return <div className="space-y-4">
     <section className="rounded-3xl bg-emerald-700 p-6 text-white shadow-sm">
       <p className="text-sm text-emerald-100">Pedido #{data.order_number}</p>
-      <h1 className="mt-1 text-2xl font-bold">{isCompleted ? "Pedido entregue!" : isDelivering ? "Seu pedido está a caminho" : "Estamos preparando sua entrega"}</h1>
+      <h1 className="mt-1 text-2xl font-bold">{heading}</h1>
       <p className="mt-2 text-sm text-emerald-100">Olá, {data.customer_name}. Esta página atualiza automaticamente.</p>
     </section>
 
@@ -129,7 +147,7 @@ export function CustomerTracking({ code }: { code: string }) {
       </div>
     </section>
 
-    <section className="overflow-hidden rounded-3xl bg-white shadow-sm">
+    {!isPickup && <section className="overflow-hidden rounded-3xl bg-white shadow-sm">
       {mapUrl && isDelivering ? <iframe title="Localização aproximada do entregador" src={mapUrl} className="h-72 w-full border-0" loading="lazy"/> : <div className="flex h-64 flex-col items-center justify-center bg-slate-100 px-6 text-center"><Bike size={44} className="text-emerald-600"/><h2 className="mt-3 font-bold">{isCompleted ? "Entrega finalizada" : "O mapa aparecerá após a retirada"}</h2><p className="mt-1 text-sm text-slate-500">A localização é compartilhada somente durante a entrega.</p></div>}
       <div className="p-5">
         <div className="flex items-start justify-between gap-4">
@@ -138,7 +156,7 @@ export function CustomerTracking({ code }: { code: string }) {
         </div>
         <div className="mt-4 flex items-center gap-2 rounded-xl bg-orange-50 p-3 text-sm text-orange-800"><MapPin size={18}/><span>{data.delivery_address?.neighborhood || "Seu endereço"}{data.delivery_address?.city ? `, ${data.delivery_address.city}` : ""}</span></div>
       </div>
-    </section>
+    </section>}
 
     <section className="rounded-3xl bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between"><div><h2 className="font-bold">Atualização automática</h2><p className="text-sm text-slate-500">Consulta a cada 10 segundos</p></div><button onClick={load} className="rounded-full bg-slate-100 p-3 text-slate-600" aria-label="Atualizar agora"><RefreshCw size={18}/></button></div>
