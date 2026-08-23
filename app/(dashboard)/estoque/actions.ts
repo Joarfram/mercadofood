@@ -8,7 +8,6 @@ function amount(value: FormDataEntryValue | null) {
   const parsed = Number(String(value || "0").replace(",", "."));
   return Number.isFinite(parsed) ? parsed : 0;
 }
-
 export async function createIngredient(formData: FormData) {
   const { supabase, company } = await requirePlanModule("stock");
   const name = String(formData.get("name") || "").trim();
@@ -60,4 +59,44 @@ export async function removeRecipeItem(formData: FormData) {
   const id = String(formData.get("recipeItemId") || "");
   await supabase.from("recipe_items").delete().eq("id", id).eq("company_id", company.id);
   revalidatePath("/estoque");
+}
+
+export async function saveRecipe(formData: FormData) {
+  const { supabase, company } = await requirePlanModule("stock");
+  const productId = String(formData.get("productId") || "");
+  let items: Array<{ingredientId:string;quantity:number}> = [];
+  try { items = JSON.parse(String(formData.get("itemsJson") || "[]")); } catch {}
+  if (!productId || !items.length || items.some(item=>!item.ingredientId||!Number.isFinite(item.quantity)||item.quantity<=0)) redirect("/estoque?erro=Revise os itens da ficha técnica.");
+  const ingredientIds = [...new Set(items.map(item=>item.ingredientId))];
+  const [{ data: product }, { data: validIngredients }] = await Promise.all([
+    supabase.from("products").select("id").eq("id",productId).eq("company_id",company.id).maybeSingle(),
+    supabase.from("ingredients").select("id").eq("company_id",company.id).in("id",ingredientIds),
+  ]);
+  if (!product || validIngredients?.length !== ingredientIds.length) redirect("/estoque?erro=Produto ou insumo inválido.");
+  const { data: previousItems, error: previousError } = await supabase.from("recipe_items").select("id,ingredient_id").eq("company_id",company.id).eq("product_id",productId);
+  if (previousError) redirect(`/estoque?erro=${encodeURIComponent(previousError.message)}`);
+  const { error } = await supabase.from("recipe_items").upsert(items.map(item=>({company_id:company.id,product_id:productId,ingredient_id:item.ingredientId,quantity:item.quantity})),{onConflict:"product_id,ingredient_id"});
+  if (error) redirect(`/estoque?erro=${encodeURIComponent(error.message)}`);
+  const kept = new Set(ingredientIds);
+  const obsoleteIds = (previousItems||[]).filter(item=>!kept.has(item.ingredient_id)).map(item=>item.id);
+  if(obsoleteIds.length){const {error:removeError}=await supabase.from("recipe_items").delete().eq("company_id",company.id).in("id",obsoleteIds);if(removeError) redirect(`/estoque?erro=${encodeURIComponent(removeError.message)}`);}
+  revalidatePath("/estoque");
+  redirect("/estoque?sucesso=Ficha técnica completa salva.");
+}
+
+export async function updateIngredient(formData: FormData) {
+  const { supabase, company } = await requirePlanModule("stock");
+  const id=String(formData.get("ingredientId")||""); const name=String(formData.get("name")||"").trim(); const unit=String(formData.get("unit")||"");
+  const minimumStock=amount(formData.get("minimumStock")); const unitCost=amount(formData.get("unitCost"));
+  if(!id||name.length<2||!['un','g','kg','ml','l'].includes(unit)||minimumStock<0||unitCost<0) redirect("/estoque?erro=Confira os dados do insumo.");
+  const {error}=await supabase.from("ingredients").update({name,unit,minimum_stock:minimumStock,unit_cost:unitCost,updated_at:new Date().toISOString()}).eq("id",id).eq("company_id",company.id);
+  if(error) redirect(`/estoque?erro=${encodeURIComponent(error.message)}`); revalidatePath("/estoque"); redirect("/estoque?sucesso=Insumo atualizado.");
+}
+
+export async function deleteIngredient(formData: FormData) {
+  const { supabase, company, role } = await requirePlanModule("stock");
+  if(!['owner','manager'].includes(role)) redirect("/estoque?erro=Somente proprietário ou gerente pode excluir insumos.");
+  const id=String(formData.get("ingredientId")||""); if(!id) redirect("/estoque?erro=Insumo inválido.");
+  const {error}=await supabase.from("ingredients").update({is_active:false,updated_at:new Date().toISOString()}).eq("id",id).eq("company_id",company.id);
+  if(error) redirect(`/estoque?erro=${encodeURIComponent(error.message)}`); revalidatePath("/estoque"); redirect("/estoque?sucesso=Insumo excluído do estoque. O histórico foi preservado.");
 }
