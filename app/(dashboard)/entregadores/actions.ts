@@ -2,8 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getCurrentCompany } from "@/lib/auth/current-company";
+import { requirePlanModule } from "@/lib/auth/current-company";
 import { driverOfferMessage, queueWhatsAppNotification } from "@/lib/notifications/whatsapp";
+
+const getCurrentCompany = () => requirePlanModule("drivers");
 
 function trackingCode() {
   return `MF${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`;

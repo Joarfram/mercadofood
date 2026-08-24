@@ -92,6 +92,6 @@ export async function requirePlanModule(module: ModuleKey) {
   });
   const active = data.status === "active" || data.status === "trialing";
   const allowed = entitlementError ? (isPlanCode(planCode) && planAllows(planCode,module)) : Boolean(databaseAllows);
-  if (!active || !isPlanCode(planCode) || !allowed) redirect(`/assinatura?bloqueado=${module}`);
-  return { ...context, planCode };
+  if (!active || !allowed) redirect(`/sem-permissao?recurso=${module}`);
+  return { ...context, planCode: isPlanCode(planCode) ? planCode : "basic" as const };
 }

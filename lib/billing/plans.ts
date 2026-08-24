@@ -1,6 +1,6 @@
 import type { ModuleKey } from "@/lib/auth/permissions";
 
-export type PlanCode = "basic" | "professional" | "premium";
+export type PlanCode = "basic" | "professional" | "premium" | "delivery-simples";
 
 export type PlanDefinition = {
   code: PlanCode;
@@ -16,6 +16,13 @@ export type PlanDefinition = {
 };
 
 export const plans: Record<PlanCode, PlanDefinition> = {
+  "delivery-simples": {
+    code: "delivery-simples", name: "Gestão Delivery Simples", promise: "Gerenciar delivery",
+    description: "Gestão essencial de cardápio, pedidos, clientes, delivery e retirada.",
+    userLimit: 2, branchLimit: 1, monthlyPrice: 0, annualMonthlyPrice: 0,
+    modules: ["dashboard", "orders", "products", "customers", "delivery", "payments", "messages", "settings"],
+    highlights: ["Cardápio, produtos e complementos", "Pedidos, clientes, delivery e retirada", "QR Code, WhatsApp e formas de pagamento"],
+  },
   basic: {
     code: "basic",
     name: "Básico",
@@ -37,7 +44,7 @@ export const plans: Record<PlanCode, PlanDefinition> = {
     branchLimit: 1,
     monthlyPrice: 150,
     annualMonthlyPrice: 99.90,
-    modules: ["dashboard", "orders", "products", "kitchen", "delivery", "payments", "finance", "reports", "customers", "promotions", "marketing", "messages", "tables", "settings", "team"],
+    modules: ["dashboard", "orders", "products", "kitchen", "delivery", "drivers", "payments", "finance", "reports", "customers", "promotions", "marketing", "messages", "tables", "settings", "team"],
     highlights: ["Tudo do Básico", "Painel da cozinha, mesas e comandas", "Caixa, clientes e fidelidade", "Entregadores, rastreamento e relatórios"],
   },
   premium: {
@@ -49,14 +56,14 @@ export const plans: Record<PlanCode, PlanDefinition> = {
     branchLimit: 3,
     monthlyPrice: 225,
     annualMonthlyPrice: 149.90,
-    modules: ["dashboard", "orders", "products", "kitchen", "delivery", "payments", "finance", "reports", "stock", "customers", "promotions", "marketing", "messages", "tables", "settings", "team"],
+    modules: ["dashboard", "orders", "products", "kitchen", "delivery", "drivers", "payments", "finance", "reports", "stock", "customers", "promotions", "marketing", "messages", "tables", "settings", "team"],
     highlights: ["Tudo do Profissional", "Estoque e ficha técnica", "Custos, margens e relatórios avançados", "Até 3 unidades e suporte Premium"],
   },
 };
 
 export const moduleLabels: Record<ModuleKey, string> = {
   dashboard: "Dashboard", orders: "Pedidos", products: "Cardápio e produtos", kitchen: "Painel da cozinha",
-  delivery: "Entregadores e rastreamento", payments: "Pagamentos", finance: "Caixa", reports: "Relatórios",
+  delivery: "Delivery e retirada", drivers: "Entregadores e rastreamento", payments: "Pagamentos", finance: "Caixa", reports: "Relatórios",
   stock: "Estoque e ficha técnica", customers: "Clientes e fidelidade", promotions: "Promoções e cupons",
   marketing: "MercadoFood Impulsiona", messages: "Mensagens e avaliações", tables: "Mesas e comandas", settings: "Configurações", team: "Usuários e permissões",
 };
@@ -71,7 +78,7 @@ export const paidAddons = [
 ] as const;
 
 export function isPlanCode(value: unknown): value is PlanCode {
-  return value === "basic" || value === "professional" || value === "premium";
+  return value === "basic" || value === "professional" || value === "premium" || value === "delivery-simples";
 }
 
 export function planAllows(planCode: PlanCode, module: ModuleKey) {

@@ -15,7 +15,7 @@ const items: Array<{href:string;label:string;icon:typeof LayoutDashboard;module:
   { href: "/combos", label: "Combos", icon: Boxes, module: "products" },
   { href: "/midias", label: "Fotos e imagens", icon: Images, module: "products" },
   { href: "/cozinha", label: "Cozinha", icon: ChefHat, module: "kitchen" },
-  { href: "/entregadores", label: "Entregadores", icon: Bike, module: "delivery" },
+  { href: "/entregadores", label: "Entregadores", icon: Bike, module: "drivers" },
   { href: "/financeiro", label: "Caixa e pagamentos", icon: Banknote, module: "finance" },
   { href: "/relatorios", label: "Relatórios", icon: BarChart3, module: "reports" },
   { href: "/estoque", label: "Estoque", icon: PackageOpen, module: "stock" },
@@ -35,7 +35,7 @@ export async function Sidebar() {
   const planCode = isPlanCode(relatedPlan?.code) ? relatedPlan.code : "basic";
   const roleItems = items.filter(item => canAccess(role,item.module));
   const entitlementResults = await Promise.all(roleItems.map(item => supabase.rpc("company_plan_allows",{target_company:company.id,requested_module:item.module})));
-  const visibleItems = roleItems.map((item,index) => ({ ...item, allowed: entitlementResults[index].error ? planAllows(planCode,item.module) : Boolean(entitlementResults[index].data) }));
+  const visibleItems = roleItems.map((item,index) => ({ ...item, allowed: entitlementResults[index].error ? planAllows(planCode,item.module) : Boolean(entitlementResults[index].data) })).filter(item => item.allowed);
   const [{ count: unreadFeedback }, { data: unreadWhatsApp }] = canAccess(role,"messages")
     ? await Promise.all([
       supabase.from("customer_messages").select("id",{count:"exact",head:true}).eq("company_id",company.id).eq("status","new"),
@@ -43,11 +43,11 @@ export async function Sidebar() {
     ])
     : [{ count: 0 }, { data: [] }];
   const unreadMessages = Number(unreadFeedback || 0) + (unreadWhatsApp || []).reduce((sum,item) => sum + Number(item.unread_count || 0), 0);
-  return <><MobileNavigation companyName={company.name} items={visibleItems.map(item => ({ href: item.allowed ? item.href : `/assinatura?bloqueado=${item.module}`, label: item.label, locked: !item.allowed, badge: item.module === "messages" ? unreadMessages || 0 : 0 }))}/><aside className="hidden min-h-screen border-r border-white/10 bg-[var(--mf-sidebar)] p-4 text-white shadow-xl md:flex md:w-64 md:flex-col">
-    <div className="flex items-center gap-3 border-b border-white/10 px-2 py-4"><div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white shadow-md"><BrandMark size={42}/></div><div className="min-w-0"><p className="font-bold">Mercado<span className="text-orange-400">Food</span></p><p className="truncate text-xs text-emerald-100/80">{company.name}</p><p className="text-[11px] font-semibold text-emerald-300">{roleLabels[role]}</p></div></div>
+  return <><MobileNavigation companyName={company.name} items={visibleItems.map(item => ({ href: item.allowed ? item.href : `/assinatura?bloqueado=${item.module}`, label: item.label, locked: !item.allowed, badge: item.module === "messages" ? unreadMessages || 0 : 0 }))}/><aside className="mf-sidebar hidden min-h-screen border-r border-white/10 bg-[var(--mf-sidebar)] p-4 text-[var(--mf-sidebar-text)] shadow-xl md:flex md:w-64 md:flex-col">
+    <div className="flex items-center gap-3 border-b border-white/10 px-2 py-4"><div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white shadow-md"><BrandMark size={42}/></div><div className="min-w-0"><p className="font-bold">Mercado<span className="text-orange-400">Food</span></p><p className="truncate text-xs opacity-80">{company.name}</p><p className="text-[11px] font-semibold opacity-90">{roleLabels[role]}</p></div></div>
     <nav className="mt-6 space-y-2">{visibleItems.map(({href,label,icon:Icon,module,allowed}) => {
       return <ActiveSidebarLink key={href} href={allowed ? href : `/assinatura?bloqueado=${module}`} activeHref={href} muted={!allowed}><Icon size={18}/><span>{label}</span>{allowed && module === "messages" && Boolean(unreadMessages) && <span className="ml-auto min-w-6 rounded-full bg-white px-2 py-0.5 text-center text-xs font-black text-orange-600">{unreadMessages}</span>}{!allowed && <LockKeyhole className="ml-auto" size={14}/>}</ActiveSidebarLink>;
     })}</nav>
-    <div className="mt-auto space-y-2"><Link href="/assinatura" className="flex items-center gap-3 rounded-xl border border-white/15 px-3 py-3 text-sm font-semibold text-white/90 hover:bg-[var(--mf-primary)] hover:text-[var(--mf-on-primary)]"><BadgeDollarSign size={18}/><span>Plano {plans[planCode].name}</span></Link><form action={logout}><button className="flex w-full items-center gap-3 rounded-xl border border-white/15 px-3 py-3 text-sm font-semibold hover:bg-red-600"><LogOut size={18}/>Sair</button></form></div>
+    <div className="mt-auto space-y-2"><Link href="/assinatura" className="flex items-center gap-3 rounded-xl border border-white/15 px-3 py-3 text-sm font-semibold text-white/90 hover:bg-[var(--mf-primary)]"><BadgeDollarSign size={18}/><span>Plano {plans[planCode].name}</span></Link><form action={logout}><button className="flex w-full items-center gap-3 rounded-xl border border-white/15 px-3 py-3 text-sm font-semibold hover:bg-red-600"><LogOut size={18}/>Sair</button></form></div>
   </aside></>;
 }
