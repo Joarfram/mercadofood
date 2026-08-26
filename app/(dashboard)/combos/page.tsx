@@ -1,7 +1,8 @@
 import { getCurrentCompany } from "@/lib/auth/current-company";
-import { addProductToComboGroup, createCombo, createComboGroup, toggleCombo } from "./actions";
+import { addProductToComboGroup, createComboGroup, toggleCombo } from "./actions";
 import { MediaManager } from "@/components/media/media-manager";
 import type { MediaAsset } from "@/lib/media/types";
+import { ComboCreateForm } from "./combo-create-form";
 
 function money(value: number | string | null) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value || 0));
@@ -29,22 +30,7 @@ export default async function CombosPage({ searchParams }: { searchParams: Promi
     {query.sucesso && <div className="rounded-xl bg-emerald-50 p-4 text-emerald-800">{query.sucesso}</div>}
 
     <section className="grid gap-5 xl:grid-cols-3">
-      <form action={createCombo} className="rounded-2xl border bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-bold">1. Criar combo</h2>
-        <label className="mt-4 block text-sm font-semibold">Nome</label>
-        <input name="name" required className="mt-1 w-full rounded-xl border px-3 py-3" placeholder="Combo Família" />
-        <label className="mt-3 block text-sm font-semibold">Descrição</label>
-        <textarea name="description" className="mt-1 min-h-20 w-full rounded-xl border px-3 py-3" placeholder="Escolha os itens da sua refeição" />
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <div><label className="block text-sm font-semibold">Preço base</label><input name="basePrice" type="number" step="0.01" min="0" required className="mt-1 w-full rounded-xl border px-3 py-3" /></div>
-          <div><label className="block text-sm font-semibold">Promoção</label><input name="promotionalPrice" type="number" step="0.01" min="0" className="mt-1 w-full rounded-xl border px-3 py-3" /></div>
-        </div>
-        <label className="mt-3 block text-sm font-semibold">Categoria</label>
-        <select name="categoryId" className="mt-1 w-full rounded-xl border px-3 py-3"><option value="">Combos</option>{categories?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-        <label className="mt-3 block text-sm font-semibold">Preparo (min)</label>
-        <input name="preparationTime" type="number" min="0" className="mt-1 w-full rounded-xl border px-3 py-3" />
-        <button className="mt-4 w-full rounded-xl bg-emerald-700 px-4 py-3 font-semibold text-white">Salvar combo</button>
-      </form>
+      <ComboCreateForm categories={categories || []}/>
 
       <form action={createComboGroup} className="rounded-2xl border bg-white p-5 shadow-sm">
         <h2 className="text-lg font-bold">2. Criar etapa</h2>
@@ -85,7 +71,7 @@ export default async function CombosPage({ searchParams }: { searchParams: Promi
             <div><h3 className="text-lg font-bold">{combo.name}</h3><p className="text-sm text-gray-500">{combo.description || "Sem descrição"}</p><p className="mt-2 font-bold text-emerald-700">{money(combo.promotional_price ?? combo.base_price)}</p></div>
             <form action={toggleCombo}><input type="hidden" name="id" value={combo.id}/><input type="hidden" name="active" value={String(combo.is_active)}/><button className="rounded-xl border px-3 py-2 text-sm font-semibold">{combo.is_active ? "Pausar" : "Ativar"}</button></form>
           </div>
-          <div className="mt-4"><MediaManager companyId={company.id} entityType="combo" entityId={combo.id} initialAssets={(comboMedia || []).filter(asset => asset.entity_id === combo.id) as MediaAsset[]} title={`Foto de ${combo.name}`} description="Esta foto aparece na listagem de combos do cardápio." maxFiles={1}/></div>
+          <div className="mt-4"><MediaManager companyId={company.id} entityType="combo" entityId={combo.id} initialAssets={(comboMedia || []).filter(asset => asset.entity_id === combo.id) as MediaAsset[]} fallbackUrl={combo.image_url} title={`Foto de ${combo.name}`} description="Esta foto aparece na listagem de combos do cardápio." maxFiles={1}/></div>
           <div className="mt-4 space-y-3">
             {combo.combo_groups?.map(group => <div key={group.id} className="rounded-xl bg-gray-50 p-3">
               <div className="flex items-center justify-between"><strong>{group.name}</strong><span className="text-xs text-gray-500">{group.min_selection}–{group.max_selection} escolhas • {group.free_selection} grátis</span></div>

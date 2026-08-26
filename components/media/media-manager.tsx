@@ -20,6 +20,7 @@ type Props = {
   maxFiles?: number;
   aspect?: "square" | "wide";
   recommendedSize?: string;
+  fallbackUrl?: string | null;
 };
 
 function extension(file: File) {
@@ -68,6 +69,7 @@ export function MediaManager({
   maxFiles = 8,
   aspect = "square",
   recommendedSize,
+  fallbackUrl,
 }: Props) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -76,13 +78,15 @@ export function MediaManager({
   const [preview, setPreview] = useState<string | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [message, setMessage] = useState<{ type: "error" | "success"; text: string } | null>(null);
+  const [fallbackImage, setFallbackImage] = useState(fallbackUrl || null);
   const busy = progress !== null;
   const remaining = Math.max(0, maxFiles - assets.length);
+  const hasImage = assets.length > 0 || Boolean(fallbackImage);
   const label = useMemo(
     () => maxFiles === 1
-      ? (assets.length ? "Trocar imagem" : "Escolher imagem")
+      ? (hasImage ? "Trocar imagem" : "Escolher imagem")
       : `Adicionar fotos (${remaining} restantes)`,
-    [assets.length, maxFiles, remaining]
+    [hasImage, maxFiles, remaining]
   );
 
   async function chooseFile(event: ChangeEvent<HTMLInputElement>) {
@@ -147,6 +151,7 @@ export function MediaManager({
       setAssets(current => replacing
         ? current.map(asset => asset.id === replacing ? saved as MediaAsset : asset).sort((a, b) => a.sort_order - b.sort_order)
         : [...current, saved as MediaAsset]);
+      setFallbackImage(null);
       setMessage({ type: "success", text: replacing ? "Imagem substituída." : "Imagem adicionada." });
       router.refresh();
     } catch (error) {
@@ -176,6 +181,24 @@ export function MediaManager({
       router.refresh();
     } catch (error) {
       setMessage({ type: "error", text: error instanceof Error ? error.message : "Não foi possível remover a imagem." });
+    } finally {
+      setProgress(null);
+    }
+  }
+
+  async function clearFallbackReference() {
+    if (entityType !== "combo") return;
+    setProgress(0);
+    setMessage(null);
+    const supabase = createClient();
+    try {
+      const { error } = await supabase.from("combos").update({ image_url: null, updated_at: new Date().toISOString() }).eq("id", entityId).eq("company_id", companyId);
+      if (error) throw error;
+      setFallbackImage(null);
+      setMessage({ type: "success", text: "Foto removida do combo. O arquivo original não foi apagado." });
+      router.refresh();
+    } catch (error) {
+      setMessage({ type: "error", text: error instanceof Error ? error.message : "Não foi possível remover a foto do combo." });
     } finally {
       setProgress(null);
     }
@@ -213,7 +236,7 @@ export function MediaManager({
         <p className="mt-1 text-sm text-gray-500">{description}</p>
         {recommendedSize && <p className="mt-2 inline-flex rounded-lg bg-orange-50 px-2.5 py-1 text-xs font-bold text-orange-800">Medida recomendada: {recommendedSize}</p>}
       </div>
-      {(remaining > 0 || maxFiles === 1) && <button type="button" disabled={busy} onClick={() => openPicker(maxFiles === 1 && assets[0] ? assets[0].id : null)} className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{maxFiles === 1 && assets.length ? <Replace size={18}/> : <UploadCloud size={18}/>} {label}</button>}
+      {(remaining > 0 || maxFiles === 1) && <button type="button" disabled={busy} onClick={() => openPicker(maxFiles === 1 && assets[0] ? assets[0].id : null)} className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{maxFiles === 1 && hasImage ? <Replace size={18}/> : <UploadCloud size={18}/>} {label}</button>}
     </div>
     <input ref={inputRef} onChange={chooseFile} type="file" accept={ACCEPTED_TYPES.join(",")} className="hidden"/>
 
@@ -224,7 +247,11 @@ export function MediaManager({
     {message && <p className={`mt-4 rounded-xl p-3 text-sm font-semibold ${message.type === "error" ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-800"}`}>{message.text}</p>}
 
     <div className={`mt-4 grid gap-3 ${maxFiles === 1 ? "grid-cols-1" : aspect === "wide" ? "sm:grid-cols-2" : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"}`}>
-      {!assets.length && !preview && <div className={`flex min-h-36 flex-col items-center justify-center rounded-xl border-2 border-dashed bg-gray-50 p-5 text-center text-gray-400 ${maxFiles === 1 ? "" : aspect === "wide" ? "sm:col-span-2" : "col-span-2 sm:col-span-3 lg:col-span-4"}`}><ImagePlus/><p className="mt-2 text-sm">Nenhuma imagem. O sistema exibirá a imagem padrão.</p></div>}
+      {!assets.length && fallbackImage && !preview && <article className="overflow-hidden rounded-xl border bg-gray-50">
+        <div className={`relative bg-gray-100 ${aspect === "wide" ? "aspect-[16/7]" : "aspect-square p-2"}`}><img src={fallbackImage} alt={title} className={`h-full w-full ${aspect === "wide" ? "object-cover" : "object-contain"}`}/><span className="absolute left-2 top-2 rounded-full bg-emerald-700 px-2 py-1 text-[10px] font-bold text-white">Principal</span></div>
+        <div className="flex justify-end gap-1 p-2"><button type="button" disabled={busy} onClick={() => openPicker()} className="inline-flex items-center gap-1 rounded-lg bg-orange-50 px-2 py-2 text-xs font-semibold text-orange-700"><Replace size={15}/>Trocar</button><button type="button" disabled={busy} onClick={clearFallbackReference} className="inline-flex items-center gap-1 rounded-lg bg-red-50 px-2 py-2 text-xs font-semibold text-red-600"><Trash2 size={15}/>Remover</button></div>
+      </article>}
+      {!assets.length && !fallbackImage && !preview && <div className={`flex min-h-36 flex-col items-center justify-center rounded-xl border-2 border-dashed bg-gray-50 p-5 text-center text-gray-400 ${maxFiles === 1 ? "" : aspect === "wide" ? "sm:col-span-2" : "col-span-2 sm:col-span-3 lg:col-span-4"}`}><ImagePlus/><p className="mt-2 text-sm">Nenhuma imagem. O sistema exibirá a imagem padrão.</p></div>}
       {assets.map((asset, index) => <article key={asset.id} className="overflow-hidden rounded-xl border bg-gray-50">
         <div className={`relative bg-gray-100 ${aspect === "wide" ? "aspect-[16/7]" : "aspect-square p-2"}`}><img src={asset.public_url} alt={asset.alt_text || title} className={`h-full w-full ${aspect === "wide" ? "object-cover" : "object-contain"}`}/>{index === 0 && <span className="absolute left-2 top-2 rounded-full bg-emerald-700 px-2 py-1 text-[10px] font-bold text-white">Principal</span>}</div>
         <div className="flex items-center justify-between gap-1 p-2">
