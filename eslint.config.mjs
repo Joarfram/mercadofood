@@ -8,6 +8,8 @@ const eslintConfig = [
   {
     ignores: [
       ".next/**",
+      ".source-repo/**",
+      ".pnpm-store/**",
       "node_modules/**",
       "dist/**",
       "coverage/**",

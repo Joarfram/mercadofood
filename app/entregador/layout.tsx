@@ -26,5 +26,5 @@ export const viewport: Viewport = {
 };
 
 export default function DriverLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <><DriverPwaRuntime />{children}</>;
+  return <div className="mf-system-theme"><DriverPwaRuntime />{children}</div>;
 }

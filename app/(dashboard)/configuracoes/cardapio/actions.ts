@@ -3,15 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentCompany } from "@/lib/auth/current-company";
-import { getBrandTheme, isBrandThemeId } from "@/lib/brand/themes";
 
 const money = (value: FormDataEntryValue | null) => Number(String(value || "0").replace(",", ".")) || 0;
 const checked = (formData: FormData, name: string) => formData.get(name) === "on";
 
 export async function saveMenuSettings(formData: FormData) {
   const { supabase, company } = await getCurrentCompany();
-  const requestedTheme = String(formData.get("menuTheme") || "burger_night");
-  const selectedTheme = getBrandTheme(isBrandThemeId(requestedTheme) ? requestedTheme : "burger_night");
   const payload = {
     menu_is_active: checked(formData, "menuIsActive"),
     pickup_enabled: checked(formData, "pickupEnabled"),
@@ -20,11 +17,11 @@ export async function saveMenuSettings(formData: FormData) {
     slug: String(formData.get("slug") || "").trim().toLowerCase().replace(/[^a-z0-9-]/g, "-"),
     logo_url: String(formData.get("logoUrl") || "").trim() || null,
     banner_url: String(formData.get("bannerUrl") || "").trim() || null,
-    primary_color: selectedTheme.colors.primary,
-    accent_color: selectedTheme.colors.accent,
-    secondary_color: selectedTheme.colors.secondary,
+    primary_color: "#2E7D32",
+    accent_color: "#F59E0B",
+    secondary_color: "#3B82F6",
     menu_layout: String(formData.get("menuLayout") || "cards"),
-    menu_theme: selectedTheme.id,
+    menu_theme: "fresh_natural",
     menu_message: String(formData.get("menuMessage") || "").trim() || null,
     whatsapp: String(formData.get("whatsapp") || "").replace(/\D/g, "") || null,
     address_line: String(formData.get("addressLine") || "").trim() || null,

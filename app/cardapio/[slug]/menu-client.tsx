@@ -4,8 +4,6 @@ import { useMemo, useState, useTransition, type CSSProperties } from "react";
 import { Clock3, Minus, Plus, Search, ShoppingCart, Trash2 } from "lucide-react";
 import { previewPublicCoupon, submitPublicOrder } from "./actions";
 import { PublicFeedback } from "@/components/feedback/public-feedback";
-import { accessibleBrandText, foregroundFor, getBrandTheme } from "@/lib/brand/themes";
-import { RecentOrderLink, rememberPublicOrder } from "@/components/tracking/recent-order-link";
 
 type Option = { id: string; name: string; price_delta: number; max_quantity?: number };
 type Group = {
@@ -247,7 +245,6 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
     startTransition(async () => {
       const result = await submitPublicOrder(payload);
       if (!result.ok) { setError(result.error); return; }
-      rememberPublicOrder(menu.company.slug, { publicCode: result.data.public_code, orderNumber: result.data.order_number, total: Number(result.data.total), createdAt: new Date().toISOString() });
       setSuccess(result.data);
       setCart([]);
       setCheckoutOpen(false);
@@ -268,25 +265,21 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
     });
   }
 
-  const selectedBrandTheme = getBrandTheme(menu.company.menu_theme);
-  const darkTheme = selectedBrandTheme.dark;
   const surface = "border-[var(--menu-border)] bg-[var(--menu-surface)] text-[var(--menu-text)]";
   const mutedText = "text-[var(--menu-muted)]";
+  const darkTheme = false;
   const menuStyle = {
-    "--menu-primary": selectedBrandTheme.colors.primary,
-    "--menu-on-primary": foregroundFor(selectedBrandTheme.colors.primary),
-    "--menu-accent": selectedBrandTheme.colors.accent,
-    "--menu-on-accent": foregroundFor(selectedBrandTheme.colors.accent),
-    "--menu-action-text": accessibleBrandText(selectedBrandTheme.colors.primary, selectedBrandTheme.colors.surface, selectedBrandTheme.colors.text),
-    "--menu-bg": selectedBrandTheme.colors.background,
-    "--menu-surface": selectedBrandTheme.colors.surface,
-    "--menu-text": selectedBrandTheme.colors.text,
-    "--menu-muted": selectedBrandTheme.colors.muted,
-    "--menu-border": selectedBrandTheme.colors.border,
+    "--menu-primary": "var(--mf-primary)",
+    "--menu-accent": "var(--mf-accent)",
+    "--menu-bg": "var(--mf-background)",
+    "--menu-surface": "var(--mf-surface)",
+    "--menu-text": "var(--mf-text)",
+    "--menu-muted": "var(--mf-text-secondary)",
+    "--menu-border": "#d1d5db",
   } as CSSProperties;
 
   if (success) return (
-    <main className="min-h-screen bg-[#fffaf5] p-6 flex items-center justify-center">
+    <main className="mf-public-menu min-h-screen p-6 flex items-center justify-center">
       <section className="w-full max-w-lg rounded-3xl bg-white p-8 text-center shadow-xl border border-green-100">
         <div className="text-6xl">✅</div>
         <h1 className="mt-4 text-3xl font-black text-gray-900">Pedido recebido!</h1>
@@ -302,15 +295,13 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
     <main style={menuStyle} className="mf-public-menu min-h-screen bg-[var(--menu-bg)] pb-28 text-[var(--menu-text)] transition-colors">
       <header className="sticky top-0 z-20 border-b border-[var(--menu-border)] bg-[var(--menu-surface)]/95 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 md:px-6">
-          <strong className="text-lg">Mercado<span className="text-[var(--menu-action-text)]">Food</span></strong>
+          <strong className="text-lg">Mercado<span className="text-[var(--menu-accent)]">Food</span></strong>
           <div className="hidden max-w-sm flex-1 items-center gap-2 rounded-xl border border-[var(--menu-border)] bg-[var(--menu-bg)] px-3 md:flex"><Search size={18} className={mutedText}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar no cardápio" className="w-full bg-transparent py-2.5 outline-none"/></div>
-          <button type="button" onClick={() => cart.length && setCheckoutOpen(true)} aria-label="Abrir carrinho" className="relative grid h-10 w-10 place-items-center rounded-xl bg-[var(--menu-primary)] text-[var(--menu-on-primary)]"><ShoppingCart size={20}/>{cart.length > 0 && <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-xs font-black text-white">{cart.reduce((sum,item)=>sum+item.quantity,0)}</span>}</button>
+          <button type="button" onClick={() => cart.length && setCheckoutOpen(true)} aria-label="Abrir carrinho" className="relative grid h-10 w-10 place-items-center rounded-xl bg-[var(--menu-primary)] text-white"><ShoppingCart size={20}/>{cart.length > 0 && <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-xs font-black">{cart.reduce((sum,item)=>sum+item.quantity,0)}</span>}</button>
         </div>
       </header>
 
-      <RecentOrderLink slug={menu.company.slug}/>
-
-      <section className="relative overflow-hidden border-b border-white/10 bg-[#171719] text-white">
+      <section className="mf-dark-overlay relative overflow-hidden border-b border-white/10 bg-[#171719] text-white">
         {menu.company.banner_url && <img src={menu.company.banner_url} alt={`Banner da ${menu.company.name}`} className="absolute inset-0 h-full w-full object-cover opacity-40"/>}
         <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/60 to-black/25"/>
         <div className="relative mx-auto flex min-h-52 max-w-7xl items-center gap-4 px-4 py-8 md:min-h-64 md:gap-7 md:px-6">
@@ -322,26 +313,26 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
       <section className="mx-auto max-w-7xl p-4 md:p-6">
         <div className={`flex items-center gap-2 rounded-2xl border px-4 md:hidden ${surface}`}><Search size={19} className={mutedText}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar no cardápio" className="w-full bg-transparent py-3.5 outline-none"/></div>
         <nav className="mt-4 flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none]">
-          <button onClick={() => setCategoryId("all")} className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold ${categoryId === "all" ? "bg-[var(--menu-primary)] text-[var(--menu-on-primary)]" : surface}`}>Mais pedidos</button>
-          {menu.categories.map(category => <button key={category.id} onClick={() => setCategoryId(category.id)} className={`whitespace-nowrap rounded-xl border px-4 py-2.5 text-sm font-bold ${categoryId === category.id ? "border-transparent bg-[var(--menu-primary)] text-[var(--menu-on-primary)]" : surface}`}>{category.name}</button>)}
+          <button onClick={() => setCategoryId("all")} className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold ${categoryId === "all" ? "bg-[var(--menu-primary)] text-white" : surface}`}>Mais pedidos</button>
+          {menu.categories.map(category => <button key={category.id} onClick={() => setCategoryId(category.id)} className={`whitespace-nowrap rounded-xl border px-4 py-2.5 text-sm font-bold ${categoryId === category.id ? "border-transparent bg-[var(--menu-primary)] text-white" : surface}`}>{category.name}</button>)}
         </nav>
 
         {menu.promotions.length > 0 && <div className="mt-5 flex gap-3 overflow-x-auto pb-2">{menu.promotions.map(promotion => <article key={promotion.id} className={`min-w-[260px] overflow-hidden rounded-2xl border ${surface}`}>{promotion.image_url && <img src={promotion.image_url} alt={promotion.title} className="aspect-[16/7] w-full object-cover"/>}<div className="p-4"><strong>{promotion.title}</strong><p className={`text-sm ${mutedText}`}>{promotion.description}</p></div></article>)}</div>}
-        {hasCombos && <a href={`/cardapio/${menu.company.slug}/combos`} className="mt-5 flex items-center justify-between rounded-2xl bg-[var(--menu-accent)] p-5 text-[var(--menu-on-accent)] shadow-sm"><div><p className="text-sm font-bold opacity-80">Monte do seu jeito</p><strong className="text-xl">Ver combos completos</strong></div><span className="rounded-xl bg-black/10 px-4 py-2 font-black">Abrir →</span></a>}
+        {hasCombos && <a href={`/cardapio/${menu.company.slug}/combos`} className="mf-accent-panel mt-5 flex items-center justify-between rounded-2xl p-5 shadow-sm"><div><p className="text-sm font-bold">Monte do seu jeito</p><strong className="text-xl">Ver combos completos</strong></div><span className="rounded-xl bg-white/60 px-4 py-2 font-black">Abrir →</span></a>}
 
         <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="grid content-start gap-3 md:grid-cols-2">
             {products.map(product => { const quantityInCart = productQuantities[product.id] || 0; return <article key={product.id} className={`grid min-h-40 grid-cols-[minmax(120px,38%)_1fr] overflow-hidden rounded-2xl border shadow-sm ${surface}`}>
               <div className="bg-[var(--menu-bg)]">{product.image_url ? <img src={product.image_url} alt={product.name} loading="lazy" className={`h-full min-h-40 w-full ${product.image_fit === "contain" ? "object-contain p-2" : "object-cover"}`} style={{objectPosition:product.image_position||"center"}}/> : <div className="grid h-full min-h-40 place-items-center text-5xl">🍽️</div>}</div>
-              <div className="flex min-w-0 flex-col p-4"><h2 className="text-base font-black leading-tight sm:text-lg">{product.name}</h2>{product.description && <><p className={`mt-2 line-clamp-3 text-sm ${mutedText}`}>{product.description}</p><button type="button" onClick={()=>openProduct(product)} className="mt-1 w-fit text-left text-xs font-bold text-[var(--menu-action-text)] underline-offset-2 hover:underline">Ver descrição completa</button></>}<div className="mt-auto flex items-end justify-between gap-2 pt-4"><div>{product.original_price && <span className={`block text-xs line-through ${mutedText}`}>{money(Number(product.original_price))}</span>}<strong className="text-lg text-[var(--menu-action-text)]">{money(Number(product.price))}</strong></div>{quantityInCart > 0 ? <div className="flex items-center gap-1 rounded-xl border border-[var(--menu-action-text)] p-1"><button type="button" aria-label={`Diminuir ${product.name}`} onClick={()=>changeProductQuantity(product.id,-1)} className="grid h-8 w-8 place-items-center rounded-lg"><Minus size={16}/></button><strong>{quantityInCart}</strong><button type="button" aria-label={`Aumentar ${product.name}`} onClick={()=>changeProductQuantity(product.id,1)} className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--menu-primary)] text-[var(--menu-on-primary)]"><Plus size={16}/></button></div> : <button type="button" aria-label={`Adicionar ${product.name}`} onClick={()=>openProduct(product)} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[var(--menu-primary)] text-[var(--menu-on-primary)] shadow"><Plus size={21}/></button>}</div>{quantityInCart > 0 && product.option_groups.length > 0 && <button type="button" onClick={()=>openProduct(product)} className="mt-2 text-left text-xs font-bold text-[var(--menu-action-text)]">+ Outra opção</button>}</div>
+              <div className="flex min-w-0 flex-col p-4"><h2 className="text-base font-black leading-tight sm:text-lg">{product.name}</h2>{product.description && <><p className={`mt-2 line-clamp-3 text-sm ${mutedText}`}>{product.description}</p><button type="button" onClick={()=>openProduct(product)} className="mt-1 w-fit text-left text-xs font-bold text-[var(--menu-primary)] underline-offset-2 hover:underline">Ver descrição completa</button></>}<div className="mt-auto flex items-end justify-between gap-2 pt-4"><div>{product.original_price && <span className={`block text-xs line-through ${mutedText}`}>{money(Number(product.original_price))}</span>}<strong className="text-lg text-[var(--menu-primary)]">{money(Number(product.price))}</strong></div>{quantityInCart > 0 ? <div className="flex items-center gap-1 rounded-xl border border-green-700 p-1"><button type="button" aria-label={`Diminuir ${product.name}`} onClick={()=>changeProductQuantity(product.id,-1)} className="grid h-8 w-8 place-items-center rounded-lg"><Minus size={16}/></button><strong>{quantityInCart}</strong><button type="button" aria-label={`Aumentar ${product.name}`} onClick={()=>changeProductQuantity(product.id,1)} className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--menu-primary)] text-white"><Plus size={16}/></button></div> : <button type="button" aria-label={`Adicionar ${product.name}`} onClick={()=>openProduct(product)} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[var(--menu-primary)] text-white shadow"><Plus size={21}/></button>}</div>{quantityInCart > 0 && product.option_groups.length > 0 && <button type="button" onClick={()=>openProduct(product)} className="mt-2 text-left text-xs font-bold text-[var(--menu-accent)]">+ Outra opção</button>}</div>
             </article>})}
             {!products.length && <div className={`rounded-2xl border border-dashed p-10 text-center md:col-span-2 ${surface} ${mutedText}`}>Nenhum produto encontrado nesta seleção.</div>}
           </div>
-          <aside className={`hidden h-fit rounded-2xl border p-5 shadow-sm lg:sticky lg:top-20 lg:block ${surface}`}><h2 className="flex items-center gap-2 text-xl font-black"><ShoppingCart size={20}/> Seu pedido</h2>{cart.length === 0 ? <p className={`mt-5 text-sm ${mutedText}`}>Seu carrinho está vazio. Escolha um produto para começar.</p> : <><div className="mt-4 max-h-[48vh] space-y-3 overflow-y-auto">{cart.map(item=><div key={item.key} className={`border-b pb-3 ${darkTheme?"border-slate-700":"border-slate-200"}`}><div className="flex justify-between gap-2"><strong className="text-sm">{item.quantity}× {item.product.name}</strong><span className="text-sm">{money((Number(item.product.price)+item.optionUnitTotal)*item.quantity)}</span></div><div className="mt-2 flex items-center gap-2"><button onClick={()=>changeCartQuantity(item.key,-1)} className="rounded-lg border p-1"><Minus size={14}/></button><span className="text-sm font-bold">{item.quantity}</span><button onClick={()=>changeCartQuantity(item.key,1)} className="rounded-lg bg-[var(--menu-primary)] p-1 text-[var(--menu-on-primary)]"><Plus size={14}/></button></div></div>)}</div><div className="mt-4 flex justify-between border-t pt-4 text-lg"><span>Subtotal</span><strong>{money(subtotal)}</strong></div><button onClick={()=>setCheckoutOpen(true)} className="mt-4 w-full rounded-xl bg-[var(--menu-primary)] py-3 font-black text-[var(--menu-on-primary)]">Finalizar pedido</button></>}</aside>
+          <aside className={`hidden h-fit rounded-2xl border p-5 shadow-sm lg:sticky lg:top-20 lg:block ${surface}`}><h2 className="flex items-center gap-2 text-xl font-black"><ShoppingCart size={20}/> Seu pedido</h2>{cart.length === 0 ? <p className={`mt-5 text-sm ${mutedText}`}>Seu carrinho está vazio. Escolha um produto para começar.</p> : <><div className="mt-4 max-h-[48vh] space-y-3 overflow-y-auto">{cart.map(item=><div key={item.key} className={`border-b pb-3 ${darkTheme?"border-slate-700":"border-slate-200"}`}><div className="flex justify-between gap-2"><strong className="text-sm">{item.quantity}× {item.product.name}</strong><span className="text-sm">{money((Number(item.product.price)+item.optionUnitTotal)*item.quantity)}</span></div><div className="mt-2 flex items-center gap-2"><button onClick={()=>changeCartQuantity(item.key,-1)} className="rounded-lg border p-1"><Minus size={14}/></button><span className="text-sm font-bold">{item.quantity}</span><button onClick={()=>changeCartQuantity(item.key,1)} className="rounded-lg bg-[var(--menu-primary)] p-1 text-white"><Plus size={14}/></button></div></div>)}</div><div className="mt-4 flex justify-between border-t pt-4 text-lg"><span>Subtotal</span><strong>{money(subtotal)}</strong></div><button onClick={()=>setCheckoutOpen(true)} className="mt-4 w-full rounded-xl bg-[var(--menu-primary)] py-3 font-black text-white">Finalizar pedido</button></>}</aside>
         </div>
       </section>
 
-      {cart.length > 0 && <div className={`fixed bottom-0 left-0 right-0 z-30 border-t p-3 shadow-2xl lg:hidden ${darkTheme ? "border-slate-700 bg-[#171719]" : "border-slate-200 bg-white"}`}><button onClick={()=>setCheckoutOpen(true)} className="mx-auto flex w-full max-w-lg items-center justify-between rounded-2xl bg-[var(--menu-primary)] px-5 py-4 font-black text-[var(--menu-on-primary)]"><span className="flex items-center gap-2"><ShoppingCart size={20}/> Ver carrinho</span><span>{money(subtotal)}</span></button></div>}
+      {cart.length > 0 && <div className={`fixed bottom-0 left-0 right-0 z-30 border-t p-3 shadow-2xl lg:hidden ${darkTheme ? "border-slate-700 bg-[#171719]" : "border-slate-200 bg-white"}`}><button onClick={()=>setCheckoutOpen(true)} className="mx-auto flex w-full max-w-lg items-center justify-between rounded-2xl bg-[var(--menu-primary)] px-5 py-4 font-black text-white"><span className="flex items-center gap-2"><ShoppingCart size={20}/> Ver carrinho</span><span>{money(subtotal)}</span></button></div>}
 
       {selectedProduct && <div className="fixed inset-0 z-40 flex items-end bg-black/50 md:items-center md:justify-center"><section className="max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6 md:max-w-xl md:rounded-3xl"><button onClick={() => setSelectedProduct(null)} className="float-right text-2xl">×</button><h2 className="text-2xl font-black">{selectedProduct.name}</h2><p className="mt-2 text-gray-600">{selectedProduct.description}</p>
         {(selectedProduct.option_groups || []).map(group => {

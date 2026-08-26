@@ -18,5 +18,5 @@ export default async function PublicCombosPage({ params }: { params: Promise<{ s
   const { data: combos, error: combosError } = await supabase.rpc("get_public_combos", { p_company_id: menu.company.id });
   if (combosError) throw new Error(combosError.message);
 
-  return <ComboMenuClient company={menu.company} combos={combos || []} />;
+  return <main className="mf-public-menu"><ComboMenuClient company={menu.company} combos={combos || []} /></main>;
 }

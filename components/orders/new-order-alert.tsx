@@ -76,11 +76,11 @@ export function NewOrderAlert({ companyId, sector, reloadOnOrder = false }: { co
     return () => { void supabase.removeChannel(channel); };
   }, [companyId, enabled, playAlert, reloadOnOrder, router, sector]);
 
-  return <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-orange-200 bg-orange-50 p-3 text-sm">
+  return <div className="mf-dark-banner flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--mf-primary-dark)] bg-[var(--mf-primary-dark)] p-3 text-sm text-white">
     <button type="button" onClick={toggleSound} className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 font-bold text-white ${enabled && unlocked ? "bg-emerald-700" : "bg-slate-700"}`}>
       {enabled && unlocked ? <Volume2 size={18}/> : enabled ? <Bell size={18}/> : <BellOff size={18}/>}
       {enabled && unlocked ? `Som da ${labels[sector]} ativo` : enabled ? "Clique para liberar o som" : `Ativar som da ${labels[sector]}`}
     </button>
-    <span className="font-semibold text-orange-950" aria-live="assertive">{notice || "Mantenha esta página aberta para receber novos pedidos."}</span>
+    <span className="font-semibold text-white" aria-live="assertive">{notice || "Mantenha esta página aberta para receber novos pedidos."}</span>
   </div>;
 }
