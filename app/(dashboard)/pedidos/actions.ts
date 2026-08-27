@@ -7,8 +7,8 @@ import { requirePlanModule } from "@/lib/auth/current-company";
 export async function createOrder(formData: FormData) {
   const customerName = String(formData.get("customerName") || "").trim();
   const customerPhone = String(formData.get("customerPhone") || "").replace(/\D/g, "");
-  const productId = String(formData.get("productId") || "");
-  const quantity = Math.max(1, Number(formData.get("quantity") || 1));
+  let items:unknown[]=[];
+  try{const parsed=JSON.parse(String(formData.get("items")||"[]"));items=Array.isArray(parsed)?parsed:[]}catch{redirect("/pedidos?erro=Os itens do pedido não puderam ser lidos.")}
   const serviceType = String(formData.get("serviceType") || "delivery");
   const notes = String(formData.get("notes") || "").trim();
   const paymentMethod = String(formData.get("paymentMethod") || "pix");
@@ -18,7 +18,7 @@ export async function createOrder(formData: FormData) {
   const couponCode = String(formData.get("couponCode") || "").trim().toUpperCase().replace(/\s+/g, "");
   const redeemLoyalty = formData.get("redeemLoyalty") === "on";
   const idempotencyKey = String(formData.get("idempotencyKey") || "");
-  if (!customerName || !productId) redirect("/pedidos?erro=Preencha cliente e produto.");
+  if (!customerName || !items.length) redirect("/pedidos?erro=Preencha cliente e adicione pelo menos um produto.");
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idempotencyKey)) {
     redirect("/pedidos?erro=Atualize a página e tente criar o pedido novamente.");
   }
@@ -30,8 +30,7 @@ export async function createOrder(formData: FormData) {
       company_id: company.id,
       customer_name: customerName,
       customer_phone: customerPhone,
-      product_id: productId,
-      quantity,
+      items,
       service_type: serviceType,
       payment_method: paymentMethod,
       coupon_code: couponCode,

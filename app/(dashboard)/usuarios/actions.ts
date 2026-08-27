@@ -69,3 +69,16 @@ export async function cancelInvite(formData: FormData) {
   await supabase.from("company_invites").delete().eq("id", inviteId).eq("company_id", company.id);
   revalidatePath("/usuarios");
 }
+
+export async function removeMember(formData:FormData){
+  const {supabase,user,company,role}=await requirePlanModule("team");
+  if(!(["owner","manager"] as string[]).includes(role))redirect("/sem-permissao");
+  const memberId=String(formData.get("memberId")||"");
+  const {data:target,error:readError}=await supabase.from("company_members").select("id,user_id,role,display_name").eq("id",memberId).eq("company_id",company.id).maybeSingle();
+  if(readError||!target)redirect("/usuarios?erro=Colaborador não encontrado.");
+  if(target.user_id===user.id)redirect("/usuarios?erro=Você não pode remover o próprio acesso.");
+  if(target.role==="owner"||(role==="manager"&&target.role==="manager"))redirect("/usuarios?erro=Você não possui permissão para remover este colaborador.");
+  const {error}=await supabase.from("company_members").delete().eq("id",target.id).eq("company_id",company.id);
+  if(error)redirect(`/usuarios?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/usuarios");redirect("/usuarios?sucesso=Acesso removido. O histórico foi preservado.");
+}

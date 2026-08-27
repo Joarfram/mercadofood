@@ -1,7 +1,8 @@
-import { createOrder, updateOrderStatus } from "./actions";
+import { updateOrderStatus } from "./actions";
 import { requirePlanModule } from "@/lib/auth/current-company";
 import { PrintOrderButton } from "./print-order-button";
 import { NewOrderAlert } from "@/components/orders/new-order-alert";
+import { StaffOrderCart, type StaffProduct } from "@/components/orders/staff-order-cart";
 
 const labels: Record<string,string> = { new:"Novo", accepted:"Aceito", preparing:"Em preparo", ready:"Pronto", out_for_delivery:"Em entrega", delivered:"Entregue", canceled:"Cancelado" };
 const next: Record<string,string | undefined> = { new:"accepted", accepted:"preparing", preparing:"ready", ready:"out_for_delivery", out_for_delivery:"delivered" };
@@ -12,11 +13,12 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
   const { supabase, company } = await requirePlanModule("orders");
   const idempotencyKey = crypto.randomUUID();
   const [{ data: products }, { data: orders }, { data: printers }] = await Promise.all([
-    supabase.from("products").select("id, name, base_price").eq("company_id", company.id).eq("availability_status", "available").eq("is_active", true).order("name"),
+    supabase.from("products").select("id,name,base_price,promotional_price,product_option_groups(id,name,min_selection,max_selection,free_selection,group_type,product_options(id,name,price_delta,max_quantity,is_active))").eq("company_id", company.id).eq("availability_status", "available").eq("is_active", true).eq("product_option_groups.is_active",true).eq("product_option_groups.product_options.is_active",true).order("name"),
     supabase.from("orders").select("id, order_number, customer_name, customer_phone, status, service_type, subtotal, discount_amount, delivery_fee, total, coupon_code, loyalty_points_redeemed, payment_method, payment_status, change_amount, notes, delivery_address, created_at, order_items(product_name, quantity, unit_price, total_price, notes, order_item_options(option_name, quantity, total_price))").eq("company_id", company.id).order("created_at", { ascending:false }).limit(50),
     supabase.from("thermal_printers").select("name,paper_width,print_customer,print_address,print_payment,sector,status").eq("company_id",company.id).eq("status","active").order("created_at").limit(1),
   ]);
   const activePrinter = printers?.[0] || null;
+  const staffProducts=(products||[]).map(product=>({id:product.id,name:product.name,price:Number(product.promotional_price||product.base_price),product_option_groups:(product.product_option_groups||[]).map(group=>({...group,free_selection:Number(group.free_selection||0),product_options:(group.product_options||[]).filter(option=>option.is_active).map(option=>({...option,price_delta:Number(option.price_delta||0),max_quantity:Number(option.max_quantity||1)}))}))})) as StaffProduct[];
 
   return <main className="space-y-6">
     <header><p className="text-sm font-semibold text-emerald-700">Fluxo salvo no Supabase</p><h1 className="text-3xl font-bold">Pedidos</h1><p className="text-gray-500">Crie e atualize pedidos reais da {company.name}.</p></header>
@@ -25,19 +27,7 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
     <NewOrderAlert companyId={company.id} sector="counter"/>
 
     <section className="grid gap-5 xl:grid-cols-[380px_1fr]">
-      <form action={createOrder} className="h-fit rounded-2xl border bg-white p-5 shadow-sm">
-        <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
-        <h2 className="text-xl font-bold">Novo pedido</h2>
-        <label className="mt-4 block text-sm font-semibold">Cliente</label><input name="customerName" required className="mt-1 w-full rounded-xl border px-3 py-3" />
-        <label className="mt-3 block text-sm font-semibold">WhatsApp</label><input name="customerPhone" className="mt-1 w-full rounded-xl border px-3 py-3" placeholder="79 99999-9999" />
-        <label className="mt-3 block text-sm font-semibold">Produto</label><select name="productId" required className="mt-1 w-full rounded-xl border px-3 py-3"><option value="">Selecione</option>{products?.map(p => <option key={p.id} value={p.id}>{p.name} — {money(p.base_price)}</option>)}</select>
-        <div className="mt-3 grid grid-cols-2 gap-3"><div><label className="block text-sm font-semibold">Quantidade</label><input name="quantity" type="number" min="1" defaultValue="1" className="mt-1 w-full rounded-xl border px-3 py-3" /></div><div><label className="block text-sm font-semibold">Atendimento</label><select name="serviceType" className="mt-1 w-full rounded-xl border px-3 py-3"><option value="delivery">Delivery</option><option value="pickup">Retirada</option><option value="dine_in">Salão</option></select></div></div>
-        <label className="mt-3 block text-sm font-semibold">Endereço de entrega</label><input name="deliveryStreet" className="mt-1 w-full rounded-xl border px-3 py-3" placeholder="Rua, número e complemento" />
-        <div className="mt-3 grid grid-cols-2 gap-3"><input name="deliveryNeighborhood" className="w-full rounded-xl border px-3 py-3" placeholder="Bairro" /><input name="deliveryReference" className="w-full rounded-xl border px-3 py-3" placeholder="Referência" /></div>
-        <label className="mt-3 block text-sm font-semibold">Cupom de desconto</label><input name="couponCode" className="mt-1 w-full rounded-xl border px-3 py-3 uppercase" placeholder="Ex.: BEMVINDO10"/><label className="mt-3 flex items-center gap-2 rounded-xl bg-orange-50 p-3 text-sm"><input name="redeemLoyalty" type="checkbox"/> Usar recompensa de fidelidade disponível</label><label className="mt-3 block text-sm font-semibold">Forma de pagamento</label><select name="paymentMethod" className="mt-1 w-full rounded-xl border px-3 py-3"><option value="pix">PIX</option><option value="cash">Dinheiro</option><option value="card_on_delivery">Cartão na entrega</option><option value="online_card">Cartão online</option></select><label className="mt-3 block text-sm font-semibold">Observações</label><textarea name="notes" className="mt-1 min-h-20 w-full rounded-xl border px-3 py-3" />
-        <button disabled={!products?.length} className="mt-4 w-full rounded-xl bg-emerald-700 px-4 py-3 font-semibold text-white disabled:opacity-50">Criar pedido</button>
-        {!products?.length && <p className="mt-2 text-sm text-orange-700">Cadastre um produto disponível primeiro.</p>}
-      </form>
+      <StaffOrderCart products={staffProducts} idempotencyKey={idempotencyKey}/>
 
       <div className="space-y-3">
         {!orders?.length && <div className="rounded-2xl border bg-white p-8 text-gray-500">Nenhum pedido criado.</div>}
