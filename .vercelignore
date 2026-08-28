@@ -1,0 +1,9 @@
+.git/
+.next/
+.pnpm-store/
+.source-repo/
+node_modules/
+coverage/
+*.tsbuildinfo
+
+
