@@ -9,7 +9,16 @@ function money(value: number | string | null | undefined) {
 }
 function qty(value: number | string | null | undefined) { return Number(value || 0).toLocaleString("pt-BR", { maximumFractionDigits: 3 }); }
 const unitLabel: Record<string,string> = {un:"un",g:"g",kg:"kg",ml:"ml",l:"L"};
-const movementLabel: Record<string,string> = {entry:"Entrada",sale:"Venda",adjustment:"Ajuste",loss:"Perda",return:"Retorno"};
+const movementLabel: Record<string,string> = {
+  entry:"Entrada",
+  exit:"Saída",
+  sale:"Venda",
+  adjustment:"Ajuste (legado)",
+  adjustment_in:"Ajuste positivo",
+  adjustment_out:"Ajuste negativo",
+  loss:"Perda",
+  return:"Retorno",
+};
 
 export default async function EstoquePage({ searchParams }: { searchParams: Promise<{ erro?: string; sucesso?: string }> }) {
   const query = await searchParams;
@@ -48,7 +57,7 @@ export default async function EstoquePage({ searchParams }: { searchParams: Prom
       <form action={addInventoryMovement} className="rounded-2xl border bg-white p-5 shadow-sm">
         <h2 className="text-xl font-bold">Movimentar estoque</h2>
         <label className="mt-4 block text-sm font-semibold">Insumo</label><select name="ingredientId" required className="mt-1 w-full rounded-xl border px-3 py-3"><option value="">Selecione</option>{ingredients?.map(i=><option key={i.id} value={i.id}>{i.name} — {qty(i.current_stock)} {unitLabel[i.unit]}</option>)}</select>
-        <div className="mt-3 grid grid-cols-2 gap-3"><label className="text-sm font-semibold">Tipo<select name="movementType" className="mt-1 w-full rounded-xl border px-3 py-3"><option value="entry">Entrada</option><option value="loss">Perda</option><option value="adjustment">Saída/Ajuste</option><option value="return">Retorno</option></select></label><label className="text-sm font-semibold">Quantidade<input name="quantity" required type="number" min="0.001" step="0.001" className="mt-1 w-full rounded-xl border px-3 py-3" /></label></div>
+        <div className="mt-3 grid grid-cols-2 gap-3"><label className="text-sm font-semibold">Tipo<select name="movementType" className="mt-1 w-full rounded-xl border px-3 py-3"><option value="entry">Entrada</option><option value="exit">Saída</option><option value="adjustment_in">Ajuste positivo</option><option value="adjustment_out">Ajuste negativo</option><option value="loss">Perda</option><option value="return">Retorno</option></select></label><label className="text-sm font-semibold">Quantidade<input name="quantity" required type="number" min="0.001" step="0.001" className="mt-1 w-full rounded-xl border px-3 py-3" /></label></div>
         <label className="mt-3 block text-sm font-semibold">Observação</label><input name="notes" className="mt-1 w-full rounded-xl border px-3 py-3" placeholder="Ex.: compra do fornecedor" />
         <button className="mt-4 w-full rounded-xl bg-gray-900 px-4 py-3 font-semibold text-white">Registrar movimentação</button>
       </form>

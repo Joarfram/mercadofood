@@ -26,12 +26,13 @@ export async function addInventoryMovement(formData: FormData) {
   const { supabase, company, user } = await requirePlanModule("stock");
   const ingredientId = String(formData.get("ingredientId") || "");
   const type = String(formData.get("movementType") || "entry");
+  const allowedTypes = new Set(["entry", "exit", "adjustment_in", "adjustment_out", "loss", "return"]);
   const quantityInput = amount(formData.get("quantity"));
   const notes = String(formData.get("notes") || "").trim();
-  if (!ingredientId || quantityInput <= 0) redirect("/estoque?erro=Informe o insumo e a quantidade.");
+  if (!ingredientId || !allowedTypes.has(type) || quantityInput <= 0) redirect("/estoque?erro=Informe um tipo, um insumo e uma quantidade válidos.");
   const { data: ingredient, error: readError } = await supabase.from("ingredients").select("current_stock,unit_cost").eq("id", ingredientId).eq("company_id", company.id).single();
   if (readError || !ingredient) redirect("/estoque?erro=Insumo não encontrado.");
-  const signed = type === "entry" || type === "return" ? quantityInput : -quantityInput;
+  const signed = type === "entry" || type === "return" || type === "adjustment_in" ? quantityInput : -quantityInput;
   const before = Number(ingredient.current_stock || 0);
   const after = before + signed;
   const { error: updateError } = await supabase.from("ingredients").update({ current_stock: after, updated_at: new Date().toISOString() }).eq("id", ingredientId).eq("company_id", company.id);
