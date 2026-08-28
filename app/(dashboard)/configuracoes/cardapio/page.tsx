@@ -1,6 +1,6 @@
 import Link from "next/link";
 import QRCode from "qrcode";
-import { ExternalLink, Palette, Clock3, MapPin, QrCode, Plus, Trash2 } from "lucide-react";
+import { ExternalLink, Images, Palette, Clock3, MapPin, QrCode, Plus, Trash2 } from "lucide-react";
 import { getCurrentCompany } from "@/lib/auth/current-company";
 import { addDeliveryZone, deleteDeliveryZone, saveBusinessHours, saveMenuSettings, toggleDeliveryZone } from "./actions";
 import { CopyLinkButton } from "./copy-link-button";
@@ -26,6 +26,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ e
     {query.erro && <div className="rounded-xl bg-red-50 p-4 text-red-700">{query.erro}</div>}
     {query.sucesso && <div className="rounded-xl bg-emerald-50 p-4 text-emerald-800">{query.sucesso}</div>}
 
+    <Link href="/configuracoes/cardapio/imagens" className="flex items-center justify-between gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm transition hover:-translate-y-0.5">
+      <div className="flex items-center gap-4"><span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white text-emerald-700 shadow-sm"><Images/></span><div><h2 className="text-xl font-bold text-emerald-900">Imagens do cardápio</h2><p className="mt-1 text-sm text-emerald-800">Gerencie a logomarca e o banner da loja.</p></div></div><span className="font-semibold text-emerald-800">Abrir →</span>
+    </Link>
+
     <section className="grid gap-6 xl:grid-cols-[1fr_360px]">
       <form action={saveMenuSettings} className="space-y-6 rounded-2xl border bg-white p-6 shadow-sm">
         <div className="flex items-center gap-3"><Palette className="text-emerald-700"/><div><h2 className="text-xl font-bold">Aparência e dados da loja</h2><p className="text-sm text-gray-500">As alterações aparecem no cardápio público.</p></div></div>
@@ -47,6 +51,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ e
 
     <section className="rounded-2xl border bg-white p-6 shadow-sm"><div className="flex items-center gap-3"><MapPin className="text-emerald-700"/><div><h2 className="text-xl font-bold">Bairros e regiões atendidas</h2><p className="text-sm text-gray-500">Cada região pode ter taxa, pedido mínimo e prazo próprios.</p></div></div><form action={addDeliveryZone} className="mt-5 grid gap-3 md:grid-cols-5"><input name="name" required placeholder="Bairro ou região" className="rounded-xl border px-3 py-3 md:col-span-2"/><input name="deliveryFee" placeholder="Taxa R$" inputMode="decimal" className="rounded-xl border px-3 py-3"/><input name="minimumOrder" placeholder="Mínimo R$" inputMode="decimal" className="rounded-xl border px-3 py-3"/><div className="flex gap-2"><input name="estimatedMinutes" type="number" min="5" defaultValue="45" className="min-w-0 flex-1 rounded-xl border px-3 py-3"/><button title="Adicionar" className="rounded-xl bg-orange-500 px-4 text-white"><Plus/></button></div></form><div className="mt-5 divide-y rounded-xl border">{(zones||[]).length===0?<p className="p-5 text-gray-500">Nenhuma região cadastrada. A taxa padrão será usada.</p>:(zones||[]).map(z=><div key={z.id} className="flex flex-wrap items-center justify-between gap-3 p-4"><div><strong>{z.name}</strong><p className="text-sm text-gray-500">Taxa R$ {money(z.delivery_fee)} • mínimo R$ {money(z.minimum_order)} • {z.estimated_minutes} min</p></div><div className="flex gap-2"><form action={toggleDeliveryZone}><input type="hidden" name="id" value={z.id}/><input type="hidden" name="active" value={String(z.is_active)}/><button className={`rounded-lg px-3 py-2 text-sm font-semibold ${z.is_active?"bg-emerald-50 text-emerald-700":"bg-gray-100 text-gray-500"}`}>{z.is_active?"Ativa":"Inativa"}</button></form><form action={deleteDeliveryZone}><input type="hidden" name="id" value={z.id}/><button title="Excluir" className="rounded-lg bg-red-50 p-2 text-red-600"><Trash2 size={18}/></button></form></div></div>)}</div></section>
 
-    <section className="rounded-2xl border border-orange-100 bg-orange-50 p-5"><h2 className="font-bold text-orange-900">Adicionais e complementos</h2><p className="mt-1 text-sm text-orange-800">Os grupos de adicionais continuam vinculados a cada produto. Abra Produtos para configurar tamanho, sabores, bordas, molhos e extras.</p><Link href="/produtos" className="mt-3 inline-flex font-semibold text-orange-800">Abrir produtos →</Link></section>
+    <section className="rounded-2xl border border-orange-100 bg-orange-50 p-5"><h2 className="font-bold text-orange-900">Complementos e adicionais</h2><p className="mt-1 text-sm text-orange-800">Crie grupos reutilizáveis de tamanhos, sabores, bordas, molhos e extras e associe-os a vários produtos.</p><Link href="/complementos" className="mt-3 inline-flex font-semibold text-orange-800">Abrir complementos →</Link></section>
   </main>;
 }

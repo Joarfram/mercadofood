@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Building2, KeyRound, Truck, Store, QrCode, MessageCircle, Printer, Headphones } from "lucide-react";
+import { Building2, Images, KeyRound, Truck, Store, QrCode, MessageCircle, Printer, Headphones } from "lucide-react";
 import { getCurrentCompany } from "@/lib/auth/current-company";
 
 export default async function Page() {
@@ -7,6 +7,7 @@ export default async function Page() {
   const cards = [
     { href: "/configuracoes/suporte", title: "Suporte remoto", description: "Gere um código temporário e acompanhe os atendimentos.", icon: Headphones },
     { href: "/configuracoes/cardapio", title: "Cardápio e QR Code", description: "Aparência, banner, horários, bairros, taxas e link público.", icon: QrCode },
+    { href: "/configuracoes/cardapio/imagens", title: "Imagens do cardápio", description: "Logomarca e banner exibidos no cardápio público.", icon: Images },
     { href: "/configuracoes/pix", title: "PIX", description: "Chave, recebedor e cidade para gerar cobranças.", icon: KeyRound },
     { href: "/configuracoes/whatsapp", title: "WhatsApp e chatbot", description: "Conecte o número, configure respostas automáticas e faça um teste.", icon: MessageCircle },
     { href: "/configuracoes/impressoras", title: "Impressoras térmicas", description: "Cadastre impressoras USB, largura do papel, setor e regras do cupom.", icon: Printer },
