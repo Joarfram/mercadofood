@@ -10,7 +10,7 @@ export default async function MenuPage({ params }: { params: Promise<{ slug: str
     cookies: { getAll() { return cookieStore.getAll(); }, setAll() {} }
   });
   const [{ data, error }, { data: deliveryZones }, { data: hasCombos }, { data: serviceConfig }] = await Promise.all([
-    supabase.rpc("get_public_menu", { p_slug: slug }),
+    supabase.rpc("get_public_menu_delivery_simple", { p_slug: slug }),
     supabase.rpc("get_public_delivery_zones", { p_slug: slug }),
     supabase.rpc("has_public_combos", { p_slug: slug }),
     supabase.rpc("get_public_service_config", { p_slug: slug }),
