@@ -37,8 +37,10 @@ export function calculateWeightedPrice(product: WeightedProductPricing, chosenQu
 
 export function normalizeWeightSelection(product: WeightedProductPricing, requestedQuantity: number, unit: "g" | "kg" = "g") {
   const requestedInGrams = toGrams(Math.max(0, Number(requestedQuantity || 0)), unit);
-  const minimum = toGrams(Number(product.minimum_sale_quantity || 0), product.reference_unit || "g");
-  const increment = toGrams(Number(product.sale_increment || 0), product.reference_unit || "g");
+  // No Gestão Delivery Simples, mínimo e incremento são sempre persistidos em gramas,
+  // independentemente da unidade usada como referência do preço (ex.: R$ 24/kg).
+  const minimum = Math.max(0, Number(product.minimum_sale_quantity || 0));
+  const increment = Math.max(0, Number(product.sale_increment || 0));
 
   const base = Math.max(requestedInGrams, minimum || requestedInGrams);
   if (!increment) return base;
