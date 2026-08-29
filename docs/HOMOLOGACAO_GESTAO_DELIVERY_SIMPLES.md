@@ -137,3 +137,5 @@ A liberação para produção só deve ocorrer quando todos os itens abaixo esti
 - [ ] Confirmar CI da Vercel no commit final.
 - [ ] Revisar a PR e só então marcar como pronta.
 - [ ] Obter autorização explícita antes de aplicar migrations em produção, mesclar em `main` ou fazer deploy de produção.
+
+> Importante: "corrigido no código" não significa "homologado no banco". O gate de produção continua fechado até os testes de Supabase, WhatsApp e impressora real serem concluídos.
