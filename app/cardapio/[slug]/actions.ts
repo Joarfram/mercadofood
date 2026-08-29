@@ -63,8 +63,6 @@ export async function submitPublicOrder(payload: unknown) {
     return { ok: false as const, error: "O pedido foi criado, mas não pôde ser finalizado corretamente." };
   }
 
-  // O RPC legado cria o pedido e seus complementos. Em seguida, esta etapa congela
-  // a medida real (unidade/peso), recalcula o preço no servidor e baixa o estoque.
   const { data: finalized, error: finalizeError } = await supabase.rpc(
     "delivery_simple_finalize_public_order",
     {
@@ -75,14 +73,23 @@ export async function submitPublicOrder(payload: unknown) {
   );
   if (finalizeError) return { ok: false as const, error: finalizeError.message };
 
+  let responseData = finalized || created;
+
   if (input.service_type === "delivery" && input.delivery_zone_id) {
     const { data: adjusted, error: zoneError } = await supabase.rpc("apply_public_order_delivery_zone", {
       p_order_id: created.order_id,
       p_zone_id: input.delivery_zone_id,
     });
     if (zoneError) return { ok: false as const, error: zoneError.message };
-    return { ok: true as const, data: adjusted };
+    responseData = adjusted || responseData;
   }
 
-  return { ok: true as const, data: finalized || created };
+  // A fila é criada somente depois de preço, taxa e estoque estarem finalizados.
+  // Falha de notificação/impressão não desfaz um pedido válido; o painel pode reprocessar depois.
+  const { error: outputError } = await supabase.rpc("delivery_simple_queue_order_outputs", {
+    p_order_id: created.order_id,
+  });
+  if (outputError) console.error("[delivery-simple] falha ao enfileirar saídas do pedido", outputError.message);
+
+  return { ok: true as const, data: responseData };
 }
