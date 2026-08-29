@@ -4,6 +4,27 @@ import { notFound } from "next/navigation";
 import MenuClient from "./menu-client";
 import DeliverySimpleMenuClientV2 from "./delivery-simple-menu-client-v2";
 
+function normalizeMeasuredMenuForClient(menu: any) {
+  return {
+    ...menu,
+    categories: (menu.categories || []).map((category: any) => ({
+      ...category,
+      products: (category.products || []).map((product: any) => {
+        if (product.selling_mode !== "weight") return product;
+        const referenceUnit = product.reference_unit === "kg" ? "kg" : "g";
+        const divisor = referenceUnit === "kg" ? 1000 : 1;
+        return {
+          ...product,
+          // No banco, mínimo e incremento são sempre gramas. O cliente V2 trabalha
+          // na mesma unidade visual da referência, então convertemos apenas para a UI.
+          minimum_sale_quantity: Number(product.minimum_sale_quantity || 0) / divisor,
+          sale_increment: Number(product.sale_increment || 0) / divisor,
+        };
+      }),
+    })),
+  };
+}
+
 export default async function MenuPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const cookieStore = await cookies();
@@ -25,7 +46,7 @@ export default async function MenuPage({ params }: { params: Promise<{ slug: str
   // Quando a loja usa venda por peso, o cardápio Delivery Simples V2 assume o fluxo completo,
   // inclusive produtos com complementos. Lojas sem venda por peso continuam no cardápio atual.
   if (hasMeasuredProducts) {
-    return <DeliverySimpleMenuClientV2 menu={data} deliveryZones={deliveryZones || []} serviceConfig={config} />;
+    return <DeliverySimpleMenuClientV2 menu={normalizeMeasuredMenuForClient(data)} deliveryZones={deliveryZones || []} serviceConfig={config} />;
   }
 
   return <MenuClient menu={data} deliveryZones={deliveryZones || []} hasCombos={Boolean(hasCombos)} serviceConfig={config} />;
