@@ -122,6 +122,7 @@ Validar:
 A liberação para produção só deve ocorrer quando todos os itens abaixo estiverem satisfeitos:
 
 - [x] Corrigir no código a validação antecipada de pedido mínimo/cupom para produtos por peso.
+- [ ] Validar essa correção executando as migrations e os cenários críticos em Supabase de homologação.
 - [ ] Aplicar todas as migrations, em ordem, em um projeto Supabase de homologação vazio ou restaurado para teste.
 - [ ] Confirmar que nenhuma migration falha por coluna, constraint, extensão ou função inexistente.
 - [ ] Confirmar `pg_cron` no ambiente alvo.
