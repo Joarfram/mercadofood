@@ -27,6 +27,22 @@ export function DeliverySimpleStockPanel({query,products,movements}:{query:{erro
       <Card label="Reservado" value={qty(totalReserved)} note="Separado para pedidos"/>
     </section>
 
+    {lowProducts.length>0&&<section className="rounded-2xl border border-orange-200 bg-orange-50 p-5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-xl font-bold text-orange-900">Atenção ao estoque</h2><p className="text-sm text-orange-800">Estes produtos chegaram ao estoque mínimo ou ficaram sem saldo disponível. Você pode repor daqui mesmo.</p></div><span className="w-fit rounded-full bg-white px-3 py-1 text-sm font-bold text-orange-700">{lowProducts.length} item(ns)</span></div>
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">{lowProducts.map(product=>{
+        const unit=unitLabel[product.stock_unit||"unit"]||product.stock_unit||"un";
+        const suggested=Math.max(product.minimum*2-product.physical, product.minimum-product.available, product.stock_unit==="unit"?1:0.001);
+        return <article key={product.id} className="rounded-xl border border-orange-200 bg-white p-4">
+          <div className="flex flex-wrap items-start justify-between gap-2"><div><h3 className="font-bold">{product.name}</h3><p className="mt-1 text-sm text-gray-600">Disponível: <b className={product.available<=0?"text-red-700":"text-orange-700"}>{qty(product.available)} {unit}</b> • mínimo: {qty(product.minimum)} {unit}</p>{product.reserved>0&&<p className="mt-1 text-xs text-gray-500">Há {qty(product.reserved)} {unit} reservado(s) para pedidos.</p>}</div><span className={`rounded-full px-3 py-1 text-xs font-bold ${product.available<=0?"bg-red-50 text-red-700":"bg-orange-100 text-orange-800"}`}>{product.available<=0?"Sem estoque":"Estoque baixo"}</span></div>
+          <form action={addProductStockMovement} className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
+            <input type="hidden" name="productId" value={product.id}/><input type="hidden" name="movementType" value="entry"/><input type="hidden" name="notes" value="Reposição rápida pelo alerta de estoque"/>
+            <label className="flex-1 text-sm font-semibold">Quantidade para repor<input name="quantity" type="number" min="0.001" step="0.001" defaultValue={Number(suggested.toFixed(3))} required className="mt-1 w-full rounded-xl border px-3 py-2"/></label>
+            <button className="rounded-xl bg-emerald-700 px-4 py-2.5 font-semibold text-white">Repor agora</button>
+          </form>
+          <p className="mt-2 text-xs text-gray-500">Quantidade em {unit}. A sugestão tenta deixar o saldo acima do mínimo.</p>
+        </article>})}</div>
+    </section>}
+
     <section className="grid gap-6 xl:grid-cols-[1.4fr_1fr]">
       <div className="rounded-2xl border bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-xl font-bold">Saldo atual</h2><p className="text-sm text-gray-500">Físico menos reservado = disponível para novas vendas.</p></div><Link href="/produtos" className="text-sm font-bold text-emerald-700">Gerenciar produtos</Link></div>
