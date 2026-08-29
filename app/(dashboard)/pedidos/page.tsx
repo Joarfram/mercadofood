@@ -1,4 +1,4 @@
-import { updateOrderStatus } from "./actions";
+import { confirmOrderPayment, updateOrderStatus } from "./actions";
 import { requirePlanModule } from "@/lib/auth/current-company";
 import { PrintOrderButton } from "./print-order-button";
 import { NewOrderAlert } from "@/components/orders/new-order-alert";
@@ -51,10 +51,18 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
         {orders?.map(order => {
           const items = order.order_items || [];
           const target = next[order.status];
+          const canConfirmPayment = order.payment_status !== "paid" && order.status !== "canceled";
           return <article key={order.id} className="rounded-2xl border bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div><p className="text-sm font-semibold text-emerald-700">Pedido #{order.order_number}</p><h2 className="text-xl font-bold">{order.customer_name || "Cliente"}</h2><p className="text-sm text-gray-500">{order.customer_phone || "Sem telefone"} • {order.service_type}</p><p className="mt-2 text-sm">{items.map((i:any) => `${measure(i)} ${i.product_name}`).join(" • ") || "Itens não carregados"}</p></div>
-              <div className="flex flex-wrap items-center gap-3"><span className="rounded-full bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">{labels[order.status] || order.status}</span><div className="text-right">{Number(order.discount_amount||0)>0&&<p className="text-xs text-gray-400 line-through">{money(order.subtotal)}</p>}<strong>{money(order.total)}</strong>{Number(order.discount_amount||0)>0&&<p className="text-xs font-semibold text-orange-600">Desconto {money(order.discount_amount)}{order.coupon_code?` • ${order.coupon_code}`:""}{Number(order.loyalty_points_redeemed||0)>0?` • ${order.loyalty_points_redeemed} pts`:""}</p>}</div><span className={`rounded-full px-3 py-2 text-sm font-semibold ${order.payment_status === "paid" ? "bg-blue-50 text-blue-800" : "bg-orange-50 text-orange-800"}`}>{order.payment_status === "paid" ? "Pago" : "Pagamento pendente"}</span><PrintOrderButton order={order as any} companyName={company.name} printer={activePrinter}/>{target && <form action={updateOrderStatus}><input type="hidden" name="orderId" value={order.id}/><input type="hidden" name="status" value={target}/><button className="rounded-xl bg-emerald-700 px-4 py-2 font-semibold text-white">Avançar para {labels[target]}</button></form>}</div>
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="rounded-full bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">{labels[order.status] || order.status}</span>
+                <div className="text-right">{Number(order.discount_amount||0)>0&&<p className="text-xs text-gray-400 line-through">{money(order.subtotal)}</p>}<strong>{money(order.total)}</strong>{Number(order.discount_amount||0)>0&&<p className="text-xs font-semibold text-orange-600">Desconto {money(order.discount_amount)}{order.coupon_code?` • ${order.coupon_code}`:""}{Number(order.loyalty_points_redeemed||0)>0?` • ${order.loyalty_points_redeemed} pts`:""}</p>}</div>
+                <span className={`rounded-full px-3 py-2 text-sm font-semibold ${order.payment_status === "paid" ? "bg-blue-50 text-blue-800" : "bg-orange-50 text-orange-800"}`}>{order.payment_status === "paid" ? "Pago" : "Pagamento pendente"}</span>
+                {canConfirmPayment && <form action={confirmOrderPayment}><input type="hidden" name="orderId" value={order.id}/><button className="rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white">Confirmar pagamento</button></form>}
+                <PrintOrderButton order={order as any} companyName={company.name} printer={activePrinter}/>
+                {target && <form action={updateOrderStatus}><input type="hidden" name="orderId" value={order.id}/><input type="hidden" name="status" value={target}/><button className="rounded-xl bg-emerald-700 px-4 py-2 font-semibold text-white">Avançar para {labels[target]}</button></form>}
+              </div>
             </div>
           </article>;
         })}
