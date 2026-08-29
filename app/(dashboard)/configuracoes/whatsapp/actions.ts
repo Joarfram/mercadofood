@@ -6,6 +6,7 @@ import { z } from "zod";
 import { requirePlanModule } from "@/lib/auth/current-company";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendWhatsAppText } from "@/lib/whatsapp/cloud-api";
+import { sendStoreOrderNotification } from "@/lib/whatsapp/order-notifications";
 import { decryptWhatsAppToken } from "@/lib/whatsapp/token-crypto";
 
 async function context() {
@@ -60,6 +61,18 @@ export async function disconnectWhatsApp() {
   if (error) redirect(`/configuracoes/whatsapp?erro=${encodeURIComponent(error.message)}`);
   revalidatePath("/configuracoes/whatsapp");
   redirect("/configuracoes/whatsapp?sucesso=WhatsApp%20desconectado");
+}
+
+export async function retryOrderWhatsAppNotification(formData: FormData) {
+  const orderId = String(formData.get("orderId") || "");
+  if (!orderId) return;
+  const { supabase, company } = await context();
+  const { data: order } = await supabase.from("orders").select("id").eq("id",orderId).eq("company_id",company.id).maybeSingle();
+  if (!order) redirect("/configuracoes/whatsapp?erro=Pedido%20não%20encontrado");
+  const result = await sendStoreOrderNotification(orderId);
+  revalidatePath("/configuracoes/whatsapp");
+  if (!result.ok) redirect(`/configuracoes/whatsapp?erro=${encodeURIComponent(result.error)}`);
+  redirect("/configuracoes/whatsapp?sucesso=Aviso%20do%20pedido%20reenviado");
 }
 
 export async function sendWhatsAppTest(formData: FormData) {
