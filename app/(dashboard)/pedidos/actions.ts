@@ -4,6 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requirePlanModule } from "@/lib/auth/current-company";
 
+function refreshOrderViews() {
+  revalidatePath("/pedidos");
+  revalidatePath("/cozinha");
+  revalidatePath("/estoque");
+  revalidatePath("/dashboard");
+}
+
 export async function createOrder(formData: FormData) {
   const customerName = String(formData.get("customerName") || "").trim();
   const customerPhone = String(formData.get("customerPhone") || "").replace(/\D/g, "");
@@ -45,15 +52,43 @@ export async function createOrder(formData: FormData) {
   redirect(`/pedidos?sucesso=${encodeURIComponent(`Pedido criado. Desconto: R$ ${discountAmount.toFixed(2)}`)}`);
 }
 
+export async function confirmOrderPayment(formData: FormData) {
+  const orderId = String(formData.get("orderId") || "");
+  if (!orderId) return;
+  const { supabase } = await requirePlanModule("orders");
+  const { error } = await supabase.rpc("delivery_simple_confirm_payment", { p_order_id: orderId });
+  if (error) redirect(`/pedidos?erro=${encodeURIComponent(error.message)}`);
+  refreshOrderViews();
+  redirect("/pedidos?sucesso=Pagamento%20confirmado%20e%20estoque%20baixado");
+}
+
 export async function updateOrderStatus(formData: FormData) {
   const orderId = String(formData.get("orderId") || "");
   const status = String(formData.get("status") || "new");
   const allowed = ["new", "accepted", "preparing", "ready", "out_for_delivery", "delivered", "canceled"];
   if (!allowed.includes(status)) return;
   const { supabase, company } = await requirePlanModule("orders");
+
+  const { data: order, error: orderError } = await supabase.from("orders")
+    .select("id,payment_method,payment_status")
+    .eq("id", orderId)
+    .eq("company_id", company.id)
+    .single();
+  if (orderError || !order) redirect(`/pedidos?erro=${encodeURIComponent(orderError?.message || "Pedido não encontrado")}`);
+
+  if (status === "accepted" && order.payment_status !== "paid" && order.payment_method === "cash") {
+    const { error } = await supabase.rpc("delivery_simple_accept_cash_order", { p_order_id: orderId });
+    if (error) redirect(`/pedidos?erro=${encodeURIComponent(error.message)}`);
+  }
+  if (status === "canceled") {
+    const { error } = await supabase.rpc("delivery_simple_release_order_stock", { p_order_id: orderId, p_reason: "Pedido cancelado" });
+    if (error) redirect(`/pedidos?erro=${encodeURIComponent(error.message)}`);
+  }
+
   const timestamps: Record<string, string> = { accepted: "accepted_at", preparing: "started_at", ready: "ready_at", delivered: "delivered_at", canceled: "canceled_at" };
   const payload: Record<string, string> = { status };
   if (timestamps[status]) payload[timestamps[status]] = new Date().toISOString();
-  await supabase.from("orders").update(payload).eq("id", orderId).eq("company_id", company.id);
-  revalidatePath("/pedidos"); revalidatePath("/cozinha");
+  const { error } = await supabase.from("orders").update(payload).eq("id", orderId).eq("company_id", company.id);
+  if (error) redirect(`/pedidos?erro=${encodeURIComponent(error.message)}`);
+  refreshOrderViews();
 }
