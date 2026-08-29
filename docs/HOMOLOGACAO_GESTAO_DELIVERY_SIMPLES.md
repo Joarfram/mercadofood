@@ -9,6 +9,7 @@ Este documento é o checklist de liberação da Gestão Delivery Simples. Ele se
 - As migrations desta branch ainda não foram aplicadas no banco de produção.
 - A branch está à frente de `main` e não está atrás dela.
 - A PR permanece em rascunho até o fim da homologação.
+- A correção de ordem do checkout foi introduzida em `ae062189`.
 
 ## Fluxo 1 — cadastro e estoque do produto
 
