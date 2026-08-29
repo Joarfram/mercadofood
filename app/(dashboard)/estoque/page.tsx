@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Pencil, Trash2 } from "lucide-react";
 import { addInventoryMovement, createIngredient, deleteIngredient, removeRecipeItem } from "./actions";
 import { RecipeCalculator } from "./recipe-calculator";
+import { DeliverySimpleStockPanel } from "./delivery-simple-stock-panel";
 
 function money(value: number | string | null | undefined) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value || 0));
@@ -17,7 +18,7 @@ const movementLabel: Record<string,string> = {
 
 export default async function EstoquePage({ searchParams }: { searchParams: Promise<{ erro?: string; sucesso?: string }> }) {
   const query = await searchParams;
-  const { supabase, company } = await requirePlanModule("stock");
+  const { supabase, company, planCode } = await requirePlanModule("stock");
   const [{ data: ingredients }, { data: products }, { data: recipes }, { data: movements }, { data: productReservations }, { data: productMovements }] = await Promise.all([
     supabase.from("ingredients").select("*").eq("company_id", company.id).eq("is_active", true).order("name"),
     supabase.from("products").select("id,name,base_price,selling_mode,stock_unit,track_stock,stock_quantity,minimum_stock,availability_status").eq("company_id", company.id).eq("is_active", true).order("name"),
@@ -40,6 +41,10 @@ export default async function EstoquePage({ searchParams }: { searchParams: Prom
   });
   const lowProducts = productStockRows.filter(product => product.low);
   const unavailableProducts = productStockRows.filter(product => product.available <= 0);
+
+  if (planCode === "delivery-simples") {
+    return <DeliverySimpleStockPanel query={query} products={productStockRows as any} movements={(productMovements || []) as any} />;
+  }
 
   return <main className="space-y-6">
     <header><p className="text-sm font-semibold text-emerald-700">Controle de estoque</p><h1 className="text-3xl font-bold">Estoque e ficha técnica</h1><p className="text-gray-500">Acompanhe produtos vendidos diretamente e, nos planos completos, ingredientes e fichas técnicas.</p></header>
