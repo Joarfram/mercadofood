@@ -5,7 +5,6 @@ Este documento é o checklist de liberação da Gestão Delivery Simples. Ele se
 ## Estado atual
 
 - Branch: `feature/gestao-delivery-simples`
-- O código web passou no CI da Vercel até o commit anterior ao ajuste final de peso/cupom.
 - As migrations desta branch ainda não foram aplicadas no banco de produção.
 - A branch está à frente de `main` e não está atrás dela.
 - A PR permanece em rascunho até o fim da homologação.
