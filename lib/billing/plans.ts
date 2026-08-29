@@ -20,8 +20,8 @@ export const plans: Record<PlanCode, PlanDefinition> = {
     code: "delivery-simples", name: "Gestão Delivery Simples", promise: "Gerenciar delivery",
     description: "Gestão essencial de cardápio, pedidos, clientes, delivery e retirada.",
     userLimit: 2, branchLimit: 1, monthlyPrice: 0, annualMonthlyPrice: 0,
-    modules: ["dashboard", "orders", "products", "customers", "delivery", "payments", "messages", "settings"],
-    highlights: ["Cardápio, produtos e complementos", "Pedidos, clientes, delivery e retirada", "QR Code, WhatsApp e formas de pagamento"],
+    modules: ["dashboard", "orders", "products", "stock", "customers", "delivery", "payments", "messages", "settings"],
+    highlights: ["Cardápio, produtos e complementos", "Pedidos, clientes, delivery e retirada", "Estoque simples por produto", "QR Code, WhatsApp e formas de pagamento"],
   },
   basic: {
     code: "basic",
