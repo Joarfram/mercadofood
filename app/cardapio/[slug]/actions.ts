@@ -35,20 +35,54 @@ export async function previewPublicCoupon(input: { slug: string; code: string; s
 export async function submitPublicOrder(payload: unknown) {
   const supabase = await createPublicSupabaseClient();
 
-  const input = payload as { slug?: string; service_type?: string; delivery_zone_id?: string };
+  const input = payload as {
+    slug?: string;
+    service_type?: string;
+    delivery_zone_id?: string;
+    items?: unknown[];
+  };
+
   const [{ data: serviceConfig }, { data: zones }] = await Promise.all([
-    supabase.rpc('get_public_service_config',{p_slug:input.slug || ''}),
-    supabase.rpc('get_public_delivery_zones',{p_slug:input.slug || ''}),
+    supabase.rpc("get_public_service_config", { p_slug: input.slug || "" }),
+    supabase.rpc("get_public_delivery_zones", { p_slug: input.slug || "" }),
   ]);
-  if (input.service_type === 'delivery' && !serviceConfig?.delivery_enabled) return { ok:false as const,error:'A loja não está recebendo pedidos para entrega.' };
-  if (input.service_type === 'pickup' && !serviceConfig?.pickup_enabled) return { ok:false as const,error:'A loja não está recebendo pedidos para retirada.' };
-  if (input.service_type === 'delivery' && Array.isArray(zones) && zones.length && !input.delivery_zone_id) return { ok:false as const,error:'Selecione um bairro atendido pela loja.' };
-  const { data, error } = await supabase.rpc("create_public_order", { p_payload: payload });
-  if (error) return { ok: false as const, error: error.message };
-  if (input.service_type === 'delivery' && input.delivery_zone_id) {
-    const { data: adjusted, error: zoneError } = await supabase.rpc('apply_public_order_delivery_zone',{p_order_id:data.order_id,p_zone_id:input.delivery_zone_id});
-    if (zoneError) return { ok:false as const,error:zoneError.message };
-    return { ok:true as const,data:adjusted };
+
+  if (input.service_type === "delivery" && !serviceConfig?.delivery_enabled) {
+    return { ok: false as const, error: "A loja não está recebendo pedidos para entrega." };
   }
-  return { ok: true as const, data };
+  if (input.service_type === "pickup" && !serviceConfig?.pickup_enabled) {
+    return { ok: false as const, error: "A loja não está recebendo pedidos para retirada." };
+  }
+  if (input.service_type === "delivery" && Array.isArray(zones) && zones.length && !input.delivery_zone_id) {
+    return { ok: false as const, error: "Selecione um bairro atendido pela loja." };
+  }
+
+  const { data: created, error } = await supabase.rpc("create_public_order", { p_payload: payload });
+  if (error) return { ok: false as const, error: error.message };
+  if (!created?.order_id || !created?.public_code) {
+    return { ok: false as const, error: "O pedido foi criado, mas não pôde ser finalizado corretamente." };
+  }
+
+  // O RPC legado cria o pedido e seus complementos. Em seguida, esta etapa congela
+  // a medida real (unidade/peso), recalcula o preço no servidor e baixa o estoque.
+  const { data: finalized, error: finalizeError } = await supabase.rpc(
+    "delivery_simple_finalize_public_order",
+    {
+      p_order_id: created.order_id,
+      p_public_code: created.public_code,
+      p_items: Array.isArray(input.items) ? input.items : [],
+    }
+  );
+  if (finalizeError) return { ok: false as const, error: finalizeError.message };
+
+  if (input.service_type === "delivery" && input.delivery_zone_id) {
+    const { data: adjusted, error: zoneError } = await supabase.rpc("apply_public_order_delivery_zone", {
+      p_order_id: created.order_id,
+      p_zone_id: input.delivery_zone_id,
+    });
+    if (zoneError) return { ok: false as const, error: zoneError.message };
+    return { ok: true as const, data: adjusted };
+  }
+
+  return { ok: true as const, data: finalized || created };
 }
