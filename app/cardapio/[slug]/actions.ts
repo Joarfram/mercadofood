@@ -84,10 +84,11 @@ export async function submitPublicOrder(payload: unknown) {
     responseData = adjusted || responseData;
   }
 
-  // A fila é criada somente depois de preço, taxa e estoque estarem finalizados.
-  // Falha de notificação/impressão não desfaz um pedido válido; o painel pode reprocessar depois.
-  const { error: outputError } = await supabase.rpc("delivery_simple_queue_order_outputs", {
+  // Só o pedido recém-criado com seu código público pode enfileirar WhatsApp/impressão.
+  // Falha de saída não invalida o pedido; ela pode ser reprocessada operacionalmente.
+  const { error: outputError } = await supabase.rpc("delivery_simple_queue_public_order_outputs", {
     p_order_id: created.order_id,
+    p_public_code: created.public_code,
   });
   if (outputError) console.error("[delivery-simple] falha ao enfileirar saídas do pedido", outputError.message);
 
