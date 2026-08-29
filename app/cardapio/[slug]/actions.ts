@@ -40,6 +40,8 @@ export async function submitPublicOrder(payload: unknown) {
     slug?: string;
     service_type?: string;
     delivery_zone_id?: string;
+    payment_method?: string;
+    delivery_address?: { street?: string; number?: string; neighborhood?: string; city?: string };
     items?: unknown[];
   };
 
@@ -48,6 +50,15 @@ export async function submitPublicOrder(payload: unknown) {
     supabase.rpc("get_public_delivery_zones", { p_slug: input.slug || "" }),
   ]);
 
+  if (!input.slug || !Array.isArray(input.items) || input.items.length === 0) {
+    return { ok: false as const, error: "O carrinho está vazio ou o cardápio é inválido." };
+  }
+  if (!['delivery','pickup'].includes(String(input.service_type || ''))) {
+    return { ok: false as const, error: "Escolha entrega ou retirada." };
+  }
+  if (!['pix','cash','card_on_delivery'].includes(String(input.payment_method || ''))) {
+    return { ok: false as const, error: "Forma de pagamento indisponível." };
+  }
   if (input.service_type === "delivery" && !serviceConfig?.delivery_enabled) {
     return { ok: false as const, error: "A loja não está recebendo pedidos para entrega." };
   }
@@ -56,6 +67,15 @@ export async function submitPublicOrder(payload: unknown) {
   }
   if (input.service_type === "delivery" && Array.isArray(zones) && zones.length && !input.delivery_zone_id) {
     return { ok: false as const, error: "Selecione um bairro atendido pela loja." };
+  }
+  if (input.service_type === "delivery") {
+    const address = input.delivery_address || {};
+    if (![address.street,address.number,address.neighborhood,address.city].every(value => String(value || '').trim())) {
+      return { ok: false as const, error: "Informe rua, número, bairro e cidade para entrega." };
+    }
+    if (Array.isArray(zones) && zones.length && !zones.some((zone: { id?: string }) => zone.id === input.delivery_zone_id)) {
+      return { ok: false as const, error: "A região selecionada não está disponível." };
+    }
   }
 
   const { data: created, error } = await supabase.rpc("create_public_order", { p_payload: payload });
@@ -82,9 +102,7 @@ export async function submitPublicOrder(payload: unknown) {
     if (zoneError) return { ok: false as const, error: zoneError.message };
   }
 
-  // Última conferência do servidor: peso/complementos + cupom + taxa de entrega + pagamento.
-  // Isso garante que o valor exibido após o pedido seja o mesmo valor persistido/cobrado.
-  const { data: reconciled, error: reconcileError } = await supabase.rpc(
+  const { error: reconcileError } = await supabase.rpc(
     "delivery_simple_reconcile_public_order_totals",
     {
       p_order_id: created.order_id,
@@ -93,8 +111,18 @@ export async function submitPublicOrder(payload: unknown) {
   );
   if (reconcileError) return { ok: false as const, error: reconcileError.message };
 
-  // Só depois do total definitivo criamos os documentos de saída.
-  // Assim WhatsApp e impressão recebem exatamente o mesmo valor salvo no pedido.
+  // Guarda final do checkout. O banco confere mínimo por região, endereço,
+  // retirada sem taxa e forma de pagamento antes de qualquer saída operacional.
+  const { data: validated, error: checkoutError } = await supabase.rpc(
+    "delivery_simple_validate_public_checkout",
+    {
+      p_order_id: created.order_id,
+      p_public_code: created.public_code,
+      p_zone_id: input.service_type === "delivery" ? input.delivery_zone_id || null : null,
+    }
+  );
+  if (checkoutError) return { ok: false as const, error: checkoutError.message };
+
   const { error: outputError } = await supabase.rpc("delivery_simple_queue_public_order_outputs", {
     p_order_id: created.order_id,
     p_public_code: created.public_code,
@@ -108,5 +136,5 @@ export async function submitPublicOrder(payload: unknown) {
     }
   }
 
-  return { ok: true as const, data: reconciled || created };
+  return { ok: true as const, data: validated || created };
 }
