@@ -1,4 +1,4 @@
-import { confirmOrderPayment, updateOrderStatus } from "./actions";
+import { confirmOrderPayment, revalidateOrderStock, updateOrderStatus } from "./actions";
 import { requirePlanModule } from "@/lib/auth/current-company";
 import { PrintOrderButton } from "./print-order-button";
 import { NewOrderAlert } from "@/components/orders/new-order-alert";
@@ -59,6 +59,7 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
                 <span className="rounded-full bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">{labels[order.status] || order.status}</span>
                 <div className="text-right">{Number(order.discount_amount||0)>0&&<p className="text-xs text-gray-400 line-through">{money(order.subtotal)}</p>}<strong>{money(order.total)}</strong>{Number(order.discount_amount||0)>0&&<p className="text-xs font-semibold text-orange-600">Desconto {money(order.discount_amount)}{order.coupon_code?` • ${order.coupon_code}`:""}{Number(order.loyalty_points_redeemed||0)>0?` • ${order.loyalty_points_redeemed} pts`:""}</p>}</div>
                 <span className={`rounded-full px-3 py-2 text-sm font-semibold ${order.payment_status === "paid" ? "bg-blue-50 text-blue-800" : "bg-orange-50 text-orange-800"}`}>{order.payment_status === "paid" ? "Pago" : "Pagamento pendente"}</span>
+                {canConfirmPayment && <form action={revalidateOrderStock}><input type="hidden" name="orderId" value={order.id}/><button className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-2 font-semibold text-orange-800">Revalidar estoque</button></form>}
                 {canConfirmPayment && <form action={confirmOrderPayment}><input type="hidden" name="orderId" value={order.id}/><button className="rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white">Confirmar pagamento</button></form>}
                 <PrintOrderButton order={order as any} companyName={company.name} printer={activePrinter}/>
                 {target && <form action={updateOrderStatus}><input type="hidden" name="orderId" value={order.id}/><input type="hidden" name="status" value={target}/><button className="rounded-xl bg-emerald-700 px-4 py-2 font-semibold text-white">Avançar para {labels[target]}</button></form>}
