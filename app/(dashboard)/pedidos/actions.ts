@@ -52,6 +52,16 @@ export async function createOrder(formData: FormData) {
   redirect(`/pedidos?sucesso=${encodeURIComponent(`Pedido criado. Desconto: R$ ${discountAmount.toFixed(2)}`)}`);
 }
 
+export async function revalidateOrderStock(formData: FormData) {
+  const orderId = String(formData.get("orderId") || "");
+  if (!orderId) return;
+  const { supabase } = await requirePlanModule("orders");
+  const { error } = await supabase.rpc("delivery_simple_revalidate_order_stock", { p_order_id: orderId });
+  if (error) redirect(`/pedidos?erro=${encodeURIComponent(error.message)}`);
+  refreshOrderViews();
+  redirect("/pedidos?sucesso=Reserva%20de%20estoque%20revalidada");
+}
+
 export async function confirmOrderPayment(formData: FormData) {
   const orderId = String(formData.get("orderId") || "");
   if (!orderId) return;
