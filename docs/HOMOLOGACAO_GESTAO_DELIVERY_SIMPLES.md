@@ -5,7 +5,7 @@ Este documento é o checklist de liberação da Gestão Delivery Simples. Ele se
 ## Estado atual
 
 - Branch: `feature/gestao-delivery-simples`
-- O código web compila no fluxo de CI da Vercel até o commit `b4691799`.
+- O código web passou no CI da Vercel até o commit anterior ao ajuste final de peso/cupom.
 - As migrations desta branch ainda não foram aplicadas no banco de produção.
 - A branch está à frente de `main` e não está atrás dela.
 - A PR permanece em rascunho até o fim da homologação.
@@ -40,11 +40,19 @@ Validar:
 10. Cupom com e sem pedido mínimo.
 11. Pedido mínimo da loja e da região de entrega.
 
-### Bloqueador conhecido antes da homologação real
+### Correção aplicada — preço final antes de pedido mínimo/cupom
 
-O RPC `delivery_simple_create_public_order_atomic` ainda chama o `create_public_order` legado antes da finalização dos itens medidos. O legado calcula pedido mínimo e cupom usando o preço-base do produto antes de conhecer o peso final escolhido. Portanto, um pedido por peso pode ser rejeitado cedo demais mesmo quando o subtotal final seria válido.
+O bloqueador de validação antecipada foi corrigido no código da branch. O RPC `delivery_simple_create_public_order_atomic` agora usa o criador legado apenas para montar cliente, complementos e estrutura do pedido em modo neutro, sem cupom e sem validar delivery pelo subtotal-base. Depois disso, o fluxo finaliza o preço real de unidade/peso/peso pronto, aplica taxa de entrega e só então valida/aplica cupom e pedido mínimo.
 
-Esse ponto deve ser corrigido antes de considerar o checkout por peso homologado. A solução definitiva é fazer a validação de mínimo/cupom somente sobre o subtotal final calculado pelo fluxo Delivery Simples, sem depender da validação antecipada do RPC legado.
+Essa correção ainda precisa ser exercitada em Supabase de homologação antes de ser considerada aprovada.
+
+Cenários obrigatórios:
+
+1. Produto de R$ 24/kg, compra de 500 g: subtotal final de R$ 12 deve ser usado para cupom e pedido mínimo, não R$ 24.
+2. Produto de R$ 24/kg, compra de 2 kg: subtotal final de R$ 48 deve ser usado, mesmo que o preço de referência seja R$ 24.
+3. Pedido cujo preço-base parecer abaixo do mínimo, mas cujo peso final ultrapasse o mínimo, deve ser aceito.
+4. Pedido cujo preço-base parecer suficiente, mas cujo peso final fique abaixo do mínimo, deve ser recusado.
+5. `usage_limit`, `per_customer_limit`, período, `minimum_order_value` e `maximum_discount` do cupom devem continuar sendo respeitados.
 
 ## Fluxo 3 — reserva e ciclo do estoque
 
@@ -113,7 +121,7 @@ Validar:
 
 A liberação para produção só deve ocorrer quando todos os itens abaixo estiverem satisfeitos:
 
-- [ ] Resolver validação antecipada de pedido mínimo/cupom para produtos por peso.
+- [x] Corrigir no código a validação antecipada de pedido mínimo/cupom para produtos por peso.
 - [ ] Aplicar todas as migrations, em ordem, em um projeto Supabase de homologação vazio ou restaurado para teste.
 - [ ] Confirmar que nenhuma migration falha por coluna, constraint, extensão ou função inexistente.
 - [ ] Confirmar `pg_cron` no ambiente alvo.
