@@ -53,10 +53,10 @@ export async function submitPublicOrder(payload: unknown) {
   if (!input.slug || !Array.isArray(input.items) || input.items.length === 0) {
     return { ok: false as const, error: "O carrinho está vazio ou o cardápio é inválido." };
   }
-  if (!['delivery','pickup'].includes(String(input.service_type || ''))) {
+  if (!["delivery","pickup"].includes(String(input.service_type || ""))) {
     return { ok: false as const, error: "Escolha entrega ou retirada." };
   }
-  if (!['pix','cash','card_on_delivery'].includes(String(input.payment_method || ''))) {
+  if (!["pix","cash","card_on_delivery"].includes(String(input.payment_method || ""))) {
     return { ok: false as const, error: "Forma de pagamento indisponível." };
   }
   if (input.service_type === "delivery" && !serviceConfig?.delivery_enabled) {
@@ -70,7 +70,7 @@ export async function submitPublicOrder(payload: unknown) {
   }
   if (input.service_type === "delivery") {
     const address = input.delivery_address || {};
-    if (![address.street,address.number,address.neighborhood,address.city].every(value => String(value || '').trim())) {
+    if (![address.street,address.number,address.neighborhood,address.city].every(value => String(value || "").trim())) {
       return { ok: false as const, error: "Informe rua, número, bairro e cidade para entrega." };
     }
     if (Array.isArray(zones) && zones.length && !zones.some((zone: { id?: string }) => zone.id === input.delivery_zone_id)) {
@@ -78,51 +78,17 @@ export async function submitPublicOrder(payload: unknown) {
     }
   }
 
-  const { data: created, error } = await supabase.rpc("create_public_order", { p_payload: payload });
+  // Criação, peso, complementos, reserva de estoque, cupom, zona e total final
+  // acontecem dentro de uma única transação no PostgreSQL. Qualquer erro desfaz tudo.
+  const { data: created, error } = await supabase.rpc("delivery_simple_create_public_order_atomic", {
+    p_payload: payload,
+  });
   if (error) return { ok: false as const, error: error.message };
   if (!created?.order_id || !created?.public_code) {
-    return { ok: false as const, error: "O pedido foi criado, mas não pôde ser finalizado corretamente." };
+    return { ok: false as const, error: "O pedido não pôde ser confirmado corretamente." };
   }
 
-  const { error: finalizeError } = await supabase.rpc(
-    "delivery_simple_finalize_public_order",
-    {
-      p_order_id: created.order_id,
-      p_public_code: created.public_code,
-      p_items: Array.isArray(input.items) ? input.items : [],
-    }
-  );
-  if (finalizeError) return { ok: false as const, error: finalizeError.message };
-
-  if (input.service_type === "delivery" && input.delivery_zone_id) {
-    const { error: zoneError } = await supabase.rpc("apply_public_order_delivery_zone", {
-      p_order_id: created.order_id,
-      p_zone_id: input.delivery_zone_id,
-    });
-    if (zoneError) return { ok: false as const, error: zoneError.message };
-  }
-
-  const { error: reconcileError } = await supabase.rpc(
-    "delivery_simple_reconcile_public_order_totals",
-    {
-      p_order_id: created.order_id,
-      p_public_code: created.public_code,
-    }
-  );
-  if (reconcileError) return { ok: false as const, error: reconcileError.message };
-
-  // Guarda final do checkout. O banco confere mínimo por região, endereço,
-  // retirada sem taxa e forma de pagamento antes de qualquer saída operacional.
-  const { data: validated, error: checkoutError } = await supabase.rpc(
-    "delivery_simple_validate_public_checkout",
-    {
-      p_order_id: created.order_id,
-      p_public_code: created.public_code,
-      p_zone_id: input.service_type === "delivery" ? input.delivery_zone_id || null : null,
-    }
-  );
-  if (checkoutError) return { ok: false as const, error: checkoutError.message };
-
+  // Saídas operacionais são pós-pedido: uma falha de WhatsApp/impressão não desfaz uma venda válida.
   const { error: outputError } = await supabase.rpc("delivery_simple_queue_public_order_outputs", {
     p_order_id: created.order_id,
     p_public_code: created.public_code,
@@ -136,5 +102,5 @@ export async function submitPublicOrder(payload: unknown) {
     }
   }
 
-  return { ok: true as const, data: validated || created };
+  return { ok: true as const, data: created };
 }
