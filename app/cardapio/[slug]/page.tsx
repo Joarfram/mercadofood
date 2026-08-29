@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import MenuClient from "./menu-client";
-import DeliverySimpleMenuClient from "./delivery-simple-menu-client";
+import DeliverySimpleMenuClientV2 from "./delivery-simple-menu-client-v2";
 
 export default async function MenuPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -18,16 +18,14 @@ export default async function MenuPage({ params }: { params: Promise<{ slug: str
   ]);
   if (error || !data?.company) notFound();
 
-  const allProducts = (data.categories || []).flatMap((category: { products?: Array<{ selling_mode?: string; option_groups?: unknown[] }> }) => category.products || []);
+  const allProducts = (data.categories || []).flatMap((category: { products?: Array<{ selling_mode?: string }> }) => category.products || []);
   const hasMeasuredProducts = allProducts.some((product: { selling_mode?: string }) => product.selling_mode === "weight" || product.selling_mode === "fixed_weight");
-  const hasProductOptions = allProducts.some((product: { option_groups?: unknown[] }) => Array.isArray(product.option_groups) && product.option_groups.length > 0);
   const config = serviceConfig || { delivery_enabled: true, pickup_enabled: true, average_delivery_minutes: 45 };
 
-  // Nesta etapa, a experiência específica por peso entra somente quando não há complementos.
-  // Assim preservamos o cardápio legado para lojas que já usam grupos de adicionais enquanto
-  // a integração completa entre peso + complementos é construída.
-  if (hasMeasuredProducts && !hasProductOptions) {
-    return <DeliverySimpleMenuClient menu={data} deliveryZones={deliveryZones || []} serviceConfig={config} />;
+  // Quando a loja usa venda por peso, o cardápio Delivery Simples V2 assume o fluxo completo,
+  // inclusive produtos com complementos. Lojas sem venda por peso continuam no cardápio atual.
+  if (hasMeasuredProducts) {
+    return <DeliverySimpleMenuClientV2 menu={data} deliveryZones={deliveryZones || []} serviceConfig={config} />;
   }
 
   return <MenuClient menu={data} deliveryZones={deliveryZones || []} hasCombos={Boolean(hasCombos)} serviceConfig={config} />;
