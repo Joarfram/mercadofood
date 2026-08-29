@@ -64,7 +64,7 @@ export async function submitPublicOrder(payload: unknown) {
     return { ok: false as const, error: "O pedido foi criado, mas não pôde ser finalizado corretamente." };
   }
 
-  const { data: finalized, error: finalizeError } = await supabase.rpc(
+  const { error: finalizeError } = await supabase.rpc(
     "delivery_simple_finalize_public_order",
     {
       p_order_id: created.order_id,
@@ -74,19 +74,27 @@ export async function submitPublicOrder(payload: unknown) {
   );
   if (finalizeError) return { ok: false as const, error: finalizeError.message };
 
-  let responseData = finalized || created;
-
   if (input.service_type === "delivery" && input.delivery_zone_id) {
-    const { data: adjusted, error: zoneError } = await supabase.rpc("apply_public_order_delivery_zone", {
+    const { error: zoneError } = await supabase.rpc("apply_public_order_delivery_zone", {
       p_order_id: created.order_id,
       p_zone_id: input.delivery_zone_id,
     });
     if (zoneError) return { ok: false as const, error: zoneError.message };
-    responseData = adjusted || responseData;
   }
 
-  // Só o pedido recém-criado com seu código público pode enfileirar WhatsApp/impressão.
-  // Falha de saída não invalida o pedido; ela pode ser reprocessada operacionalmente.
+  // Última conferência do servidor: peso/complementos + cupom + taxa de entrega + pagamento.
+  // Isso garante que o valor exibido após o pedido seja o mesmo valor persistido/cobrado.
+  const { data: reconciled, error: reconcileError } = await supabase.rpc(
+    "delivery_simple_reconcile_public_order_totals",
+    {
+      p_order_id: created.order_id,
+      p_public_code: created.public_code,
+    }
+  );
+  if (reconcileError) return { ok: false as const, error: reconcileError.message };
+
+  // Só depois do total definitivo criamos os documentos de saída.
+  // Assim WhatsApp e impressão recebem exatamente o mesmo valor salvo no pedido.
   const { error: outputError } = await supabase.rpc("delivery_simple_queue_public_order_outputs", {
     p_order_id: created.order_id,
     p_public_code: created.public_code,
@@ -100,5 +108,5 @@ export async function submitPublicOrder(payload: unknown) {
     }
   }
 
-  return { ok: true as const, data: responseData };
+  return { ok: true as const, data: reconciled || created };
 }
