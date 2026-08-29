@@ -82,8 +82,8 @@ security definer
 set search_path = public
 as $$
 begin
-  perform public.delivery_simple_sync_product_availability(coalesce(new.id, old.id));
-  return coalesce(new, old);
+  perform public.delivery_simple_sync_product_availability(new.id);
+  return new;
 end;
 $$;
 
@@ -94,11 +94,17 @@ security definer
 set search_path = public
 as $$
 begin
+  if tg_op = 'DELETE' then
+    perform public.delivery_simple_sync_product_availability(old.product_id);
+    return old;
+  end if;
+
   if tg_op = 'UPDATE' and old.product_id is distinct from new.product_id then
     perform public.delivery_simple_sync_product_availability(old.product_id);
   end if;
-  perform public.delivery_simple_sync_product_availability(coalesce(new.product_id, old.product_id));
-  return coalesce(new, old);
+
+  perform public.delivery_simple_sync_product_availability(new.product_id);
+  return new;
 end;
 $$;
 
