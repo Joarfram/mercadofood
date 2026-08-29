@@ -8,6 +8,46 @@ function amount(value: FormDataEntryValue | null) {
   const parsed = Number(String(value || "0").replace(",", "."));
   return Number.isFinite(parsed) ? parsed : 0;
 }
+
+export async function addProductStockMovement(formData: FormData) {
+  const { supabase, company } = await requirePlanModule("stock");
+  const productId = String(formData.get("productId") || "");
+  const movementType = String(formData.get("movementType") || "entry");
+  const quantity = amount(formData.get("quantity"));
+  const unitCostRaw = String(formData.get("unitCost") || "").trim();
+  const unitCost = unitCostRaw ? amount(formData.get("unitCost")) : null;
+  const notes = String(formData.get("notes") || "").trim();
+  const allowed = new Set(["entry", "sale_store", "adjustment_in", "adjustment_out", "loss", "return"]);
+
+  if (!productId || !allowed.has(movementType) || quantity <= 0 || (unitCost !== null && unitCost < 0)) {
+    redirect("/estoque?erro=Confira produto, tipo e quantidade da movimentação.");
+  }
+
+  const { data: product, error: productError } = await supabase
+    .from("products")
+    .select("id")
+    .eq("id", productId)
+    .eq("company_id", company.id)
+    .eq("is_active", true)
+    .eq("track_stock", true)
+    .maybeSingle();
+  if (productError || !product) redirect("/estoque?erro=Produto com controle de estoque não encontrado.");
+
+  const { error } = await supabase.rpc("delivery_simple_move_product_stock", {
+    p_product_id: productId,
+    p_movement_type: movementType,
+    p_quantity: quantity,
+    p_notes: notes || null,
+    p_unit_cost: unitCost,
+  });
+  if (error) redirect(`/estoque?erro=${encodeURIComponent(error.message)}`);
+
+  revalidatePath("/estoque");
+  revalidatePath("/produtos");
+  revalidatePath("/dashboard");
+  redirect("/estoque?sucesso=Movimentação de produto registrada.");
+}
+
 export async function createIngredient(formData: FormData) {
   const { supabase, company } = await requirePlanModule("stock");
   const name = String(formData.get("name") || "").trim();
