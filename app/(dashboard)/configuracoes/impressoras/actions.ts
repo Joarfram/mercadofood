@@ -71,6 +71,16 @@ export async function togglePrinter(formData: FormData) {
   revalidatePath("/configuracoes/impressoras");
 }
 
+export async function retryPrintJob(formData: FormData) {
+  const jobId = String(formData.get("jobId") || "");
+  if (!jobId) return;
+  const { supabase } = await requireModule("settings");
+  const { error } = await supabase.rpc("retry_delivery_simple_print_job", { p_job_id: jobId });
+  if (error) redirect(`/configuracoes/impressoras?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/configuracoes/impressoras");
+  redirect("/configuracoes/impressoras?sucesso=Impressão%20recolocada%20na%20fila");
+}
+
 export async function deletePrinter(formData: FormData) {
   const id = String(formData.get("id") || "");
   const { supabase, company } = await requireModule("settings");
