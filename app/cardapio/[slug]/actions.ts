@@ -2,6 +2,7 @@
 
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { sendStoreOrderNotification } from "@/lib/whatsapp/order-notifications";
 
 async function createPublicSupabaseClient() {
   const cookieStore = await cookies();
@@ -90,7 +91,14 @@ export async function submitPublicOrder(payload: unknown) {
     p_order_id: created.order_id,
     p_public_code: created.public_code,
   });
-  if (outputError) console.error("[delivery-simple] falha ao enfileirar saídas do pedido", outputError.message);
+  if (outputError) {
+    console.error("[delivery-simple] falha ao enfileirar saídas do pedido", outputError.message);
+  } else {
+    const whatsAppResult = await sendStoreOrderNotification(created.order_id);
+    if (!whatsAppResult.ok && !whatsAppResult.skipped) {
+      console.error("[delivery-simple] falha ao enviar aviso do pedido pelo WhatsApp", whatsAppResult.error);
+    }
+  }
 
   return { ok: true as const, data: responseData };
 }
