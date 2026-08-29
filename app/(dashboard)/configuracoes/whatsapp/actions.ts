@@ -10,7 +10,7 @@ import { decryptWhatsAppToken } from "@/lib/whatsapp/token-crypto";
 
 async function context() {
   const value = await requirePlanModule("messages");
-  if (!['owner','manager'].includes(value.role)) redirect("/sem-permissao");
+  if (!["owner","manager"].includes(value.role)) redirect("/sem-permissao");
   return value;
 }
 
@@ -19,22 +19,35 @@ export async function saveWhatsAppSettings(formData: FormData) {
     greeting: z.string().trim().min(10).max(2000),
     handoff: z.string().trim().min(5).max(1000),
     chatbotEnabled: z.boolean(),
+    orderNotificationsEnabled: z.boolean(),
+    orderNotificationPhone: z.string().trim().max(24),
   }).safeParse({
-    greeting: formData.get("greeting"), handoff: formData.get("handoff"),
+    greeting: formData.get("greeting"),
+    handoff: formData.get("handoff"),
     chatbotEnabled: formData.get("chatbotEnabled") === "on",
+    orderNotificationsEnabled: formData.get("orderNotificationsEnabled") === "on",
+    orderNotificationPhone: String(formData.get("orderNotificationPhone") || ""),
   });
   if (!parsed.success) redirect(`/configuracoes/whatsapp?erro=${encodeURIComponent(parsed.error.issues[0]?.message || "Configuração inválida")}`);
+
+  const notificationPhone = parsed.data.orderNotificationPhone.replace(/\D/g, "");
+  if (parsed.data.orderNotificationsEnabled && (notificationPhone.length < 10 || notificationPhone.length > 15)) {
+    redirect("/configuracoes/whatsapp?erro=Informe%20um%20telefone%20válido%20para%20receber%20novos%20pedidos");
+  }
+
   const { supabase, company } = await context();
   const { error } = await supabase.from("whatsapp_integrations").upsert({
     company_id: company.id,
     greeting_message: parsed.data.greeting,
     handoff_message: parsed.data.handoff,
     chatbot_enabled: parsed.data.chatbotEnabled,
+    order_notifications_enabled: parsed.data.orderNotificationsEnabled,
+    order_notification_phone: notificationPhone || null,
     updated_at: new Date().toISOString(),
   }, { onConflict: "company_id" });
   if (error) redirect(`/configuracoes/whatsapp?erro=${encodeURIComponent(error.message)}`);
   revalidatePath("/configuracoes/whatsapp");
-  redirect("/configuracoes/whatsapp?sucesso=Configurações%20do%20chatbot%20salvas");
+  redirect("/configuracoes/whatsapp?sucesso=Configurações%20do%20WhatsApp%20salvas");
 }
 
 export async function disconnectWhatsApp() {
