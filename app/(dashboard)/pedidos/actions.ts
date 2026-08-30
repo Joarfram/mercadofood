@@ -54,6 +54,7 @@ export async function updateOrderStatus(formData: FormData) {
   const timestamps: Record<string, string> = { accepted: "accepted_at", preparing: "started_at", ready: "ready_at", delivered: "delivered_at", canceled: "canceled_at" };
   const payload: Record<string, string> = { status };
   if (timestamps[status]) payload[timestamps[status]] = new Date().toISOString();
-  await supabase.from("orders").update(payload).eq("id", orderId).eq("company_id", company.id);
-  revalidatePath("/pedidos"); revalidatePath("/cozinha");
+  const { error } = await supabase.from("orders").update(payload).eq("id", orderId).eq("company_id", company.id);
+  if (error) redirect(`/pedidos?erro=${encodeURIComponent(error.message)}`);
+  revalidatePath("/pedidos"); revalidatePath("/cozinha"); revalidatePath("/estoque"); revalidatePath("/produtos");
 }

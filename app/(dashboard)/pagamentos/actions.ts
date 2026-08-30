@@ -13,44 +13,19 @@ export async function updatePayment(formData: FormData) {
   const received = Number(formData.get("amountReceived") || 0);
   if (!orderId || !methods.includes(method) || !["pending", "paid", "canceled", "refunded"].includes(status)) return;
 
-  const { supabase, company } = await requirePlanModule("payments");
-  const { data: order, error: orderError } = await supabase
-    .from("orders")
-    .select("id,total")
-    .eq("id", orderId)
-    .eq("company_id", company.id)
-    .single();
-  if (orderError || !order) redirect(`/financeiro?erro=${encodeURIComponent("Pedido não encontrado")}#pagamentos`);
-
-  const total = Number(order.total || 0);
-  const amountReceived = method === "cash" && received > 0 ? received : total;
-  const changeAmount = method === "cash" ? Math.max(0, amountReceived - total) : 0;
-  const paidAt = status === "paid" ? new Date().toISOString() : null;
-
-  const { error: paymentError } = await supabase.from("order_payments").upsert({
-    company_id: company.id,
-    order_id: orderId,
-    method,
-    status,
-    amount: total,
-    amount_received: amountReceived,
-    change_amount: changeAmount,
-    paid_at: paidAt,
-    updated_at: new Date().toISOString(),
-  }, { onConflict: "order_id" });
-  if (paymentError) redirect(`/financeiro?erro=${encodeURIComponent(paymentError.message)}#pagamentos`);
-
-  const { error: updateError } = await supabase.from("orders").update({
-    payment_method: method,
-    payment_status: status,
-    amount_received: amountReceived,
-    change_amount: changeAmount,
-    paid_at: paidAt,
-  }).eq("id", orderId).eq("company_id", company.id);
-  if (updateError) redirect(`/financeiro?erro=${encodeURIComponent(updateError.message)}#pagamentos`);
+  const { supabase } = await requirePlanModule("payments");
+  const { error } = await supabase.rpc("record_order_payment", {
+    p_order_id: orderId,
+    p_method: method,
+    p_status: status,
+    p_amount_received: received > 0 ? received : null,
+  });
+  if (error) redirect(`/financeiro?erro=${encodeURIComponent(error.message)}#pagamentos`);
 
   revalidatePath("/pagamentos");
   revalidatePath("/financeiro");
   revalidatePath("/pedidos");
+  revalidatePath("/estoque");
+  revalidatePath("/produtos");
   redirect("/financeiro?sucesso=Pagamento%20atualizado#pagamentos");
 }
