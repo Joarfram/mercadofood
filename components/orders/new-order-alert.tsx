@@ -7,73 +7,52 @@ import { createClient } from "@/lib/supabase/client";
 
 type Sector = "counter" | "kitchen";
 const labels: Record<Sector, string> = { counter: "Caixa", kitchen: "Cozinha" };
+const ALERT_SOUND = "/sounds/vintage-phone-ringing.mp3";
 
 export function NewOrderAlert({ companyId, sector, reloadOnOrder = false }: { companyId: string; sector: Sector; reloadOnOrder?: boolean }) {
   const router = useRouter();
-  const audioContext = useRef<AudioContext | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [enabled, setEnabled] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
   const [notice, setNotice] = useState("");
   const storageKey = `mercadofood-order-sound-${sector}`;
 
-  useEffect(() => { setEnabled(window.localStorage.getItem(storageKey) === "on"); }, [storageKey]);
-
-  const context = useCallback(() => {
-    const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioContextClass) return null;
-    audioContext.current ||= new AudioContextClass();
-    return audioContext.current;
-  }, []);
+  useEffect(() => {
+    setEnabled(window.localStorage.getItem(storageKey) === "on");
+    const audio = new Audio(ALERT_SOUND);
+    audio.preload = "auto";
+    audio.volume = 1;
+    audioRef.current = audio;
+    return () => {
+      audio.pause();
+      audioRef.current = null;
+    };
+  }, [storageKey]);
 
   const playAlert = useCallback(async () => {
-    const ctx = context();
-    if (!ctx) return;
-    if (ctx.state === "suspended") await ctx.resume();
-
-    const start = ctx.currentTime;
-    const ringStarts = [0, 1.05];
-
-    ringStarts.forEach((ringOffset) => {
-      const ringStart = start + ringOffset;
-      const ringDuration = 0.72;
-      const master = ctx.createGain();
-      master.gain.setValueAtTime(0.0001, ringStart);
-      master.gain.exponentialRampToValueAtTime(0.82, ringStart + 0.025);
-      master.gain.setValueAtTime(0.82, ringStart + ringDuration - 0.08);
-      master.gain.exponentialRampToValueAtTime(0.0001, ringStart + ringDuration);
-      master.connect(ctx.destination);
-
-      [440, 480].forEach((frequency) => {
-        const oscillator = ctx.createOscillator();
-        const toneGain = ctx.createGain();
-        oscillator.type = "square";
-        oscillator.frequency.setValueAtTime(frequency, ringStart);
-        toneGain.gain.setValueAtTime(0.22, ringStart);
-        oscillator.connect(toneGain).connect(master);
-        oscillator.start(ringStart);
-        oscillator.stop(ringStart + ringDuration);
-      });
-
-      const metallic = ctx.createOscillator();
-      const metallicGain = ctx.createGain();
-      metallic.type = "triangle";
-      metallic.frequency.setValueAtTime(960, ringStart);
-      metallicGain.gain.setValueAtTime(0.08, ringStart);
-      metallic.connect(metallicGain).connect(master);
-      metallic.start(ringStart);
-      metallic.stop(ringStart + ringDuration);
-    });
-  }, [context]);
+    const audio = audioRef.current || new Audio(ALERT_SOUND);
+    audioRef.current = audio;
+    audio.volume = 1;
+    audio.currentTime = 0;
+    await audio.play();
+  }, []);
 
   async function toggleSound() {
     const next = !enabled;
     setEnabled(next);
     window.localStorage.setItem(storageKey, next ? "on" : "off");
     if (next) {
-      await playAlert();
-      setUnlocked(true);
-      setNotice(`Som da ${labels[sector]} ativado`);
+      try {
+        await playAlert();
+        setUnlocked(true);
+        setNotice(`Som da ${labels[sector]} ativado`);
+      } catch {
+        setUnlocked(false);
+        setNotice("Clique novamente para liberar o som no navegador");
+      }
     } else {
+      audioRef.current?.pause();
+      if (audioRef.current) audioRef.current.currentTime = 0;
       setUnlocked(false);
       setNotice(`Som da ${labels[sector]} desligado`);
     }
@@ -90,7 +69,7 @@ export function NewOrderAlert({ companyId, sector, reloadOnOrder = false }: { co
         if (enabled) {
           try { await playAlert(); setUnlocked(true); } catch { setUnlocked(false); }
         }
-        if (reloadOnOrder) window.setTimeout(() => window.location.reload(), 2200);
+        if (reloadOnOrder) window.setTimeout(() => window.location.reload(), 9500);
         else router.refresh();
       })
       .subscribe();
