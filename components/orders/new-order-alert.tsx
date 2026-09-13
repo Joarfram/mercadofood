@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Bell, BellOff, Volume2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -11,7 +11,6 @@ const ALERT_SOUND = "/sounds/vintage-phone-ringing.mp3";
 
 export function NewOrderAlert({ companyId, sector, reloadOnOrder = false }: { companyId: string; sector: Sector; reloadOnOrder?: boolean }) {
   const router = useRouter();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [enabled, setEnabled] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
   const [notice, setNotice] = useState("");
@@ -19,19 +18,12 @@ export function NewOrderAlert({ companyId, sector, reloadOnOrder = false }: { co
 
   useEffect(() => {
     setEnabled(window.localStorage.getItem(storageKey) === "on");
-    const audio = new Audio(ALERT_SOUND);
-    audio.preload = "auto";
-    audio.volume = 1;
-    audioRef.current = audio;
-    return () => {
-      audio.pause();
-      audioRef.current = null;
-    };
+    const preload = new Audio(ALERT_SOUND);
+    preload.preload = "auto";
   }, [storageKey]);
 
   const playAlert = useCallback(async () => {
-    const audio = audioRef.current || new Audio(ALERT_SOUND);
-    audioRef.current = audio;
+    const audio = new Audio(ALERT_SOUND);
     audio.volume = 1;
     audio.currentTime = 0;
     await audio.play();
@@ -51,8 +43,6 @@ export function NewOrderAlert({ companyId, sector, reloadOnOrder = false }: { co
         setNotice("Clique novamente para liberar o som no navegador");
       }
     } else {
-      audioRef.current?.pause();
-      if (audioRef.current) audioRef.current.currentTime = 0;
       setUnlocked(false);
       setNotice(`Som da ${labels[sector]} desligado`);
     }
