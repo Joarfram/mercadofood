@@ -21,6 +21,32 @@ function normalizeName(value: string) {
     .trim();
 }
 
+function isValidCpf(value: string) {
+  const cpf = onlyDigits(value);
+  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+  const calculate = (length: number) => {
+    let sum = 0;
+    for (let i = 0; i < length; i += 1) sum += Number(cpf[i]) * (length + 1 - i);
+    const rest = (sum * 10) % 11;
+    return rest === 10 ? 0 : rest;
+  };
+  return calculate(9) === Number(cpf[9]) && calculate(10) === Number(cpf[10]);
+}
+
+function isValidCnpj(value: string) {
+  const cnpj = onlyDigits(value);
+  if (cnpj.length !== 14 || /^(\d)\1{13}$/.test(cnpj)) return false;
+  const calc = (baseLength: number) => {
+    const weights = baseLength === 12
+      ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+      : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    const sum = weights.reduce((total, weight, index) => total + Number(cnpj[index]) * weight, 0);
+    const rest = sum % 11;
+    return rest < 2 ? 0 : 11 - rest;
+  };
+  return calc(12) === Number(cnpj[12]) && calc(13) === Number(cnpj[13]);
+}
+
 function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (character) =>
     ({
@@ -67,29 +93,41 @@ export async function createPlanInvite(formData: FormData) {
   const { admin, user } = await requirePlatformStaff("master");
   const email = String(formData.get("email") || "").trim().toLowerCase();
   const companyName = String(formData.get("companyName") || "").trim();
+  const legalName = String(formData.get("legalName") || "").trim();
   const unitName = String(formData.get("unitName") || "").trim();
   const responsibleName = String(formData.get("responsibleName") || "").trim();
   const whatsapp = onlyDigits(String(formData.get("whatsapp") || ""));
+  const documentType = String(formData.get("documentType") || "").toUpperCase();
+  const documentNumber = onlyDigits(String(formData.get("documentNumber") || ""));
   const planCode = String(formData.get("plan") || "");
+
+  const documentValid =
+    (documentType === "CPF" && isValidCpf(documentNumber)) ||
+    (documentType === "CNPJ" && isValidCnpj(documentNumber));
 
   if (
     !/^\S+@\S+\.\S+$/.test(email) ||
     !companyName ||
+    !["CPF", "CNPJ"].includes(documentType) ||
+    !documentValid ||
     whatsapp.length < 10 ||
     whatsapp.length > 15 ||
     !isPlanCode(planCode)
   ) {
-    redirect("/master/convites?erro=Informe e-mail e WhatsApp válidos");
+    redirect("/master/convites?erro=Informe e-mail, WhatsApp e CPF/CNPJ válidos");
   }
 
   const normalizedCompany = normalizeName(companyName);
   const normalizedUnit = normalizeName(unitName);
 
   const [{ data: existingCompanies }, { data: pendingInvites }] = await Promise.all([
-    admin.from("companies").select("id,name,unit_name,archived_at").is("archived_at", null),
+    admin
+      .from("companies")
+      .select("id,name,unit_name,archived_at,document_type,document_number")
+      .is("archived_at", null),
     admin
       .from("platform_plan_invites")
-      .select("id,company_name,unit_name,status,expires_at")
+      .select("id,company_name,unit_name,status,expires_at,document_type,document_number")
       .eq("status", "pending"),
   ]);
 
@@ -102,6 +140,19 @@ export async function createPlanInvite(formData: FormData) {
   if (duplicateCompany) {
     redirect(
       `/master/convites?erro=${encodeURIComponent("Já existe uma empresa ativa com esse nome e unidade. Abra a empresa existente em vez de criar outra.")}`,
+    );
+  }
+
+  const sameDocumentCompany = (existingCompanies || []).find(
+    (company) =>
+      company.document_number === documentNumber &&
+      company.document_type === documentType &&
+      documentType === "CNPJ",
+  );
+
+  if (sameDocumentCompany) {
+    redirect(
+      `/master/convites?erro=${encodeURIComponent("Já existe uma empresa ativa cadastrada com este CNPJ.")}`,
     );
   }
 
@@ -119,6 +170,20 @@ export async function createPlanInvite(formData: FormData) {
     );
   }
 
+  const duplicateDocumentInvite = (pendingInvites || []).find(
+    (invite) =>
+      new Date(invite.expires_at).getTime() > now &&
+      invite.document_type === documentType &&
+      invite.document_number === documentNumber &&
+      documentType === "CNPJ",
+  );
+
+  if (duplicateDocumentInvite) {
+    redirect(
+      `/master/convites?erro=${encodeURIComponent("Já existe um convite pendente para este CNPJ.")}`,
+    );
+  }
+
   const { data: plan } = await admin
     .from("subscription_plans")
     .select("id,name")
@@ -131,9 +196,12 @@ export async function createPlanInvite(formData: FormData) {
     .insert({
       email,
       company_name: companyName,
+      legal_name: legalName || null,
       unit_name: unitName || null,
       responsible_name: responsibleName || null,
       whatsapp: whatsapp || null,
+      document_type: documentType,
+      document_number: documentNumber,
       plan_id: plan?.id,
       created_by: user.id,
     })
