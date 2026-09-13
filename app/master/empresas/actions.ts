@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { requirePlatformStaff } from "@/lib/master/auth";
 
 async function audit(
@@ -123,12 +124,22 @@ export async function archiveCompany(formData: FormData) {
   if (!before || before.archived_at) return;
 
   const archivedAt = new Date().toISOString();
-  const { data: after } = await admin
+  const { data: after, error } = await admin
     .from("companies")
-    .update({ archived_at: archivedAt, archive_reason: reason, archived_by: user.id })
+    .update({
+      archived_at: archivedAt,
+      archive_reason: reason,
+      archived_by: user.id,
+      status: "archived",
+      menu_is_active: false,
+    })
     .eq("id", companyId)
     .select()
     .single();
+
+  if (error || !after) {
+    redirect(`/master/empresas?erro=${encodeURIComponent("Não foi possível arquivar a empresa.")}`);
+  }
 
   await admin
     .from("company_subscriptions")
@@ -154,12 +165,26 @@ export async function restoreCompany(formData: FormData) {
 
   const { data: after, error } = await admin
     .from("companies")
-    .update({ archived_at: null, archive_reason: null, archived_by: null })
+    .update({
+      archived_at: null,
+      archive_reason: null,
+      archived_by: null,
+      status: "active",
+      menu_is_active: false,
+    })
     .eq("id", companyId)
     .select()
     .single();
 
-  if (error) return;
+  if (error || !after) {
+    redirect(
+      `/master/empresas?view=archived&erro=${encodeURIComponent(
+        error?.message?.includes("duplicate")
+          ? "Já existe uma empresa ativa com o mesmo nome, unidade ou documento."
+          : "Não foi possível restaurar a empresa.",
+      )}`,
+    );
+  }
 
   await audit(admin, user.id, companyId, "master.company_restored", before, after);
   revalidatePath("/master");
@@ -174,17 +199,31 @@ export async function deleteCompanyPermanently(formData: FormData) {
 
   const { data: company } = await admin
     .from("companies")
-    .select("id,name,unit_name,archived_at")
+    .select("id,name,unit_name,legal_name,document_type,document_number,owner_id,archived_at")
     .eq("id", companyId)
     .single();
 
-  if (!company || !company.archived_at || confirmation !== company.name) return;
+  if (!company || !company.archived_at || confirmation !== company.name) {
+    redirect(
+      `/master/empresas?view=archived&erro=${encodeURIComponent(
+        "A exclusão definitiva exige uma empresa arquivada e a confirmação exata do nome.",
+      )}`,
+    );
+  }
 
   await audit(admin, user.id, companyId, "master.company_deleted_permanently", company, {
     deleted_at: new Date().toISOString(),
+    company_snapshot: company,
   });
 
-  await admin.from("companies").delete().eq("id", companyId);
+  const { error } = await admin.from("companies").delete().eq("id", companyId);
+  if (error) {
+    redirect(
+      `/master/empresas?view=archived&erro=${encodeURIComponent(
+        `Não foi possível excluir definitivamente: ${error.message}`,
+      )}`,
+    );
+  }
 
   revalidatePath("/master");
   revalidatePath("/master/empresas");
