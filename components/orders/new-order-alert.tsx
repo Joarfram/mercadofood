@@ -29,18 +29,39 @@ export function NewOrderAlert({ companyId, sector, reloadOnOrder = false }: { co
     const ctx = context();
     if (!ctx) return;
     if (ctx.state === "suspended") await ctx.resume();
+
     const start = ctx.currentTime;
-    [0, 0.32, 0.64].forEach((offset, index) => {
-      const oscillator = ctx.createOscillator();
-      const gain = ctx.createGain();
-      oscillator.type = "sine";
-      oscillator.frequency.value = index === 1 ? 880 : 660;
-      gain.gain.setValueAtTime(0.0001, start + offset);
-      gain.gain.exponentialRampToValueAtTime(0.35, start + offset + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + offset + 0.25);
-      oscillator.connect(gain).connect(ctx.destination);
-      oscillator.start(start + offset);
-      oscillator.stop(start + offset + 0.27);
+    const ringStarts = [0, 1.05];
+
+    ringStarts.forEach((ringOffset) => {
+      const ringStart = start + ringOffset;
+      const ringDuration = 0.72;
+      const master = ctx.createGain();
+      master.gain.setValueAtTime(0.0001, ringStart);
+      master.gain.exponentialRampToValueAtTime(0.82, ringStart + 0.025);
+      master.gain.setValueAtTime(0.82, ringStart + ringDuration - 0.08);
+      master.gain.exponentialRampToValueAtTime(0.0001, ringStart + ringDuration);
+      master.connect(ctx.destination);
+
+      [440, 480].forEach((frequency) => {
+        const oscillator = ctx.createOscillator();
+        const toneGain = ctx.createGain();
+        oscillator.type = "square";
+        oscillator.frequency.setValueAtTime(frequency, ringStart);
+        toneGain.gain.setValueAtTime(0.22, ringStart);
+        oscillator.connect(toneGain).connect(master);
+        oscillator.start(ringStart);
+        oscillator.stop(ringStart + ringDuration);
+      });
+
+      const metallic = ctx.createOscillator();
+      const metallicGain = ctx.createGain();
+      metallic.type = "triangle";
+      metallic.frequency.setValueAtTime(960, ringStart);
+      metallicGain.gain.setValueAtTime(0.08, ringStart);
+      metallic.connect(metallicGain).connect(master);
+      metallic.start(ringStart);
+      metallic.stop(ringStart + ringDuration);
     });
   }, [context]);
 
@@ -69,7 +90,7 @@ export function NewOrderAlert({ companyId, sector, reloadOnOrder = false }: { co
         if (enabled) {
           try { await playAlert(); setUnlocked(true); } catch { setUnlocked(false); }
         }
-        if (reloadOnOrder) window.setTimeout(() => window.location.reload(), 1400);
+        if (reloadOnOrder) window.setTimeout(() => window.location.reload(), 2200);
         else router.refresh();
       })
       .subscribe();
