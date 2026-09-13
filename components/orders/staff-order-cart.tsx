@@ -1,33 +1,64 @@
 "use client";
 
-import { useState } from "react";
-import { Minus, Plus, ShoppingCart, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Minus, Plus, ShoppingCart, Trash2, UserRound, X } from "lucide-react";
 import { createOrder } from "@/app/(dashboard)/pedidos/actions";
 
 export type StaffOption={id:string;name:string;price_delta:number;max_quantity:number};
 export type StaffGroup={id:string;name:string;min_selection:number;max_selection:number;free_selection:number;group_type:string;product_options:StaffOption[]};
 export type StaffProduct={id:string;name:string;price:number;product_option_groups:StaffGroup[]};
+export type StaffCustomer={id:string;name:string;phone:string;address?:{street?:string|null;number?:string|null;complement?:string|null;neighborhood?:string|null;city?:string|null;reference?:string|null}|null};
 type Choice={optionId:string;name:string;quantity:number;price:number};
 type Item={key:string;product:StaffProduct;quantity:number;choices:Choice[];notes:string;optionTotal:number};
 const money=(value:number)=>new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(value);
 
-export function StaffOrderCart({products,idempotencyKey}:{products:StaffProduct[];idempotencyKey:string}){
+export function StaffOrderCart({products,customers,idempotencyKey}:{products:StaffProduct[];customers:StaffCustomer[];idempotencyKey:string}){
   const [cart,setCart]=useState<Item[]>([]),[selected,setSelected]=useState<StaffProduct|null>(null),[quantity,setQuantity]=useState(1),[selection,setSelection]=useState<Record<string,Record<string,number>>>({}),[itemNotes,setItemNotes]=useState(""),[error,setError]=useState("");
+  const [customerId,setCustomerId]=useState("");
+  const [customerName,setCustomerName]=useState("");
+  const [customerPhone,setCustomerPhone]=useState("");
+  const [deliveryStreet,setDeliveryStreet]=useState("");
+  const [deliveryNeighborhood,setDeliveryNeighborhood]=useState("");
+  const [deliveryReference,setDeliveryReference]=useState("");
+  const [showCustomerResults,setShowCustomerResults]=useState(false);
+
+  const customerMatches=useMemo(()=>{
+    const term=customerName.trim().toLocaleLowerCase("pt-BR");
+    if(term.length<2)return [];
+    return customers.filter(customer=>customer.name.toLocaleLowerCase("pt-BR").includes(term)||customer.phone.includes(customerName.replace(/\D/g,""))).slice(0,8);
+  },[customerName,customers]);
+
   const optionTotal=selected?(selected.product_option_groups||[]).reduce((total,group)=>{let free=Number(group.free_selection||0);const chosen=group.product_options.map(option=>({option,quantity:selection[group.id]?.[option.id]||0})).filter(item=>item.quantity>0).sort((a,b)=>Number(b.option.price_delta)-Number(a.option.price_delta));return total+chosen.reduce((sum,item)=>{const freeQty=Math.min(free,item.quantity);free-=freeQty;return sum+(item.quantity-freeQty)*Number(item.option.price_delta||0)},0)},0):0;
   const total=cart.reduce((sum,item)=>sum+(item.product.price+item.optionTotal)*item.quantity,0);
+
+  function chooseCustomer(customer:StaffCustomer){
+    setCustomerId(customer.id);setCustomerName(customer.name);setCustomerPhone(customer.phone);setShowCustomerResults(false);
+    const address=customer.address;
+    if(address){
+      const street=[address.street,address.number,address.complement].filter(Boolean).join(", ");
+      setDeliveryStreet(street);setDeliveryNeighborhood(address.neighborhood||"");setDeliveryReference(address.reference||"");
+    }
+  }
+  function clearCustomer(){setCustomerId("");setCustomerName("");setCustomerPhone("");setDeliveryStreet("");setDeliveryNeighborhood("");setDeliveryReference("");setShowCustomerResults(false)}
   function choose(product:StaffProduct){setSelected(product);setQuantity(1);setSelection({});setItemNotes("");setError("")}
   function setOption(group:StaffGroup,option:StaffOption,next:number){setSelection(current=>{const groupValues={...(current[group.id]||{})},old=groupValues[option.id]||0,other=Object.values(groupValues).reduce((a,b)=>a+b,0)-old,maxOption=Math.max(1,Number(option.max_quantity||1));let value=Math.max(0,Math.min(maxOption,next));if(group.group_type==="single"||group.max_selection===1)return{...current,[group.id]:value?{[option.id]:1}:{}};value=Math.min(value,Math.max(0,group.max_selection-other));if(value)groupValues[option.id]=value;else delete groupValues[option.id];return{...current,[group.id]:groupValues}})}
   function add(){if(!selected)return;for(const group of selected.product_option_groups||[]){const count=Object.values(selection[group.id]||{}).reduce((a,b)=>a+b,0);if(count<group.min_selection){setError(`Escolha pelo menos ${group.min_selection} em “${group.name}”.`);return}}const choices=(selected.product_option_groups||[]).flatMap(group=>group.product_options.filter(option=>(selection[group.id]?.[option.id]||0)>0).map(option=>({optionId:option.id,name:option.name,quantity:selection[group.id][option.id],price:Number(option.price_delta||0)})));setCart(current=>[...current,{key:crypto.randomUUID(),product:selected,quantity,choices,notes:itemNotes,optionTotal}]);setSelected(null);setError("")}
+
   return <>
     <form action={createOrder} className="h-fit rounded-2xl border bg-white p-5 shadow-sm">
-      <input type="hidden" name="idempotencyKey" value={idempotencyKey}/><input type="hidden" name="items" value={JSON.stringify(cart.map(item=>({product_id:item.product.id,quantity:item.quantity,notes:item.notes,options:item.choices.map(choice=>({option_id:choice.optionId,quantity:choice.quantity}))})))}/>
+      <input type="hidden" name="idempotencyKey" value={idempotencyKey}/><input type="hidden" name="customerId" value={customerId}/><input type="hidden" name="items" value={JSON.stringify(cart.map(item=>({product_id:item.product.id,quantity:item.quantity,notes:item.notes,options:item.choices.map(choice=>({option_id:choice.optionId,quantity:choice.quantity}))})))}/>
       <h2 className="text-xl font-bold">Novo pedido</h2>
-      <label className="mt-4 block text-sm font-semibold">Cliente</label><input name="customerName" required className="mt-1 w-full rounded-xl border px-3 py-3"/>
-      <label className="mt-3 block text-sm font-semibold">WhatsApp</label><input name="customerPhone" className="mt-1 w-full rounded-xl border px-3 py-3" placeholder="79 99999-9999"/>
+      <div className="relative mt-4">
+        <label className="block text-sm font-semibold">Cliente</label>
+        <div className="relative"><input name="customerName" value={customerName} onFocus={()=>setShowCustomerResults(true)} onChange={event=>{setCustomerName(event.target.value);setCustomerId("");setShowCustomerResults(true)}} required autoComplete="off" className="mt-1 w-full rounded-xl border px-3 py-3 pr-10" placeholder="Digite o nome do cliente"/>{customerName&&<button type="button" onClick={clearCustomer} className="absolute right-3 top-4 text-gray-400" aria-label="Limpar cliente"><X size={18}/></button>}</div>
+        {showCustomerResults&&customerMatches.length>0&&<div className="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-xl border bg-white p-1 shadow-xl">{customerMatches.map(customer=><button key={customer.id} type="button" onMouseDown={event=>event.preventDefault()} onClick={()=>chooseCustomer(customer)} className="flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left hover:bg-emerald-50"><UserRound size={18} className="mt-0.5 shrink-0 text-emerald-700"/><span><strong className="block">{customer.name}</strong><span className="text-xs text-gray-500">{customer.phone}{customer.address?.neighborhood?` • ${customer.address.neighborhood}`:""}</span></span></button>)}</div>}
+        {customerId&&<p className="mt-1 text-xs font-semibold text-emerald-700">Cliente cadastrado selecionado. Dados preenchidos automaticamente.</p>}
+      </div>
+      <label className="mt-3 block text-sm font-semibold">WhatsApp</label><input name="customerPhone" value={customerPhone} onChange={event=>setCustomerPhone(event.target.value)} className="mt-1 w-full rounded-xl border px-3 py-3" placeholder="79 99999-9999"/>
       <label className="mt-3 block text-sm font-semibold">Adicionar produto</label><select value="" onChange={event=>{const product=products.find(item=>item.id===event.target.value);if(product)choose(product)}} className="mt-1 w-full rounded-xl border px-3 py-3"><option value="">Selecione</option>{products.map(product=><option key={product.id} value={product.id}>{product.name} — {money(product.price)}</option>)}</select>
       <div className="mt-4 rounded-2xl border bg-gray-50 p-3"><div className="flex items-center gap-2"><ShoppingCart size={18}/><strong>Itens do pedido</strong><span className="ml-auto text-sm">{cart.reduce((sum,item)=>sum+item.quantity,0)} item(ns)</span></div>{!cart.length?<p className="mt-3 text-sm text-gray-500">Adicione um ou mais produtos.</p>:<div className="mt-3 space-y-2">{cart.map(item=><div key={item.key} className="rounded-xl bg-white p-3"><div className="flex gap-2"><div className="min-w-0 flex-1"><strong>{item.product.name}</strong>{item.choices.length>0&&<p className="text-xs text-gray-500">{item.choices.map(choice=>`${choice.quantity}× ${choice.name}`).join(" • ")}</p>}{item.notes&&<p className="text-xs italic text-gray-500">Obs.: {item.notes}</p>}</div><strong>{money((item.product.price+item.optionTotal)*item.quantity)}</strong><button type="button" onClick={()=>setCart(current=>current.filter(entry=>entry.key!==item.key))} className="text-red-600"><Trash2 size={17}/></button></div><div className="mt-2 flex items-center gap-2"><button type="button" onClick={()=>setCart(current=>current.map(entry=>entry.key===item.key?{...entry,quantity:Math.max(1,entry.quantity-1)}:entry))} className="rounded-full border p-1"><Minus size={14}/></button><b>{item.quantity}</b><button type="button" onClick={()=>setCart(current=>current.map(entry=>entry.key===item.key?{...entry,quantity:Math.min(99,entry.quantity+1)}:entry))} className="rounded-full bg-emerald-700 p-1 text-white"><Plus size={14}/></button></div></div>)}</div>}<div className="mt-3 flex justify-between border-t pt-3"><b>Subtotal</b><strong className="text-emerald-700">{money(total)}</strong></div></div>
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2"><div><label className="block text-sm font-semibold">Atendimento</label><select name="serviceType" className="mt-1 w-full rounded-xl border px-3 py-3"><option value="delivery">Delivery</option><option value="pickup">Retirada</option><option value="dine_in">Salão</option></select></div><div><label className="block text-sm font-semibold">Pagamento</label><select name="paymentMethod" className="mt-1 w-full rounded-xl border px-3 py-3"><option value="pix">PIX</option><option value="cash">Dinheiro</option><option value="card_on_delivery">Cartão na entrega</option><option value="online_card">Cartão online</option></select></div></div>
-      <label className="mt-3 block text-sm font-semibold">Endereço de entrega</label><input name="deliveryStreet" className="mt-1 w-full rounded-xl border px-3 py-3" placeholder="Rua, número e complemento"/><div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2"><input name="deliveryNeighborhood" className="w-full rounded-xl border px-3 py-3" placeholder="Bairro"/><input name="deliveryReference" className="w-full rounded-xl border px-3 py-3" placeholder="Referência"/></div>
+      <label className="mt-3 block text-sm font-semibold">Endereço desta entrega</label><input name="deliveryStreet" value={deliveryStreet} onChange={event=>setDeliveryStreet(event.target.value)} className="mt-1 w-full rounded-xl border px-3 py-3" placeholder="Rua, número e complemento"/><div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2"><input name="deliveryNeighborhood" value={deliveryNeighborhood} onChange={event=>setDeliveryNeighborhood(event.target.value)} className="w-full rounded-xl border px-3 py-3" placeholder="Bairro"/><input name="deliveryReference" value={deliveryReference} onChange={event=>setDeliveryReference(event.target.value)} className="w-full rounded-xl border px-3 py-3" placeholder="Referência"/></div>{customerId&&<p className="mt-2 rounded-lg bg-blue-50 p-2 text-xs text-blue-800">Alterar o endereço aqui muda somente este pedido. Para mudar o cadastro permanente, use Clientes → Editar cadastro.</p>}
       <label className="mt-3 block text-sm font-semibold">Cupom de desconto</label><input name="couponCode" className="mt-1 w-full rounded-xl border px-3 py-3 uppercase" placeholder="Ex.: BEMVINDO10"/><label className="mt-3 flex items-center gap-2 rounded-xl bg-orange-50 p-3 text-sm"><input name="redeemLoyalty" type="checkbox"/> Usar recompensa de fidelidade disponível</label><label className="mt-3 block text-sm font-semibold">Observação geral</label><textarea name="notes" className="mt-1 min-h-20 w-full rounded-xl border px-3 py-3"/>
       <button disabled={!cart.length} className="mt-4 w-full rounded-xl bg-emerald-700 px-4 py-3 font-semibold text-white disabled:opacity-50">Criar pedido com {cart.reduce((sum,item)=>sum+item.quantity,0)} item(ns)</button>
     </form>
