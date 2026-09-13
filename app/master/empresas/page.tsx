@@ -42,6 +42,14 @@ const date = (value?: string | null) =>
     ? new Date(value).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })
     : "—";
 
+function maskDocument(type?: string | null, value?: string | null) {
+  const digits = (value || "").replace(/\D/g, "");
+  if (!digits) return "—";
+  if (type === "CNPJ" && digits.length === 14) return `**.***.***/****-${digits.slice(-2)}`;
+  if (type === "CPF" && digits.length === 11) return `***.***.***-${digits.slice(-2)}`;
+  return `••••${digits.slice(-4)}`;
+}
+
 export default async function CompaniesPage({
   searchParams,
 }: {
@@ -61,7 +69,7 @@ export default async function CompaniesPage({
     admin
       .from("companies")
       .select(
-        "id,owner_id,name,unit_name,responsible_name,phone,whatsapp,status,created_at,last_activity_at,archived_at,archive_reason",
+        "id,owner_id,name,legal_name,unit_name,responsible_name,phone,whatsapp,status,created_at,last_activity_at,archived_at,archive_reason,document_type,document_number",
       )
       .order("created_at", { ascending: false }),
     admin.from("subscription_plans").select("id,code,name").eq("is_active", true).order("name"),
@@ -92,20 +100,36 @@ export default async function CompaniesPage({
             <summary className="flex cursor-pointer list-none items-center justify-center gap-2 rounded-xl bg-[#063D2F] px-4 py-3 font-bold text-white shadow-sm hover:bg-[#0a4d3c]">
               <Plus size={18} /> Nova empresa
             </summary>
-            <div className="mt-3 w-full rounded-2xl border bg-white p-5 shadow-lg sm:absolute sm:right-0 sm:z-20 sm:w-[560px]">
+            <div className="mt-3 w-full rounded-2xl border bg-white p-5 shadow-lg sm:absolute sm:right-0 sm:z-20 sm:w-[620px]">
               <h2 className="text-lg font-black text-slate-900">Cadastrar nova empresa</h2>
               <p className="mt-1 text-sm text-slate-500">
-                O cliente receberá um convite para criar a própria senha. O sistema bloqueia nomes e unidades duplicados.
+                Cadastro profissional com CPF/CNPJ, razão social e proteção contra duplicidades.
               </p>
 
               <form action={createPlanInvite} className="mt-4 grid gap-3 sm:grid-cols-2">
                 <label>
-                  <span className="mb-1 block text-sm font-semibold">Nome da empresa</span>
+                  <span className="mb-1 block text-sm font-semibold">Nome fantasia</span>
                   <input name="companyName" required placeholder="Ex.: Acarajé da Kelly" className="w-full rounded-lg border px-3 py-2" />
                 </label>
                 <label>
                   <span className="mb-1 block text-sm font-semibold">Unidade</span>
                   <input name="unitName" placeholder="Ex.: Centro (opcional)" className="w-full rounded-lg border px-3 py-2" />
+                </label>
+                <label className="sm:col-span-2">
+                  <span className="mb-1 block text-sm font-semibold">Razão social</span>
+                  <input name="legalName" placeholder="Opcional para CPF; recomendado para CNPJ" className="w-full rounded-lg border px-3 py-2" />
+                </label>
+                <label>
+                  <span className="mb-1 block text-sm font-semibold">Tipo de documento</span>
+                  <select name="documentType" required defaultValue="" className="w-full rounded-lg border px-3 py-2">
+                    <option value="" disabled>Selecione</option>
+                    <option value="CPF">CPF</option>
+                    <option value="CNPJ">CNPJ</option>
+                  </select>
+                </label>
+                <label>
+                  <span className="mb-1 block text-sm font-semibold">CPF/CNPJ</span>
+                  <input name="documentNumber" required inputMode="numeric" placeholder="Somente números" className="w-full rounded-lg border px-3 py-2" />
                 </label>
                 <label>
                   <span className="mb-1 block text-sm font-semibold">Responsável</span>
@@ -128,6 +152,9 @@ export default async function CompaniesPage({
                     ))}
                   </select>
                 </label>
+                <p className="text-xs text-slate-500 sm:col-span-2">
+                  O documento é armazenado somente para identificação administrativa. Na lista geral ele aparece mascarado.
+                </p>
                 <button className="rounded-lg bg-orange-500 px-4 py-3 font-bold text-white hover:bg-orange-600 sm:col-span-2">
                   Cadastrar e enviar convite
                 </button>
@@ -162,8 +189,12 @@ export default async function CompaniesPage({
               <div className="flex justify-between gap-3">
                 <div>
                   <h2 className="font-bold">{company.name}{company.unit_name ? ` — ${company.unit_name}` : ""}</h2>
+                  {company.legal_name && <p className="text-xs text-slate-500">{company.legal_name}</p>}
                   <p className="text-sm text-gray-500">
                     {company.responsible_name || owner?.user_metadata?.full_name || owner?.email || "Responsável não informado"}
+                  </p>
+                  <p className="mt-1 text-xs font-medium text-slate-600">
+                    {company.document_type || "Documento"}: {maskDocument(company.document_type, company.document_number)}
                   </p>
                 </div>
                 <span className="h-fit rounded-full bg-slate-100 px-3 py-1 text-xs font-bold">
@@ -192,10 +223,11 @@ export default async function CompaniesPage({
 
       {visibleCompanies.length > 0 && (
         <div className="hidden overflow-x-auto rounded-2xl border bg-white md:block">
-          <table className="w-full min-w-[1150px] text-left text-sm">
+          <table className="w-full min-w-[1250px] text-left text-sm">
             <thead>
               <tr className="border-b bg-slate-50 text-gray-500">
                 <th className="p-4">Empresa / responsável</th>
+                <th>Documento</th>
                 <th>Contato</th>
                 <th>Plano</th>
                 <th>Status</th>
@@ -214,9 +246,14 @@ export default async function CompaniesPage({
                   <tr key={company.id} className="border-b align-top">
                     <td className="p-4">
                       <b>{company.name}{company.unit_name ? ` — ${company.unit_name}` : ""}</b>
+                      {company.legal_name && <p className="max-w-[240px] truncate text-xs text-slate-500">{company.legal_name}</p>}
                       <p className="max-w-[220px] truncate text-xs text-gray-500">
                         {company.responsible_name || owner?.user_metadata?.full_name || owner?.email || "Não informado"}
                       </p>
+                    </td>
+                    <td>
+                      <span className="text-xs font-semibold">{company.document_type || "—"}</span>
+                      <p className="text-xs text-slate-500">{maskDocument(company.document_type, company.document_number)}</p>
                     </td>
                     <td>{company.whatsapp || company.phone || "—"}</td>
                     <td>{plan?.name || "—"}</td>
