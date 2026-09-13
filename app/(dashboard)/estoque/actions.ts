@@ -9,7 +9,7 @@ function amount(value: FormDataEntryValue | null) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 export async function createIngredient(formData: FormData) {
-  const { supabase, company } = await requirePlanModule("stock");
+  const { supabase, company } = await requirePlanModule("stock_advanced");
   const name = String(formData.get("name") || "").trim();
   const unit = String(formData.get("unit") || "un");
   const currentStock = amount(formData.get("currentStock"));
@@ -23,7 +23,7 @@ export async function createIngredient(formData: FormData) {
 }
 
 export async function addInventoryMovement(formData: FormData) {
-  const { supabase, company, user } = await requirePlanModule("stock");
+  const { supabase, company, user } = await requirePlanModule("stock_advanced");
   const ingredientId = String(formData.get("ingredientId") || "");
   const type = String(formData.get("movementType") || "entry");
   const allowedTypes = new Set(["entry", "exit", "adjustment_in", "adjustment_out", "loss", "return"]);
@@ -35,6 +35,7 @@ export async function addInventoryMovement(formData: FormData) {
   const signed = type === "entry" || type === "return" || type === "adjustment_in" ? quantityInput : -quantityInput;
   const before = Number(ingredient.current_stock || 0);
   const after = before + signed;
+  if (after < 0) redirect("/estoque?erro=O%20estoque%20não%20pode%20ficar%20negativo.");
   const { error: updateError } = await supabase.from("ingredients").update({ current_stock: after, updated_at: new Date().toISOString() }).eq("id", ingredientId).eq("company_id", company.id);
   if (updateError) redirect(`/estoque?erro=${encodeURIComponent(updateError.message)}`);
   const { error } = await supabase.from("inventory_movements").insert({ company_id: company.id, ingredient_id: ingredientId, movement_type: type, quantity: signed, stock_before: before, stock_after: after, unit_cost: ingredient.unit_cost, notes: notes || null, created_by: user.id });
@@ -44,7 +45,7 @@ export async function addInventoryMovement(formData: FormData) {
 }
 
 export async function saveRecipeItem(formData: FormData) {
-  const { supabase, company } = await requirePlanModule("stock");
+  const { supabase, company } = await requirePlanModule("recipes");
   const productId = String(formData.get("productId") || "");
   const ingredientId = String(formData.get("ingredientId") || "");
   const quantity = amount(formData.get("quantity"));
@@ -56,14 +57,14 @@ export async function saveRecipeItem(formData: FormData) {
 }
 
 export async function removeRecipeItem(formData: FormData) {
-  const { supabase, company } = await requirePlanModule("stock");
+  const { supabase, company } = await requirePlanModule("recipes");
   const id = String(formData.get("recipeItemId") || "");
   await supabase.from("recipe_items").delete().eq("id", id).eq("company_id", company.id);
   revalidatePath("/estoque");
 }
 
 export async function saveRecipe(formData: FormData) {
-  const { supabase, company } = await requirePlanModule("stock");
+  const { supabase, company } = await requirePlanModule("recipes");
   const productId = String(formData.get("productId") || "");
   let items: Array<{ingredientId:string;quantity:number}> = [];
   try { items = JSON.parse(String(formData.get("itemsJson") || "[]")); } catch {}
@@ -86,7 +87,7 @@ export async function saveRecipe(formData: FormData) {
 }
 
 export async function updateIngredient(formData: FormData) {
-  const { supabase, company } = await requirePlanModule("stock");
+  const { supabase, company } = await requirePlanModule("stock_advanced");
   const id=String(formData.get("ingredientId")||""); const name=String(formData.get("name")||"").trim(); const unit=String(formData.get("unit")||"");
   const minimumStock=amount(formData.get("minimumStock")); const unitCost=amount(formData.get("unitCost"));
   if(!id||name.length<2||!['un','g','kg','ml','l'].includes(unit)||minimumStock<0||unitCost<0) redirect("/estoque?erro=Confira os dados do insumo.");
@@ -95,7 +96,7 @@ export async function updateIngredient(formData: FormData) {
 }
 
 export async function deleteIngredient(formData: FormData) {
-  const { supabase, company, role } = await requirePlanModule("stock");
+  const { supabase, company, role } = await requirePlanModule("stock_advanced");
   if(!['owner','manager'].includes(role)) redirect("/estoque?erro=Somente proprietário ou gerente pode excluir insumos.");
   const id=String(formData.get("ingredientId")||""); if(!id) redirect("/estoque?erro=Insumo inválido.");
   const {error}=await supabase.from("ingredients").update({is_active:false,updated_at:new Date().toISOString()}).eq("id",id).eq("company_id",company.id);
