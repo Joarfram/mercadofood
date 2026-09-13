@@ -26,6 +26,9 @@ export async function createOrder(formData: FormData) {
   if (customerId) {
     const { data: savedCustomer } = await supabase.from("customers").select("id,name,phone").eq("id",customerId).eq("company_id",company.id).eq("is_active",true).maybeSingle();
     if (savedCustomer) { customerName=savedCustomer.name; customerPhone=savedCustomer.phone; }
+  } else if (customerPhone) {
+    const { data: savedCustomerByPhone } = await supabase.from("customers").select("id,name,phone").eq("company_id",company.id).eq("phone",customerPhone).eq("is_active",true).maybeSingle();
+    if (savedCustomerByPhone) { customerName=savedCustomerByPhone.name; customerPhone=savedCustomerByPhone.phone; }
   }
 
   const { data, error } = await supabase.rpc("create_staff_order", {
