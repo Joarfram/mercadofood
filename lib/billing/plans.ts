@@ -39,32 +39,41 @@ export const plans: Record<PlanCode, PlanDefinition> = {
     code: "professional",
     name: "Profissional",
     promise: "Operar",
-    description: "Para organizar equipe, cozinha, salão e entregas.",
+    description: "Para organizar equipe, cozinha, salão, entregas e estoque simples.",
     userLimit: 6,
     branchLimit: 1,
     monthlyPrice: 150,
     annualMonthlyPrice: 99.90,
-    modules: ["dashboard", "orders", "products", "kitchen", "delivery", "drivers", "payments", "finance", "reports", "customers", "promotions", "marketing", "messages", "tables", "settings", "team"],
-    highlights: ["Tudo do Básico", "Painel da cozinha, mesas e comandas", "Caixa, clientes e fidelidade", "Entregadores, rastreamento e relatórios"],
+    modules: [
+      "dashboard", "orders", "products", "kitchen", "delivery", "drivers", "payments", "finance", "reports",
+      "stock_basic", "customers", "promotions", "marketing", "messages", "tables", "settings", "team"
+    ],
+    highlights: ["Tudo do Básico", "Painel da cozinha, mesas e comandas", "Caixa, clientes e fidelidade", "Entregadores e relatórios operacionais", "Estoque simples por produto com baixa automática"],
   },
   premium: {
     code: "premium",
     name: "Premium",
     promise: "Crescer",
-    description: "Para controlar custos, estoque, unidades e decisões de crescimento.",
+    description: "Para controlar custos, insumos, margem, unidades e decisões de crescimento.",
     userLimit: 15,
     branchLimit: 3,
     monthlyPrice: 225,
     annualMonthlyPrice: 149.90,
-    modules: ["dashboard", "orders", "products", "kitchen", "delivery", "drivers", "payments", "finance", "reports", "stock", "customers", "promotions", "marketing", "messages", "tables", "settings", "team"],
-    highlights: ["Tudo do Profissional", "Estoque e ficha técnica", "Custos, margens e relatórios avançados", "Até 3 unidades e suporte Premium"],
+    modules: [
+      "dashboard", "orders", "products", "kitchen", "delivery", "drivers", "payments", "finance", "reports",
+      "stock", "stock_basic", "stock_advanced", "recipes", "costs", "multiunit_reports",
+      "customers", "promotions", "marketing", "messages", "tables", "settings", "team"
+    ],
+    highlights: ["Tudo do Profissional", "Estoque de insumos e ficha técnica", "CMV, custos, perdas, margens e rentabilidade", "Relatórios avançados e multiunidade", "Até 3 unidades e suporte Premium"],
   },
 };
 
 export const moduleLabels: Record<ModuleKey, string> = {
   dashboard: "Dashboard", orders: "Pedidos", products: "Cardápio e produtos", kitchen: "Painel da cozinha",
   delivery: "Delivery e retirada", drivers: "Entregadores e rastreamento", payments: "Pagamentos", finance: "Caixa", reports: "Relatórios",
-  stock: "Estoque e ficha técnica", customers: "Clientes e fidelidade", promotions: "Promoções e cupons",
+  stock: "Estoque e ficha técnica (legado)", stock_basic: "Estoque simples por produto", stock_advanced: "Estoque avançado de insumos",
+  recipes: "Ficha técnica", costs: "CMV, custos e margens", multiunit_reports: "Relatórios multiunidade",
+  customers: "Clientes e fidelidade", promotions: "Promoções e cupons",
   marketing: "MercadoFood Impulsiona", messages: "Mensagens e avaliações", tables: "Mesas e comandas", settings: "Configurações", team: "Usuários e permissões",
 };
 
