@@ -18,10 +18,47 @@ export async function createCustomer(formData: FormData) {
   const notes = String(formData.get("notes") || "").trim() || null;
   const marketingConsent = formData.get("marketingConsent") === "on";
   if (name.length < 2 || phone.length < 8) redirect("/clientes?erro=Informe nome e telefone válidos.");
-  const { error } = await supabase.from("customers").insert({ company_id: company.id, name, phone, email, birth_date: birthDate, notes, marketing_consent: marketingConsent });
-  if (error) redirect(`/clientes?erro=${encodeURIComponent(error.code === "23505" ? "Telefone já cadastrado." : error.message)}`);
+  const { data: customer, error } = await supabase.from("customers").insert({ company_id: company.id, name, phone, email, birth_date: birthDate, notes, marketing_consent: marketingConsent }).select("id").single();
+  if (error || !customer) redirect(`/clientes?erro=${encodeURIComponent(error?.code === "23505" ? "Telefone já cadastrado." : error?.message || "Erro ao cadastrar cliente")}`);
   revalidatePath("/clientes");
-  redirect("/clientes?sucesso=Cliente cadastrado.");
+  redirect(`/clientes/${customer.id}/editar?sucesso=Cliente cadastrado. Complete o endereço principal.`);
+}
+
+export async function updateCustomer(formData: FormData) {
+  const { supabase, company } = await requirePlanModule("customers");
+  const customerId = String(formData.get("customerId") || "");
+  const name = String(formData.get("name") || "").trim();
+  const phone = String(formData.get("phone") || "").replace(/\D/g, "");
+  const email = String(formData.get("email") || "").trim() || null;
+  const birthDate = String(formData.get("birthDate") || "") || null;
+  const notes = String(formData.get("notes") || "").trim() || null;
+  const marketingConsent = formData.get("marketingConsent") === "on";
+  if (!customerId || name.length < 2 || phone.length < 8) redirect(`/clientes/${customerId}/editar?erro=Informe nome e telefone válidos.`);
+  const { data: customer, error: customerError } = await supabase.from("customers").update({name,phone,email,birth_date:birthDate,notes,marketing_consent:marketingConsent,updated_at:new Date().toISOString()}).eq("id",customerId).eq("company_id",company.id).select("id").maybeSingle();
+  if (customerError || !customer) redirect(`/clientes/${customerId}/editar?erro=${encodeURIComponent(customerError?.code === "23505" ? "Telefone já cadastrado em outro cliente." : customerError?.message || "Cliente não encontrado.")}`);
+
+  const address = {
+    company_id: company.id,
+    customer_id: customerId,
+    label: "Principal",
+    cep: String(formData.get("cep") || "").trim() || null,
+    street: String(formData.get("street") || "").trim() || null,
+    number: String(formData.get("number") || "").trim() || null,
+    complement: String(formData.get("complement") || "").trim() || null,
+    neighborhood: String(formData.get("neighborhood") || "").trim() || null,
+    city: String(formData.get("city") || "").trim() || null,
+    reference: String(formData.get("reference") || "").trim() || null,
+    is_default: true,
+  };
+  const { data: currentAddress } = await supabase.from("customer_addresses").select("id").eq("company_id",company.id).eq("customer_id",customerId).eq("is_default",true).maybeSingle();
+  const addressQuery = currentAddress
+    ? supabase.from("customer_addresses").update(address).eq("id",currentAddress.id).eq("company_id",company.id)
+    : supabase.from("customer_addresses").insert(address);
+  const { error: addressError } = await addressQuery;
+  if (addressError) redirect(`/clientes/${customerId}/editar?erro=${encodeURIComponent(addressError.message)}`);
+
+  revalidatePath("/clientes"); revalidatePath("/pedidos"); revalidatePath(`/clientes/${customerId}/editar`);
+  redirect(`/clientes/${customerId}/editar?sucesso=Cadastro atualizado.`);
 }
 
 export async function saveLoyaltySettings(formData: FormData) {

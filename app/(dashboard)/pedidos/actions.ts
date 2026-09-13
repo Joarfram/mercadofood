@@ -5,8 +5,9 @@ import { redirect } from "next/navigation";
 import { requirePlanModule } from "@/lib/auth/current-company";
 
 export async function createOrder(formData: FormData) {
-  const customerName = String(formData.get("customerName") || "").trim();
-  const customerPhone = String(formData.get("customerPhone") || "").replace(/\D/g, "");
+  let customerName = String(formData.get("customerName") || "").trim();
+  let customerPhone = String(formData.get("customerPhone") || "").replace(/\D/g, "");
+  const customerId = String(formData.get("customerId") || "").trim();
   let items:unknown[]=[];
   try{const parsed=JSON.parse(String(formData.get("items")||"[]"));items=Array.isArray(parsed)?parsed:[]}catch{redirect("/pedidos?erro=Os itens do pedido não puderam ser lidos.")}
   const serviceType = String(formData.get("serviceType") || "delivery");
@@ -19,11 +20,17 @@ export async function createOrder(formData: FormData) {
   const redeemLoyalty = formData.get("redeemLoyalty") === "on";
   const idempotencyKey = String(formData.get("idempotencyKey") || "");
   if (!customerName || !items.length) redirect("/pedidos?erro=Preencha cliente e adicione pelo menos um produto.");
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idempotencyKey)) {
-    redirect("/pedidos?erro=Atualize a página e tente criar o pedido novamente.");
-  }
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(idempotencyKey)) redirect("/pedidos?erro=Atualize a página e tente criar o pedido novamente.");
 
   const { supabase, company } = await requirePlanModule("orders");
+  if (customerId) {
+    const { data: savedCustomer } = await supabase.from("customers").select("id,name,phone").eq("id",customerId).eq("company_id",company.id).eq("is_active",true).maybeSingle();
+    if (savedCustomer) { customerName=savedCustomer.name; customerPhone=savedCustomer.phone; }
+  } else if (customerPhone) {
+    const { data: savedCustomerByPhone } = await supabase.from("customers").select("id,name,phone").eq("company_id",company.id).eq("phone",customerPhone).eq("is_active",true).maybeSingle();
+    if (savedCustomerByPhone) { customerName=savedCustomerByPhone.name; customerPhone=savedCustomerByPhone.phone; }
+  }
+
   const { data, error } = await supabase.rpc("create_staff_order", {
     p_idempotency_key: idempotencyKey,
     p_payload: {
@@ -40,6 +47,15 @@ export async function createOrder(formData: FormData) {
     },
   });
   if (error || !data) redirect(`/pedidos?erro=${encodeURIComponent(error?.message || "Erro ao criar pedido")}`);
+
+  if (customerPhone) {
+    const { data: customer } = await supabase.from("customers").select("id").eq("company_id",company.id).eq("phone",customerPhone).maybeSingle();
+    if (customer && deliveryStreet) {
+      const { count } = await supabase.from("customer_addresses").select("id",{count:"exact",head:true}).eq("company_id",company.id).eq("customer_id",customer.id);
+      if (!count) await supabase.from("customer_addresses").insert({company_id:company.id,customer_id:customer.id,label:"Principal",street:deliveryStreet,neighborhood:deliveryNeighborhood,reference:deliveryReference,is_default:true});
+    }
+  }
+
   const discountAmount = Number((data as { discount_amount?: number }).discount_amount || 0);
   revalidatePath("/pedidos"); revalidatePath("/cozinha"); revalidatePath("/clientes"); revalidatePath("/promocoes");
   redirect(`/pedidos?sucesso=${encodeURIComponent(`Pedido criado. Desconto: R$ ${discountAmount.toFixed(2)}`)}`);

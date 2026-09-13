@@ -2,7 +2,7 @@ import { updateOrderStatus } from "./actions";
 import { requirePlanModule } from "@/lib/auth/current-company";
 import { PrintOrderButton } from "./print-order-button";
 import { NewOrderAlert } from "@/components/orders/new-order-alert";
-import { StaffOrderCart, type StaffProduct } from "@/components/orders/staff-order-cart";
+import { StaffOrderCart, type StaffProduct, type StaffCustomer } from "@/components/orders/staff-order-cart";
 
 const labels: Record<string,string> = { new:"Novo", accepted:"Aceito", preparing:"Em preparo", ready:"Pronto", out_for_delivery:"Em entrega", delivered:"Entregue", canceled:"Cancelado" };
 const next: Record<string,string | undefined> = { new:"accepted", accepted:"preparing", preparing:"ready", ready:"out_for_delivery", out_for_delivery:"delivered" };
@@ -12,13 +12,15 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
   const query = await searchParams;
   const { supabase, company } = await requirePlanModule("orders");
   const idempotencyKey = crypto.randomUUID();
-  const [{ data: products, error: productsError }, { data: orders, error: ordersError }, { data: printers, error: printersError }] = await Promise.all([
+  const [{ data: products, error: productsError }, { data: orders, error: ordersError }, { data: printers, error: printersError }, { data: customers, error: customersError }, { data: addresses, error: addressesError }] = await Promise.all([
     supabase.from("products").select("id,name,base_price,promotional_price,product_option_group_links!product_option_group_links_product_id_fkey(is_active,product_option_groups!product_option_group_links_group_id_fkey(id,name,min_selection,max_selection,free_selection,group_type,is_active,product_options(id,name,price_delta,max_quantity,is_active)))").eq("company_id", company.id).eq("availability_status", "available").eq("is_active", true).eq("product_option_group_links.is_active",true).eq("product_option_group_links.product_option_groups.is_active",true).eq("product_option_group_links.product_option_groups.product_options.is_active",true).order("name"),
     supabase.from("orders").select("id, order_number, customer_name, customer_phone, status, service_type, subtotal, discount_amount, delivery_fee, total, coupon_code, loyalty_points_redeemed, payment_method, payment_status, change_amount, notes, delivery_address, created_at, order_items(product_name, quantity, unit_price, total_price, notes, order_item_options(option_name, quantity, total_price))").eq("company_id", company.id).order("created_at", { ascending:false }).limit(50),
     supabase.from("thermal_printers").select("name,paper_width,print_customer,print_address,print_payment,sector,status").eq("company_id",company.id).eq("status","active").order("created_at").limit(1),
+    supabase.from("customers").select("id,name,phone").eq("company_id",company.id).eq("is_active",true).order("name").limit(500),
+    supabase.from("customer_addresses").select("customer_id,street,number,complement,neighborhood,city,reference").eq("company_id",company.id).eq("is_default",true),
   ]);
   const activePrinter = printers?.[0] || null;
-  const loadError = productsError || ordersError || printersError;
+  const loadError = productsError || ordersError || printersError || customersError || addressesError;
   if (loadError) console.error("[pedidos] falha ao carregar dados", { code: loadError.code, message: loadError.message });
   const staffProducts=(products||[]).map(product=>({
     id:product.id,
@@ -29,6 +31,8 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
       return group ? [{...group,free_selection:Number(group.free_selection||0),product_options:(group.product_options||[]).filter(option=>option.is_active).map(option=>({...option,price_delta:Number(option.price_delta||0),max_quantity:Number(option.max_quantity||1)}))}] : [];
     }),
   })) as StaffProduct[];
+  const defaultAddressByCustomer = new Map((addresses||[]).map(address=>[address.customer_id,address]));
+  const staffCustomers=(customers||[]).map(customer=>({id:customer.id,name:customer.name,phone:customer.phone,address:defaultAddressByCustomer.get(customer.id)||null})) as StaffCustomer[];
 
   return <main className="space-y-6">
     <header><p className="text-sm font-semibold text-emerald-700">Fluxo salvo no Supabase</p><h1 className="text-3xl font-bold">Pedidos</h1><p className="text-gray-500">Crie e atualize pedidos reais da {company.name}.</p></header>
@@ -38,7 +42,7 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
     <NewOrderAlert companyId={company.id} sector="counter"/>
 
     <section className="grid gap-5 xl:grid-cols-[380px_1fr]">
-      <StaffOrderCart products={staffProducts} idempotencyKey={idempotencyKey}/>
+      <StaffOrderCart products={staffProducts} customers={staffCustomers} idempotencyKey={idempotencyKey}/>
 
       <div className="space-y-3">
         {!orders?.length && <div className="rounded-2xl border bg-white p-8 text-gray-500">Nenhum pedido criado.</div>}
