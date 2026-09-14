@@ -25,8 +25,11 @@ export function StaffOrderCart({products,customers,idempotencyKey}:{products:Sta
   const customerMatches=useMemo(()=>{
     const term=customerName.trim().toLocaleLowerCase("pt-BR");
     const digits=customerName.replace(/\D/g,"");
-    if(term.length<2)return [];
-    return customers.filter(customer=>customer.name.toLocaleLowerCase("pt-BR").includes(term)||(digits.length>=3&&customer.phone.includes(digits))).slice(0,8);
+    if(term.length<1)return [];
+    return [...customers]
+      .sort((a,b)=>a.name.localeCompare(b.name,"pt-BR",{sensitivity:"base"}))
+      .filter(customer=>customer.name.toLocaleLowerCase("pt-BR").startsWith(term)||(digits.length>=3&&customer.phone.includes(digits)))
+      .slice(0,20);
   },[customerName,customers]);
 
   const optionTotal=selected?(selected.product_option_groups||[]).reduce((total,group)=>{let free=Number(group.free_selection||0);const chosen=group.product_options.map(option=>({option,quantity:selection[group.id]?.[option.id]||0})).filter(item=>item.quantity>0).sort((a,b)=>Number(b.option.price_delta)-Number(a.option.price_delta));return total+chosen.reduce((sum,item)=>{const freeQty=Math.min(free,item.quantity);free-=freeQty;return sum+(item.quantity-freeQty)*Number(item.option.price_delta||0)},0)},0):0;
