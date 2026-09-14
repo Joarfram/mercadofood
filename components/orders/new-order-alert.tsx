@@ -22,11 +22,18 @@ export function NewOrderAlert({ companyId, sector, reloadOnOrder = false }: { co
     preload.preload = "auto";
   }, [storageKey]);
 
-  const playAlert = useCallback(async () => {
-    const audio = new Audio(ALERT_SOUND);
-    audio.volume = 1;
-    audio.currentTime = 0;
-    await audio.play();
+  const playAlert = useCallback(async (repetitions = 1) => {
+    for (let index = 0; index < repetitions; index += 1) {
+      const audio = new Audio(ALERT_SOUND);
+      audio.volume = 1;
+      audio.currentTime = 0;
+      await new Promise<void>((resolve, reject) => {
+        const finish = () => resolve();
+        audio.addEventListener("ended", finish, { once: true });
+        audio.addEventListener("error", () => reject(new Error("Falha ao reproduzir alerta")), { once: true });
+        audio.play().catch(reject);
+      });
+    }
   }, []);
 
   async function toggleSound() {
@@ -57,7 +64,7 @@ export function NewOrderAlert({ companyId, sector, reloadOnOrder = false }: { co
         const orderNumber = String((payload.new as { order_number?: string | number }).order_number || "");
         setNotice(`Novo pedido${orderNumber ? ` #${orderNumber}` : ""}!`);
         if (enabled) {
-          try { await playAlert(); setUnlocked(true); } catch { setUnlocked(false); }
+          try { await playAlert(2); setUnlocked(true); } catch { setUnlocked(false); }
         }
         if (reloadOnOrder) window.setTimeout(() => window.location.reload(), 9500);
         else router.refresh();
