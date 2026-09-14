@@ -11,7 +11,7 @@ function date(value: string | null | undefined) {
 export default async function ClientesPage({ searchParams }: { searchParams: Promise<{ erro?: string; sucesso?: string; busca?: string }> }) {
   const query = await searchParams;
   const { supabase, company } = await requirePlanModule("customers");
-  let customersQuery = supabase.from("customers").select("*").eq("company_id", company.id).eq("is_active", true).order("last_order_at", { ascending: false, nullsFirst: false });
+  let customersQuery = supabase.from("customers").select("*").eq("company_id", company.id).eq("is_active", true).order("name", { ascending: true });
   if (query.busca) customersQuery = customersQuery.or(`name.ilike.%${query.busca}%,phone.ilike.%${query.busca}%`);
   const [{ data: customers }, { data: settings }, { data: movements }, { data: orders }] = await Promise.all([
     customersQuery.limit(100),
