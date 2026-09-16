@@ -36,8 +36,6 @@ begin
   order by ma.sort_order asc, ma.created_at desc
   limit 1;
 
-  -- Em INSERT/UPDATE, NEW já pode ser a nova foto principal e ainda não estar visível
-  -- em consultas AFTER; por isso priorizamos NEW quando sort_order = 0.
   if tg_op <> 'DELETE' and new.sort_order = 0 then
     v_public_url := new.public_url;
   end if;
@@ -55,15 +53,32 @@ $$;
 
 drop trigger if exists trg_sync_product_primary_image on public.media_assets;
 create trigger trg_sync_product_primary_image
-after insert or update of public_url, sort_order or delete
+after insert or update or delete
 on public.media_assets
 for each row execute function public.sync_product_primary_image();
 
 -- Reconcilia produtos existentes sem apagar nenhuma mídia.
 update public.products p
-set image_url = src.public_url,
+set image_url = (
+      select ma.public_url
+      from public.media_assets ma
+      where ma.company_id = p.company_id
+        and ma.entity_type = 'product'
+        and ma.entity_id = p.id
+        and ma.kind = 'gallery'
+      order by ma.sort_order asc, ma.created_at desc
+      limit 1
+    ),
     updated_at = now()
-from lateral (
+where exists (
+  select 1
+  from public.media_assets ma
+  where ma.company_id = p.company_id
+    and ma.entity_type = 'product'
+    and ma.entity_id = p.id
+    and ma.kind = 'gallery'
+)
+and p.image_url is distinct from (
   select ma.public_url
   from public.media_assets ma
   where ma.company_id = p.company_id
@@ -72,5 +87,4 @@ from lateral (
     and ma.kind = 'gallery'
   order by ma.sort_order asc, ma.created_at desc
   limit 1
-) src
-where p.image_url is distinct from src.public_url;
+);
