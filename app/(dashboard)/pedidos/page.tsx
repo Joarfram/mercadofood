@@ -1,58 +1,44 @@
-import { updateOrderStatus } from "./actions";
+import Link from "next/link";
 import { requirePlanModule } from "@/lib/auth/current-company";
-import { PrintOrderButton } from "./print-order-button";
 import { NewOrderAlert } from "@/components/orders/new-order-alert";
 import { StaffOrderCart, type StaffProduct } from "@/components/orders/staff-order-cart";
+import { OrderWorkspace, type OrderRow } from "./order-workspace";
+import { isHistoricalOrder, isOperationalOrder } from "@/lib/orders/visibility";
 
-const labels: Record<string,string> = { new:"Novo", accepted:"Aceito", preparing:"Em preparo", ready:"Pronto", out_for_delivery:"Em entrega", delivered:"Entregue", canceled:"Cancelado" };
-const next: Record<string,string | undefined> = { new:"accepted", accepted:"preparing", preparing:"ready", ready:"out_for_delivery", out_for_delivery:"delivered" };
-function money(value: number | string | null) { return new Intl.NumberFormat("pt-BR", { style:"currency", currency:"BRL" }).format(Number(value || 0)); }
+const statusLabels:Record<string,string>={delivered:"Entregue",canceled:"Cancelado"};
+const paymentLabels:Record<string,string>={pix:"PIX",cash:"Dinheiro",debit_card:"Cartão de débito",credit_card:"Cartão de crédito",card_on_delivery:"Cartão na entrega",online_card:"Cartão online",other:"Outro"};
+const serviceLabels:Record<string,string>={delivery:"Entrega",pickup:"Retirada",dine_in:"Salão",counter:"Balcão"};
+function scalar(value:string|string[]|undefined){return typeof value==="string"?value:""}
+function money(value:number|string|null|undefined){return new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(Number(value||0))}
 
-export default async function PedidosPage({ searchParams }: { searchParams: Promise<{ erro?: string; sucesso?: string }> }) {
-  const query = await searchParams;
-  const { supabase, company } = await requirePlanModule("orders");
-  const idempotencyKey = crypto.randomUUID();
-  const [{ data: products, error: productsError }, { data: orders, error: ordersError }, { data: printers, error: printersError }] = await Promise.all([
-    supabase.from("products").select("id,name,base_price,promotional_price,product_option_group_links!product_option_group_links_product_id_fkey(is_active,product_option_groups!product_option_group_links_group_id_fkey(id,name,min_selection,max_selection,free_selection,group_type,is_active,product_options(id,name,price_delta,max_quantity,is_active)))").eq("company_id", company.id).eq("availability_status", "available").eq("is_active", true).eq("product_option_group_links.is_active",true).eq("product_option_group_links.product_option_groups.is_active",true).eq("product_option_group_links.product_option_groups.product_options.is_active",true).order("name"),
-    supabase.from("orders").select("id, order_number, customer_name, customer_phone, status, service_type, subtotal, discount_amount, delivery_fee, total, coupon_code, loyalty_points_redeemed, payment_method, payment_status, change_amount, notes, delivery_address, created_at, order_items(product_name, quantity, unit_price, total_price, notes, order_item_options(option_name, quantity, total_price))").eq("company_id", company.id).order("created_at", { ascending:false }).limit(50),
-    supabase.from("thermal_printers").select("name,paper_width,print_customer,print_address,print_payment,sector,status").eq("company_id",company.id).eq("status","active").order("created_at").limit(1),
+export const dynamic="force-dynamic";
+
+export default async function PedidosPage({searchParams}:{searchParams:Promise<Record<string,string|string[]|undefined>>}){
+  const query=await searchParams, tab=scalar(query.aba)==="historico"?"historico":"fila";
+  const {supabase,company}=await requirePlanModule("orders");
+  const idempotencyKey=crypto.randomUUID();
+  const orderSelect="id,order_number,branch_id,customer_id,customer_name,customer_phone,status,service_type,subtotal,discount_amount,delivery_fee,total,coupon_code,loyalty_points_redeemed,payment_method,payment_status,change_amount,notes,delivery_address,cancellation_reason,canceled_by_name,created_at,canceled_at,delivered_at,branch:branches(name),customer:customers(name,phone,cpf,address,total_orders,total_spent,last_order_at),order_items(product_name,quantity,unit_price,total_price,notes,order_item_options(option_name,quantity,total_price))";
+  const [{data:products,error:productsError},{data:openOrders,error:openError},{data:deliveredPending,error:pendingError},{data:customerOrders,error:historyError},{data:printers,error:printersError},{data:branches}]=await Promise.all([
+    supabase.from("products").select("id,name,base_price,promotional_price,product_option_group_links!product_option_group_links_product_id_fkey(is_active,product_option_groups!product_option_group_links_group_id_fkey(id,name,min_selection,max_selection,free_selection,group_type,is_active,product_options(id,name,price_delta,max_quantity,is_active)))").eq("company_id",company.id).eq("availability_status","available").eq("is_active",true).eq("product_option_group_links.is_active",true).eq("product_option_group_links.product_option_groups.is_active",true).eq("product_option_group_links.product_option_groups.product_options.is_active",true).order("name"),
+    supabase.from("orders").select(orderSelect).eq("company_id",company.id).not("status","in","(delivered,canceled)").order("created_at",{ascending:true}),
+    supabase.from("orders").select(orderSelect).eq("company_id",company.id).eq("status","delivered").not("payment_status","in","(paid,canceled,refunded)").order("created_at",{ascending:true}),
+    supabase.from("orders").select(orderSelect).eq("company_id",company.id).order("created_at",{ascending:false}).limit(500),
+    supabase.from("thermal_printers").select("name,paper_width,copies,print_customer,print_address,print_payment,sector,status").eq("company_id",company.id).eq("status","active").order("created_at").limit(1),
+    supabase.from("branches").select("id,name").eq("company_id",company.id).order("name")
   ]);
-  const activePrinter = printers?.[0] || null;
-  const loadError = productsError || ordersError || printersError;
-  if (loadError) console.error("[pedidos] falha ao carregar dados", { code: loadError.code, message: loadError.message });
-  const staffProducts=(products||[]).map(product=>({
-    id:product.id,
-    name:product.name,
-    price:Number(product.promotional_price||product.base_price),
-    product_option_groups:(product.product_option_group_links||[]).flatMap(link=>{
-      const group=Array.isArray(link.product_option_groups) ? link.product_option_groups[0] : link.product_option_groups;
-      return group ? [{...group,free_selection:Number(group.free_selection||0),product_options:(group.product_options||[]).filter(option=>option.is_active).map(option=>({...option,price_delta:Number(option.price_delta||0),max_quantity:Number(option.max_quantity||1)}))}] : [];
-    }),
-  })) as StaffProduct[];
+  const loadError=productsError||openError||pendingError||historyError||printersError;
+  if(loadError)console.error("[pedidos] falha ao carregar dados",{code:loadError.code,message:loadError.message});
+  const staffProducts=(products||[]).map(product=>({id:product.id,name:product.name,price:Number(product.promotional_price||product.base_price),product_option_groups:(product.product_option_group_links||[]).flatMap(link=>{const group=Array.isArray(link.product_option_groups)?link.product_option_groups[0]:link.product_option_groups;return group?[{...group,free_selection:Number(group.free_selection||0),product_options:(group.product_options||[]).filter(option=>option.is_active).map(option=>({...option,price_delta:Number(option.price_delta||0),max_quantity:Number(option.max_quantity||1)}))}]:[]})})) as StaffProduct[];
+  const activeOrders=[...(openOrders||[]),...(deliveredPending||[])].filter(isOperationalOrder).sort((a,b)=>new Date(a.created_at).getTime()-new Date(b.created_at).getTime()) as unknown as OrderRow[];
+  let history=(customerOrders||[]).filter(isHistoricalOrder) as any[];
+  const text=scalar(query.busca).trim().toLocaleLowerCase("pt-BR"),digits=text.replace(/\D/g,""),start=scalar(query.inicio),end=scalar(query.fim),status=scalar(query.status),payment=scalar(query.pagamento),service=scalar(query.atendimento),branchId=scalar(query.loja),min=Number(scalar(query.valorMinimo)||0),max=Number(scalar(query.valorMaximo)||Number.MAX_SAFE_INTEGER);
+  history=history.filter(order=>{const customer=Array.isArray(order.customer)?order.customer[0]:order.customer;const matches=!text||String(order.order_number).includes(text)||String(order.customer_name||"").toLocaleLowerCase("pt-BR").includes(text)||String(order.customer_phone||"").replace(/\D/g,"").includes(digits)||String(customer?.cpf||"").replace(/\D/g,"").includes(digits);const created=String(order.created_at).slice(0,10);return matches&&(!start||created>=start)&&(!end||created<=end)&&(!status||order.status===status)&&(!payment||order.payment_method===payment)&&(!service||order.service_type===service)&&(!branchId||order.branch_id===branchId)&&Number(order.total||0)>=min&&Number(order.total||0)<=max});
 
-  return <main className="space-y-6">
-    <header><p className="text-sm font-semibold text-emerald-700">Fluxo salvo no Supabase</p><h1 className="text-3xl font-bold">Pedidos</h1><p className="text-gray-500">Crie e atualize pedidos reais da {company.name}.</p></header>
-    {query.erro && <div className="rounded-xl bg-red-50 p-4 text-red-700">{query.erro}</div>}
-    {query.sucesso && <div className="rounded-xl bg-emerald-50 p-4 text-emerald-800">{query.sucesso}</div>}
-    {loadError && <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">Não foi possível carregar todos os dados dos pedidos. Atualize a página; se continuar, informe o suporte.</div>}
-    <NewOrderAlert companyId={company.id} sector="counter"/>
-
-    <section className="grid gap-5 xl:grid-cols-[380px_1fr]">
-      <StaffOrderCart products={staffProducts} idempotencyKey={idempotencyKey}/>
-
-      <div className="space-y-3">
-        {!orders?.length && <div className="rounded-2xl border bg-white p-8 text-gray-500">Nenhum pedido criado.</div>}
-        {orders?.map(order => {
-          const items = order.order_items || [];
-          const target = next[order.status];
-          return <article key={order.id} className="rounded-2xl border bg-white p-5 shadow-sm">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div><p className="text-sm font-semibold text-emerald-700">Pedido #{order.order_number}</p><h2 className="text-xl font-bold">{order.customer_name || "Cliente"}</h2><p className="text-sm text-gray-500">{order.customer_phone || "Sem telefone"} • {order.service_type}</p><p className="mt-2 text-sm">{items.map((i:any) => `${i.quantity}× ${i.product_name}`).join(" • ") || "Itens não carregados"}</p></div>
-              <div className="flex flex-wrap items-center gap-3"><span className="rounded-full bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">{labels[order.status] || order.status}</span><div className="text-right">{Number(order.discount_amount||0)>0&&<p className="text-xs text-gray-400 line-through">{money(order.subtotal)}</p>}<strong>{money(order.total)}</strong>{Number(order.discount_amount||0)>0&&<p className="text-xs font-semibold text-orange-600">Desconto {money(order.discount_amount)}{order.coupon_code?` • ${order.coupon_code}`:""}{Number(order.loyalty_points_redeemed||0)>0?` • ${order.loyalty_points_redeemed} pts`:""}</p>}</div><span className={`rounded-full px-3 py-2 text-sm font-semibold ${order.payment_status === "paid" ? "bg-blue-50 text-blue-800" : "bg-orange-50 text-orange-800"}`}>{order.payment_status === "paid" ? "Pago" : "Pagamento pendente"}</span><PrintOrderButton order={order as any} companyName={company.name} printer={activePrinter}/>{target && <form action={updateOrderStatus}><input type="hidden" name="orderId" value={order.id}/><input type="hidden" name="status" value={target}/><button className="rounded-xl bg-emerald-700 px-4 py-2 font-semibold text-white">Avançar para {labels[target]}</button></form>}</div>
-            </div>
-          </article>;
-        })}
-      </div>
-    </section>
-  </main>;
+  return <main className="space-y-6"><header><p className="text-sm font-semibold text-emerald-700">Operação de pedidos</p><h1 className="text-3xl font-bold">Pedidos</h1><p className="text-gray-500">Fila operacional e histórico da {company.name}.</p></header>
+    {scalar(query.erro)&&<div className="rounded-xl bg-red-50 p-4 text-red-700">{scalar(query.erro)}</div>}{scalar(query.sucesso)&&<div className="rounded-xl bg-emerald-50 p-4 text-emerald-800">{scalar(query.sucesso)}</div>}{loadError&&<div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">Não foi possível carregar todos os dados. Verifique se a migration mais recente foi aplicada.</div>}
+    <nav className="flex gap-2 border-b"><Link href="/pedidos" className={`border-b-2 px-4 py-3 font-bold ${tab==="fila"?"border-emerald-700 text-emerald-700":"border-transparent text-gray-500"}`}>Fila operacional <span className="ml-1 rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-800">{activeOrders.length}</span></Link><Link href="/pedidos?aba=historico" className={`border-b-2 px-4 py-3 font-bold ${tab==="historico"?"border-emerald-700 text-emerald-700":"border-transparent text-gray-500"}`}>Histórico</Link></nav>
+    {tab==="fila"?<><NewOrderAlert companyId={company.id} sector="counter"/><details className="rounded-2xl border bg-white p-4 shadow-sm"><summary className="cursor-pointer font-bold">Criar novo pedido</summary><div className="mt-4 max-w-xl"><StaffOrderCart products={staffProducts} idempotencyKey={idempotencyKey}/></div></details><OrderWorkspace orders={activeOrders} companyName={company.name} printer={printers?.[0]||null} customerOrders={(customerOrders||[]) as unknown as OrderRow[]}/></>:<><HistoryFilters query={query} branches={branches||[]}/><div className="overflow-x-auto rounded-2xl border bg-white shadow-sm"><table className="w-full min-w-[1100px] text-left text-sm"><thead><tr className="border-b bg-gray-50 text-gray-500"><th className="p-4">Pedido</th><th>Cliente</th><th>Data</th><th>Status</th><th>Pagamento</th><th>Atendimento</th><th>Loja</th><th>Cancelamento</th><th className="pr-4 text-right">Valor</th></tr></thead><tbody>{history.map(order=>{const customer=Array.isArray(order.customer)?order.customer[0]:order.customer,branch=Array.isArray(order.branch)?order.branch[0]:order.branch;return <tr key={order.id} className="border-b align-top last:border-0"><td className="p-4 font-bold">#{order.order_number}</td><td><strong>{order.customer_name||customer?.name||"Cliente"}</strong><p className="text-xs text-gray-500">{order.customer_phone||customer?.phone||"—"}{customer?.cpf?` • CPF ${customer.cpf}`:""}</p></td><td>{new Date(order.created_at).toLocaleString("pt-BR")}</td><td>{statusLabels[order.status]||order.status}</td><td>{paymentLabels[order.payment_method]||order.payment_method||"—"}</td><td>{serviceLabels[order.service_type]||order.service_type}</td><td>{branch?.name||"—"}</td><td className="max-w-64">{order.cancellation_reason||"—"}{order.canceled_by_name&&<p className="text-xs text-gray-500">Por {order.canceled_by_name}</p>}</td><td className="pr-4 text-right font-bold">{money(order.total)}</td></tr>})}{!history.length&&<tr><td colSpan={9} className="p-8 text-center text-gray-500">Nenhum pedido encontrado.</td></tr>}</tbody></table></div></>}
+  </main>
 }
+
+function HistoryFilters({query,branches}:{query:Record<string,string|string[]|undefined>;branches:Array<{id:string;name:string}>}){const field="mt-1 w-full rounded-xl border px-3 py-2";return <form className="grid gap-3 rounded-2xl border bg-white p-4 shadow-sm sm:grid-cols-2 xl:grid-cols-5"><input type="hidden" name="aba" value="historico"/><label className="text-xs font-semibold xl:col-span-2">Pedido, cliente, telefone ou CPF<input name="busca" defaultValue={scalar(query.busca)} className={field}/></label><label className="text-xs font-semibold">Data inicial<input type="date" name="inicio" defaultValue={scalar(query.inicio)} className={field}/></label><label className="text-xs font-semibold">Data final<input type="date" name="fim" defaultValue={scalar(query.fim)} className={field}/></label><label className="text-xs font-semibold">Status<select name="status" defaultValue={scalar(query.status)} className={field}><option value="">Todos</option><option value="delivered">Entregue</option><option value="canceled">Cancelado</option></select></label><label className="text-xs font-semibold">Pagamento<select name="pagamento" defaultValue={scalar(query.pagamento)} className={field}><option value="">Todos</option>{Object.entries(paymentLabels).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label><label className="text-xs font-semibold">Atendimento<select name="atendimento" defaultValue={scalar(query.atendimento)} className={field}><option value="">Todos</option>{Object.entries(serviceLabels).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label><label className="text-xs font-semibold">Valor mínimo<input type="number" step="0.01" name="valorMinimo" defaultValue={scalar(query.valorMinimo)} className={field}/></label><label className="text-xs font-semibold">Valor máximo<input type="number" step="0.01" name="valorMaximo" defaultValue={scalar(query.valorMaximo)} className={field}/></label><label className="text-xs font-semibold">Loja/unidade<select name="loja" defaultValue={scalar(query.loja)} className={field}><option value="">Todas</option>{branches.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label><div className="flex items-end gap-2"><button className="flex-1 rounded-xl bg-emerald-700 px-4 py-2 font-bold text-white">Filtrar</button><Link href="/pedidos?aba=historico" className="rounded-xl border px-4 py-2 font-semibold">Limpar</Link></div></form>}

@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+  .mf-scroll-pane { scrollbar-gutter: stable; scrollbar-width: auto; scrollbar-color: var(--mf-primary) color-mix(in srgb,var(--mf-primary) 12%,transparent); }
+  .mf-scroll-pane::-webkit-scrollbar { width: 12px; }
+  .mf-scroll-pane::-webkit-scrollbar-track { background: color-mix(in srgb,var(--mf-primary) 10%,transparent); border-radius: 999px; }
+  .mf-scroll-pane::-webkit-scrollbar-thumb { background: var(--mf-primary); border: 3px solid transparent; border-radius: 999px; background-clip: padding-box; }
+}
+
 :root {
   color-scheme: light;
   --mf-primary: #2e7d32;
