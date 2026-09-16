@@ -36,7 +36,7 @@ export default async function PedidosPage({ searchParams }: { searchParams: Prom
   const staffCustomers=(customers||[]).map(customer=>({id:customer.id,name:customer.name,phone:customer.phone,address:defaultAddressByCustomer.get(customer.id)||null})) as StaffCustomer[];
 
   return <main className="space-y-6">
-    <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-sm font-semibold text-emerald-700">Fluxo salvo no Supabase</p><h1 className="text-3xl font-bold">Pedidos</h1><p className="text-gray-500">Somente pedidos que ainda precisam de alguma ação.</p></div><Link href="/relatorios" className="inline-flex rounded-xl border bg-white px-4 py-2 font-semibold text-emerald-800 shadow-sm">Consultar histórico</Link></header>
+    <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-sm font-semibold text-emerald-700">Fluxo salvo no Supabase</p><h1 className="text-3xl font-bold">Pedidos</h1><p className="text-gray-500">Somente pedidos que ainda precisam de alguma ação.</p></div><Link href="/pedidos/historico" className="inline-flex rounded-xl border bg-white px-4 py-2 font-semibold text-emerald-800 shadow-sm">Histórico de pedidos</Link></header>
     {query.erro && <div className="rounded-xl bg-red-50 p-4 text-red-700">{query.erro}</div>}
     {query.sucesso && <div className="rounded-xl bg-emerald-50 p-4 text-emerald-800">{query.sucesso}</div>}
     {loadError && <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">Não foi possível carregar todos os dados dos pedidos. Atualize a página; se continuar, informe o suporte.</div>}
