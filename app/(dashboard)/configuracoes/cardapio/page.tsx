@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import QRCode from "qrcode";
 import { ExternalLink, Images, Palette, Clock3, MapPin, QrCode, Plus, Trash2 } from "lucide-react";
 import { getCurrentCompany } from "@/lib/auth/current-company";
@@ -16,7 +17,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ e
     supabase.from("business_hours").select("weekday,is_open,opens_at,closes_at").eq("company_id", company.id).order("weekday"),
     supabase.from("delivery_zones").select("id,name,delivery_fee,minimum_order,estimated_minutes,is_active").eq("company_id", company.id).order("name"),
   ]);
-  const origin = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const requestHeaders = await headers();
+  const forwardedProto = requestHeaders.get("x-forwarded-proto") || "https";
+  const forwardedHost = requestHeaders.get("x-forwarded-host") || requestHeaders.get("host");
+  const requestOrigin = forwardedHost ? `${forwardedProto}://${forwardedHost}`.replace(/\/+$/, "") : null;
+  const configuredOrigin = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/+$/, "") || null;
+  const origin = requestOrigin || configuredOrigin || "http://localhost:3000";
   const menuUrl = `${origin}/cardapio/${settings?.slug || company.slug}`;
   const qr = await QRCode.toDataURL(menuUrl, { width: 320, margin: 1 });
   const hourMap = new Map((hours || []).map(h => [h.weekday, h]));
@@ -44,7 +50,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ e
         <button className="w-full rounded-xl bg-emerald-700 px-5 py-3 font-semibold text-white">Salvar configurações</button>
       </form>
 
-      <aside className="h-fit rounded-2xl border bg-white p-6 text-center shadow-sm xl:sticky xl:top-6"><QrCode className="mx-auto text-emerald-700"/><h2 className="mt-2 text-xl font-bold">QR Code da loja</h2><p className="mt-1 text-sm text-gray-500">Imprima e coloque no balcão, nas mesas ou embalagens.</p><img src={qr} alt="QR Code do cardápio" className="mx-auto mt-4 w-64 rounded-xl border"/><p className="mt-3 break-all rounded-xl bg-gray-50 p-3 text-xs">{menuUrl}</p><div className="mt-4 flex flex-wrap justify-center gap-2"><CopyLinkButton value={menuUrl}/><Link href={menuUrl} target="_blank" className="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-4 py-2 font-semibold text-white"><ExternalLink size={18}/> Abrir</Link></div><p className="mt-4 text-xs text-gray-500">Para usar o endereço publicado, configure <code>NEXT_PUBLIC_APP_URL</code>.</p></aside>
+      <aside className="h-fit rounded-2xl border bg-white p-6 text-center shadow-sm xl:sticky xl:top-6"><QrCode className="mx-auto text-emerald-700"/><h2 className="mt-2 text-xl font-bold">QR Code da loja</h2><p className="mt-1 text-sm text-gray-500">Imprima e coloque no balcão, nas mesas ou embalagens.</p><img src={qr} alt="QR Code do cardápio" className="mx-auto mt-4 w-64 rounded-xl border"/><p className="mt-3 break-all rounded-xl bg-gray-50 p-3 text-xs">{menuUrl}</p><div className="mt-4 flex flex-wrap justify-center gap-2"><CopyLinkButton value={menuUrl}/><Link href={menuUrl} target="_blank" className="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-4 py-2 font-semibold text-white"><ExternalLink size={18}/> Abrir</Link></div><p className="mt-4 text-xs text-gray-500">O QR Code usa automaticamente o endereço em que o painel está aberto.</p></aside>
     </section>
 
     <section className="rounded-2xl border bg-white p-6 shadow-sm"><div className="flex items-center gap-3"><Clock3 className="text-emerald-700"/><div><h2 className="text-xl font-bold">Horários de funcionamento</h2><p className="text-sm text-gray-500">Defina quando o cardápio aceita pedidos.</p></div></div><form action={saveBusinessHours} className="mt-5 space-y-3">{days.map((day, index)=>{const h=hourMap.get(index);return <div key={day} className="grid items-center gap-3 rounded-xl bg-gray-50 p-3 sm:grid-cols-[160px_100px_1fr_1fr]"><strong>{day}</strong><label className="flex items-center gap-2 text-sm"><input type="checkbox" name={`open_${index}`} defaultChecked={h?.is_open ?? index !== 0}/> Aberto</label><input type="time" name={`opens_${index}`} defaultValue={String(h?.opens_at || "09:00").slice(0,5)} className="rounded-lg border px-3 py-2"/><input type="time" name={`closes_${index}`} defaultValue={String(h?.closes_at || "18:00").slice(0,5)} className="rounded-lg border px-3 py-2"/></div>})}<button className="rounded-xl bg-emerald-700 px-5 py-3 font-semibold text-white">Salvar horários</button></form></section>
