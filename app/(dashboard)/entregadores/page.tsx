@@ -1,5 +1,6 @@
 import QRCode from "qrcode";
 import { Bike, MapPin, Phone, Power, Send } from "lucide-react";
+import { DriverAccessShare } from "@/components/delivery/driver-access-share";
 import { MediaManager } from "@/components/media/media-manager";
 import { CopyPaymentCode } from "@/components/payments/copy-payment-code";
 import { WhatsAppButton } from "@/components/notifications/whatsapp-button";
@@ -7,6 +8,7 @@ import { customerOutForDeliveryMessage, driverOfferMessage } from "@/lib/notific
 import { requirePlanModule } from "@/lib/auth/current-company";
 import { buildPixPayload } from "@/lib/payments/pix";
 import type { MediaAsset } from "@/lib/media/types";
+import { buildDriverActivationUrl, DRIVER_LOGIN_URL } from "@/lib/driver-app-url";
 import { assignDriver, cancelDriverPayout, createDriver, createDriverPayout, deleteDriver, markDriverPayoutPaid, setDriverAvailability, updateDriver } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +31,7 @@ function money(value: number | string | null) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value || 0));
 }
 
-export default async function DriversPage({ searchParams }: { searchParams: Promise<{ erro?: string; sucesso?: string }> }) {
+export default async function DriversPage({ searchParams }: { searchParams: Promise<{ erro?: string; sucesso?: string; novo?: string }> }) {
   const query = await searchParams;
   const { supabase, company, role } = await requirePlanModule("drivers");
   const [{ data: drivers }, { data: readyOrders }, { data: activeDeliveries }, { data: notifications }, { data: unsettledDeliveries }, { data: payouts }, { data: driverAds }, { data: payoutAccounts }] = await Promise.all([
@@ -71,6 +73,13 @@ export default async function DriversPage({ searchParams }: { searchParams: Prom
     {query.erro && <div className="rounded-xl bg-red-50 p-4 text-red-700">{query.erro}</div>}
     {query.sucesso && <div className="rounded-xl bg-emerald-50 p-4 text-emerald-800">{query.sucesso}</div>}
 
+    <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
+      <p className="text-sm font-semibold text-emerald-800">Acesso ao aplicativo</p>
+      <h2 className="mt-1 text-xl font-bold text-slate-900">Link do Modo Entregador</h2>
+      <p className="mt-1 text-sm text-slate-600">Copie este link para quem já ativou a conta. Para o primeiro acesso, use o botão individual no cartão do motoboy.</p>
+      <div className="mt-4"><DriverAccessShare url={DRIVER_LOGIN_URL}/></div>
+    </section>
+
     <section>
       <h2 className="mb-3 text-xl font-bold">Publicidade no aplicativo</h2>
       <MediaManager companyId={company.id} entityType="company" entityId={company.id} kind="gallery" initialAssets={(driverAds || []) as MediaAsset[]} title="Imagens para o MercadoFood Entrega" description="Estas imagens aparecem no aplicativo do motoboy quando ele não está em uma corrida. Use para parceiros, cupons e benefícios." recommendedSize="1200 × 525 px (proporção 16:7)" maxFiles={5} aspect="wide"/>
@@ -99,11 +108,12 @@ export default async function DriversPage({ searchParams }: { searchParams: Prom
           </div>
           <div className="mt-4 grid gap-3 lg:grid-cols-2">
             {!drivers?.length && <p className="rounded-xl bg-gray-50 p-5 text-gray-500">Nenhum motoboy cadastrado.</p>}
-            {drivers?.map((driver) => <article key={driver.id} className="rounded-xl border p-4">
+            {drivers?.map((driver) => <article key={driver.id} className={`rounded-xl border p-4 ${query.novo === driver.id ? "border-emerald-500 bg-emerald-50/60 ring-2 ring-emerald-200" : ""}`}>
               <div className="flex items-start justify-between gap-3">
                 <div><h3 className="font-bold">{driver.name}</h3><p className="flex items-center gap-2 text-sm text-gray-500"><Phone size={14}/>{driver.phone}</p><p className="mt-1 text-xs text-gray-500">{driver.email || "Sem e-mail"} • {driver.registration_status}</p><p className="mt-1 text-xs text-gray-500">{driver.vehicle_plate || "Sem placa"} • {money(driver.default_delivery_value)}</p></div>
                 <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClass[driver.availability_status] || statusClass.offline}`}>{statusLabel[driver.availability_status] || driver.availability_status}</span>
               </div>
+              {driver.email && <div className="mt-4 rounded-xl bg-slate-50 p-3"><p className="text-sm font-semibold text-slate-800">Link de primeiro acesso</p><p className="mt-1 text-xs text-slate-500">O e-mail já vai preenchido. O motoboy cria a senha e instala o aplicativo no celular.</p><DriverAccessShare driverName={driver.name} email={driver.email} phone={driver.whatsapp || driver.phone} url={buildDriverActivationUrl(driver.email)} compact/></div>}
               <form action={setDriverAvailability} className="mt-4 flex gap-2">
                 <input type="hidden" name="driverId" value={driver.id}/>
                 <button name="status" value={driver.availability_status === "available" ? "offline" : "available"} disabled={["called", "busy"].includes(driver.availability_status)} className="flex flex-1 items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold disabled:opacity-40"><Power size={15}/>{driver.availability_status === "available" ? "Ficar offline" : "Marcar disponível"}</button>
