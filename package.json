@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test:security": "node scripts/security-regression.mjs",
-    "test:orders": "node --experimental-strip-types scripts/orders-visibility.test.mjs"
+    "test:orders": "node --experimental-strip-types scripts/orders-visibility.test.mjs",
+    "test:qrcode": "node --experimental-strip-types scripts/public-menu-url.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
