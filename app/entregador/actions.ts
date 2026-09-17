@@ -51,6 +51,21 @@ export async function setOwnAvailability(formData: FormData) {
   revalidatePath("/entregador");
 }
 
+export async function reportOwnDeliveryProblem(formData: FormData) {
+  const deliveryId=String(formData.get("deliveryId")||""),reason=String(formData.get("reason")||"").trim();
+  if(!deliveryId||!reason)redirect("/entregador?erro=Informe%20o%20problema%20da%20entrega");
+  const {supabase,driver}=await currentDriver();
+  const {data:delivery}=await supabase.from("deliveries").select("id,order_id").eq("id",deliveryId).eq("driver_id",driver.id).eq("company_id",driver.company_id).maybeSingle();
+  if(!delivery)redirect("/entregador?erro=Entrega%20não%20encontrada");
+  await Promise.all([
+    supabase.from("deliveries").update({status:"problem",problem_reason:reason,updated_at:new Date().toISOString()}).eq("id",delivery.id).eq("driver_id",driver.id),
+    supabase.from("orders").update({delivery_status:"problem"}).eq("id",delivery.order_id).eq("company_id",driver.company_id).eq("assigned_driver_id",driver.id),
+    supabase.from("delivery_events").insert({delivery_id:delivery.id,event_type:"problem",actor_type:"driver",actor_id:driver.id,payload:{reason}}),
+  ]);
+  revalidatePath("/entregador");revalidatePath("/entregadores");revalidatePath("/pedidos");
+  redirect("/entregador?sucesso=Problema%20informado%20à%20loja");
+}
+
 export async function respondToDelivery(formData: FormData) {
   const deliveryId = String(formData.get("deliveryId") || "");
   const response = String(formData.get("response") || "");
@@ -176,6 +191,7 @@ export async function startOwnDelivery(formData: FormData) {
   if (error) redirect(`/entregador?erro=${encodeURIComponent(error.message)}`);
   const result = data as { ok?: boolean; confirmation_code?: string } | null;
   if (!result?.ok || !result.confirmation_code) redirect("/entregador?erro=Não%20foi%20possível%20gerar%20o%20código");
+  await supabase.from("orders").update({ delivery_status: "out_for_delivery" }).eq("id", delivery.order_id).eq("company_id", driver.company_id).eq("assigned_driver_id", driver.id);
   const order = Array.isArray(delivery.orders) ? delivery.orders[0] : delivery.orders;
   const driverInfo = Array.isArray(delivery.drivers) ? delivery.drivers[0] : delivery.drivers;
   const company = Array.isArray(delivery.companies) ? delivery.companies[0] : delivery.companies;
@@ -204,6 +220,7 @@ export async function confirmOwnDelivery(formData: FormData) {
   if (error) redirect(`/entregador?erro=${encodeURIComponent(error.message)}`);
   const result = data as { ok?: boolean; message?: string } | null;
   if (!result?.ok) redirect(`/entregador?erro=${encodeURIComponent(result?.message || "Código inválido")}`);
+  await supabase.from("orders").update({ delivery_status: "delivered" }).eq("id", delivery.order_id).eq("company_id", driver.company_id).eq("assigned_driver_id", driver.id);
   const order = Array.isArray(delivery.orders) ? delivery.orders[0] : delivery.orders;
   const company = Array.isArray(delivery.companies) ? delivery.companies[0] : delivery.companies;
   await queueWhatsAppNotification({ supabase, companyId: driver.company_id, deliveryId: delivery.id,

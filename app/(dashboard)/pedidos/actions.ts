@@ -3,6 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requirePlanModule } from "@/lib/auth/current-company";
+import { canAssignDriver } from "@/lib/delivery/assignment";
+
+function trackingCode() { return `MF${Date.now().toString(36).toUpperCase()}${crypto.randomUUID().replace(/-/g, "").slice(0, 6).toUpperCase()}`; }
 
 export async function createOrder(formData: FormData) {
   let customerName = String(formData.get("customerName") || "").trim();
@@ -79,4 +82,23 @@ export async function updateOrderStatus(formData: FormData) {
   const { error } = await supabase.from("orders").update(payload).eq("id", orderId).eq("company_id", company.id).not("status", "in", "(delivered,canceled)");
   if (error) redirect(`/pedidos?erro=${encodeURIComponent(error.message)}`);
   revalidatePath("/pedidos"); revalidatePath("/cozinha"); revalidatePath("/estoque"); revalidatePath("/produtos"); revalidatePath("/clientes");
+}
+
+export async function assignOrderDriver(formData: FormData) {
+  const orderId=String(formData.get("orderId")||""),driverId=String(formData.get("driverId")||"");
+  if(!orderId||!driverId)redirect("/pedidos?erro=Escolha%20um%20entregador");
+  const {supabase,company}=await requirePlanModule("orders");
+  const [{data:order},{data:driver}]=await Promise.all([
+    supabase.from("orders").select("id,company_id,branch_id,status,service_type,delivery_address,delivery_fee").eq("id",orderId).eq("company_id",company.id).maybeSingle(),
+    supabase.from("drivers").select("id,company_id,branch_id,registration_status,availability_status,default_delivery_value").eq("id",driverId).eq("company_id",company.id).maybeSingle(),
+  ]);
+  if(!order||!driver||!canAssignDriver({companyId:order.company_id,branchId:order.branch_id,status:order.status,serviceType:order.service_type},{companyId:driver.company_id,branchId:driver.branch_id,registrationStatus:driver.registration_status,availabilityStatus:driver.availability_status}))redirect("/pedidos?erro=Pedido%20ou%20entregador%20inválido%20para%20esta%20loja");
+  const now=new Date().toISOString();
+  const {data:delivery,error}=await supabase.from("deliveries").upsert({company_id:company.id,branch_id:order.branch_id,order_id:order.id,driver_id:driver.id,tracking_code:trackingCode(),status:"offered",delivery_address:order.delivery_address||{},delivery_value:Number(driver.default_delivery_value||order.delivery_fee||0),offered_at:now},{onConflict:"order_id"}).select("id").single();
+  if(error||!delivery)redirect(`/pedidos?erro=${encodeURIComponent(error?.message||"Não foi possível atribuir o pedido")}`);
+  const {error:orderError}=await supabase.from("orders").update({assigned_driver_id:driver.id,delivery_assigned_at:now,delivery_status:"assigned"}).eq("id",order.id).eq("company_id",company.id).eq("status","ready");
+  if(orderError)redirect(`/pedidos?erro=${encodeURIComponent(orderError.message)}`);
+  await Promise.all([supabase.from("drivers").update({availability_status:"called",last_seen_at:now}).eq("id",driver.id).eq("company_id",company.id),supabase.from("delivery_events").insert({delivery_id:delivery.id,event_type:"assigned",actor_type:"store",payload:{order_id:order.id,branch_id:order.branch_id}})]);
+  revalidatePath("/pedidos");revalidatePath("/entregadores");revalidatePath("/entregador");
+  redirect("/pedidos?sucesso=Pedido%20enviado%20ao%20entregador");
 }
