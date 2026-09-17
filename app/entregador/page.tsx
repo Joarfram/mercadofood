@@ -10,7 +10,7 @@ import { advanceOwnDelivery, confirmOwnDelivery, confirmOwnPayout, driverSignOut
 export const dynamic = "force-dynamic";
 
 const titles: Record<string, string> = { offered: "Nova corrida", accepted: "Corrida aceita", to_store: "A caminho da loja", waiting_pickup: "Aguardando retirada", delivering: "Em entrega", completed: "Entrega concluída" };
-const actions: Record<string, string> = { accepted: "Iniciar corrida", to_store: "Cheguei na loja", waiting_pickup: "Pedido retirado — gerar código" };
+const actions: Record<string, string> = { accepted: "Iniciar corrida", to_store: "Cheguei na loja", waiting_pickup: "Saiu para entrega" };
 const deliverySteps = ["accepted", "to_store", "waiting_pickup", "delivering"];
 const tabs = [
   { id: "inicio", label: "Início", icon: Home },
