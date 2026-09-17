@@ -66,11 +66,17 @@ export async function updateOrderStatus(formData: FormData) {
   const status = String(formData.get("status") || "new");
   const allowed = ["new", "accepted", "preparing", "ready", "out_for_delivery", "delivered", "canceled"];
   if (!allowed.includes(status)) return;
-  const { supabase, company } = await requirePlanModule("orders");
+  const cancellationReason = String(formData.get("cancellationReason") || "").trim();
+  const { supabase, company, user } = await requirePlanModule("orders");
   const timestamps: Record<string, string> = { accepted: "accepted_at", preparing: "started_at", ready: "ready_at", delivered: "delivered_at", canceled: "canceled_at" };
   const payload: Record<string, string> = { status };
   if (timestamps[status]) payload[timestamps[status]] = new Date().toISOString();
-  const { error } = await supabase.from("orders").update(payload).eq("id", orderId).eq("company_id", company.id);
+  if (status === "canceled") {
+    payload.cancellation_reason = cancellationReason || "Não informado";
+    payload.canceled_by = user.id;
+    payload.canceled_by_name = String(user.user_metadata?.display_name || user.user_metadata?.full_name || user.email || "Usuário");
+  }
+  const { error } = await supabase.from("orders").update(payload).eq("id", orderId).eq("company_id", company.id).not("status", "in", "(delivered,canceled)");
   if (error) redirect(`/pedidos?erro=${encodeURIComponent(error.message)}`);
-  revalidatePath("/pedidos"); revalidatePath("/cozinha"); revalidatePath("/estoque"); revalidatePath("/produtos");
+  revalidatePath("/pedidos"); revalidatePath("/cozinha"); revalidatePath("/estoque"); revalidatePath("/produtos"); revalidatePath("/clientes");
 }

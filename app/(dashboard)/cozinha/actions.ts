@@ -15,7 +15,7 @@ export async function advanceKitchenOrder(formData: FormData) {
   const nextStatus = String(formData.get("nextStatus") || "");
   if (!orderId || !allowedTransitions[currentStatus]?.includes(nextStatus)) return { ok: false, message: "Etapa inválida para este pedido." };
 
-  const { supabase, company } = await requirePlanModule("kitchen");
+  const { supabase, company, user } = await requirePlanModule("kitchen");
   const timestamps: Record<string, string> = {
     accepted: "accepted_at",
     preparing: "started_at",
@@ -25,6 +25,11 @@ export async function advanceKitchenOrder(formData: FormData) {
   };
   const payload: Record<string, string> = { status: nextStatus };
   if (timestamps[nextStatus]) payload[timestamps[nextStatus]] = new Date().toISOString();
+  if (nextStatus === "canceled") {
+    payload.cancellation_reason = String(formData.get("cancellationReason") || "Cancelado pela cozinha").trim();
+    payload.canceled_by = user.id;
+    payload.canceled_by_name = String(user.user_metadata?.display_name || user.user_metadata?.full_name || user.email || "Usuário");
+  }
 
   const { data, error } = await supabase
     .from("orders")

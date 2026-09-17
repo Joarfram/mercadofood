@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test:security": "node scripts/security-regression.mjs"
+    "test:security": "node scripts/security-regression.mjs",
+    "test:orders": "node --experimental-strip-types scripts/orders-visibility.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",
