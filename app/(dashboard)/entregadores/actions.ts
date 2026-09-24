@@ -23,7 +23,7 @@ export async function createDriver(formData: FormData) {
   const { supabase, company } = await getCurrentCompany();
   const { data: branch } = await supabase.from("branches").select("id").eq("company_id", company.id).limit(1).maybeSingle();
 
-  const { error } = await supabase.from("drivers").insert({
+  const { data: driver, error } = await supabase.from("drivers").insert({
     company_id: company.id,
     branch_id: branch?.id || null,
     name,
@@ -35,11 +35,11 @@ export async function createDriver(formData: FormData) {
     registration_status: "invited",
     invited_at: new Date().toISOString(),
     availability_status: "offline",
-  });
+  }).select("id").single();
   if (error) redirect(`/entregadores?erro=${encodeURIComponent(error.message)}`);
 
   revalidatePath("/entregadores");
-  redirect("/entregadores?sucesso=Motoboy%20cadastrado");
+  redirect(`/entregadores?sucesso=Motoboy%20cadastrado.%20Agora%20envie%20o%20link%20de%20acesso&novo=${encodeURIComponent(driver.id)}`);
 }
 
 export async function setDriverAvailability(formData: FormData) {
