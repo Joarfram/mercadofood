@@ -3,7 +3,7 @@
 ## Objetivo
 Configurar o acesso administrativo do MercadoFood pelo subdomínio:
 
-`master.meumerdofood.com`
+`master.meumercadofood.com`
 
 Esse endereço deve abrir diretamente o MercadoMaster, sem exigir que o usuário digite `/master` manualmente.
 
@@ -20,7 +20,7 @@ Esse endereço deve abrir diretamente o MercadoMaster, sem exigir que o usuário
 ### 1. Configurar o domínio na Vercel
 Adicionar o domínio:
 
-`master.meumerdofood.com`
+`master.meumercadofood.com`
 
 no projeto `mercadofood` da Vercel.
 
@@ -39,7 +39,7 @@ Não alterar registros do domínio principal sem necessidade.
 ### 3. Fazer o subdomínio abrir diretamente o MercadoMaster
 Implementar no Next.js uma regra baseada no `Host` para que:
 
-`https://master.meumerdofood.com`
+`https://master.meumercadofood.com`
 
 abra a área `/master`.
 
@@ -71,14 +71,14 @@ O domínio público principal e o subdomínio Master não devem quebrar os fluxo
 
 Se for necessário adicionar o subdomínio em Redirect URLs do Supabase Auth, incluir:
 
-`https://master.meumerdofood.com/**`
+`https://master.meumercadofood.com/**`
 
 Somente fazer essa alteração se o fluxo de autenticação realmente exigir.
 
 ### 6. Testes obrigatórios
 Antes de considerar concluído, testar:
 
-1. Abrir `https://master.meumerdofood.com` sem login.
+1. Abrir `https://master.meumercadofood.com` sem login.
    - Deve direcionar para login.
 2. Entrar com usuário Master.
    - Deve abrir o MercadoMaster.
@@ -95,7 +95,7 @@ Antes de considerar concluído, testar:
 
 ## Critério de conclusão
 Considerar concluído somente quando:
-- `master.meumerdofood.com` estiver validado na Vercel;
+- `master.meumercadofood.com` estiver validado na Vercel;
 - DNS estiver propagado;
 - HTTPS estiver ativo;
 - raiz do subdomínio abrir o MercadoMaster;

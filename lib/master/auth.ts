@@ -2,10 +2,9 @@ import "server-only";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { hasPlatformAccess, type PlatformLevel } from "@/lib/master/access";
 
-export type PlatformLevel = "viewer" | "support" | "master";
-
-const rank: Record<PlatformLevel, number> = { viewer: 1, support: 2, master: 3 };
+export type { PlatformLevel } from "@/lib/master/access";
 
 export async function requirePlatformStaff(minimum: PlatformLevel = "viewer") {
   const supabase = await createClient();
@@ -20,6 +19,6 @@ export async function requirePlatformStaff(minimum: PlatformLevel = "viewer") {
     .maybeSingle();
 
   const level = staff?.support_level as PlatformLevel | undefined;
-  if (!level || rank[level] < rank[minimum]) redirect("/sem-permissao");
+  if (!hasPlatformAccess(level, minimum)) redirect("/sem-permissao");
   return { supabase, admin: createAdminClient(), user, staff: { ...staff, support_level: level } };
 }

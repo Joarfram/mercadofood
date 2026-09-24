@@ -6,6 +6,7 @@ import {
   archiveCompany,
   deleteCompanyPermanently,
   restoreCompany,
+  recordSubscriptionPayment,
   setModuleOverride,
   updateSubscription,
 } from "./actions";
@@ -42,6 +43,9 @@ const date = (value?: string | null) =>
     ? new Date(value).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })
     : "—";
 
+const money = (value: number | string) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value));
+
 function maskDocument(type?: string | null, value?: string | null) {
   const digits = (value || "").replace(/\D/g, "");
   if (!digits) return "—";
@@ -64,6 +68,8 @@ export default async function CompaniesPage({
     { data: plans },
     { data: subscriptions },
     { data: overrides },
+    { data: subscriptionPayments },
+    { data: auditLogs },
     { data: authUsers },
   ] = await Promise.all([
     admin
@@ -77,6 +83,8 @@ export default async function CompaniesPage({
       .from("company_subscriptions")
       .select("company_id,plan_id,status,trial_ends_at,current_period_starts_at,current_period_ends_at"),
     admin.from("company_entitlement_overrides").select("company_id,module_key,enabled"),
+    admin.from("subscription_payments").select("id,company_id,amount,status,payment_method,due_at,paid_at,created_at").order("created_at", { ascending: false }).limit(500),
+    admin.from("support_audit_logs").select("id,company_id,action,occurred_at").like("action", "master.%").order("occurred_at", { ascending: false }).limit(500),
     admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
   ]);
 
@@ -204,7 +212,7 @@ export default async function CompaniesPage({
               <p className="mt-4 flex gap-2 text-sm"><Phone size={16} />{company.whatsapp || company.phone || "Sem contato"}</p>
               <p className="mt-2 text-sm">Plano: <b>{plan?.name || "—"}</b></p>
               <p className="mt-1 text-xs text-gray-500">
-                {company.archived_at ? `Arquivada em ${date(company.archived_at)} • ${company.archive_reason || "Sem motivo informado"}` : `Teste: ${date(sub?.trial_ends_at)} • Atividade: ${date(company.last_activity_at)}`}
+                {company.archived_at ? `Arquivada em ${date(company.archived_at)} • ${company.archive_reason || "Sem motivo informado"}` : `Vencimento/renovação: ${date(sub?.current_period_ends_at || sub?.trial_ends_at)} • Atividade: ${date(company.last_activity_at)}`}
               </p>
               {staff.support_level === "master" && (
                 <CompanyControls
@@ -214,6 +222,8 @@ export default async function CompaniesPage({
                   subscription={sub}
                   plans={plans || []}
                   overrides={(overrides || []).filter((o) => o.company_id === company.id)}
+                  payments={(subscriptionPayments || []).filter((p) => p.company_id === company.id)}
+                  auditLogs={(auditLogs || []).filter((log) => log.company_id === company.id)}
                 />
               )}
             </article>
@@ -232,7 +242,7 @@ export default async function CompaniesPage({
                 <th>Plano</th>
                 <th>Status</th>
                 <th>Início</th>
-                <th>{view === "archived" ? "Arquivada em" : "Fim do teste"}</th>
+                <th>{view === "archived" ? "Arquivada em" : "Vencimento/renovação"}</th>
                 <th>{view === "archived" ? "Motivo" : "Última atividade"}</th>
                 <th>Ações</th>
               </tr>
@@ -259,7 +269,7 @@ export default async function CompaniesPage({
                     <td>{plan?.name || "—"}</td>
                     <td><span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-bold">{company.archived_at ? "Arquivada" : statusLabel[sub?.status || ""] || "Sem assinatura"}</span></td>
                     <td>{date(sub?.current_period_starts_at || company.created_at)}</td>
-                    <td>{company.archived_at ? date(company.archived_at) : date(sub?.trial_ends_at)}</td>
+                    <td>{company.archived_at ? date(company.archived_at) : date(sub?.current_period_ends_at || sub?.trial_ends_at)}</td>
                     <td>{company.archived_at ? company.archive_reason || "—" : date(company.last_activity_at)}</td>
                     <td className="py-3">
                       {staff.support_level === "master" ? (
@@ -270,6 +280,8 @@ export default async function CompaniesPage({
                           subscription={sub}
                           plans={plans || []}
                           overrides={(overrides || []).filter((o) => o.company_id === company.id)}
+                          payments={(subscriptionPayments || []).filter((p) => p.company_id === company.id)}
+                          auditLogs={(auditLogs || []).filter((log) => log.company_id === company.id)}
                         />
                       ) : <span className="text-xs text-gray-500">Somente leitura</span>}
                     </td>
@@ -291,6 +303,8 @@ function CompanyControls({
   subscription,
   plans,
   overrides,
+  payments,
+  auditLogs,
 }: {
   companyId: string;
   companyName: string;
@@ -298,6 +312,8 @@ function CompanyControls({
   subscription: any;
   plans: Array<{ id: string; name: string }>;
   overrides: Array<{ module_key: string; enabled: boolean }>;
+  payments: Array<{ id: string; amount: number; status: string; payment_method: string | null; due_at: string | null; paid_at: string | null; created_at: string }>;
+  auditLogs: Array<{ id: number; action: string; occurred_at: string }>;
 }) {
   if (archived) {
     return (
@@ -338,8 +354,30 @@ function CompanyControls({
             <option value="suspended">Suspenso</option>
             <option value="canceled">Cancelado</option>
           </select>
-          <button className="rounded-lg bg-[#063D2F] px-3 py-2 font-bold text-white sm:col-span-2">Salvar plano e status</button>
+          <label className="text-xs font-semibold sm:col-span-2">Vencimento/próxima renovação<input name="currentPeriodEndsAt" type="date" defaultValue={subscription?.current_period_ends_at?.slice(0, 10) || ""} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" /></label>
+          <button className="rounded-lg bg-[#063D2F] px-3 py-2 font-bold text-white sm:col-span-2">Salvar plano, status e vencimento</button>
         </form>
+
+        <details className="rounded-xl border p-3">
+          <summary className="cursor-pointer text-sm font-bold">Pagamentos da assinatura</summary>
+          <form action={recordSubscriptionPayment} className="mt-3 grid gap-2 sm:grid-cols-2">
+            <input type="hidden" name="companyId" value={companyId} />
+            <input name="amount" type="number" min="0" step="0.01" required placeholder="Valor" className="rounded-lg border px-3 py-2" />
+            <select name="paymentStatus" defaultValue="paid" className="rounded-lg border px-3 py-2"><option value="paid">Pago</option><option value="pending">Pendente</option><option value="failed">Falhou</option><option value="refunded">Estornado</option><option value="canceled">Cancelado</option></select>
+            <input name="paymentMethod" placeholder="Forma de pagamento" className="rounded-lg border px-3 py-2" />
+            <input name="providerReference" placeholder="Referência externa" className="rounded-lg border px-3 py-2" />
+            <label className="text-xs">Vencimento<input name="dueAt" type="date" className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" /></label>
+            <label className="text-xs">Pagamento<input name="paidAt" type="date" className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" /></label>
+            <input name="notes" maxLength={500} placeholder="Observação" className="rounded-lg border px-3 py-2 sm:col-span-2" />
+            <button className="rounded-lg bg-emerald-700 px-3 py-2 font-bold text-white sm:col-span-2">Registrar pagamento da licença</button>
+          </form>
+          <div className="mt-3 space-y-2">{payments.length ? payments.slice(0, 8).map((payment) => <p key={payment.id} className="rounded-lg bg-slate-50 p-2 text-xs"><b>{money(payment.amount)}</b> • {payment.status} • {payment.payment_method || "não informado"}<br />Vence: {date(payment.due_at)} • Pago: {date(payment.paid_at)}</p>) : <p className="mt-2 text-xs text-slate-500">Nenhum pagamento de assinatura registrado.</p>}</div>
+        </details>
+
+        <details className="rounded-xl border p-3">
+          <summary className="cursor-pointer text-sm font-bold">Histórico administrativo</summary>
+          <div className="mt-2 space-y-2">{auditLogs.length ? auditLogs.slice(0, 10).map((log) => <p key={log.id} className="text-xs"><b>{date(log.occurred_at)}</b> • {log.action}</p>) : <p className="text-xs text-slate-500">Nenhuma alteração registrada.</p>}</div>
+        </details>
 
         <form action={addTrialDays} className="flex gap-2">
           <input type="hidden" name="companyId" value={companyId} />
