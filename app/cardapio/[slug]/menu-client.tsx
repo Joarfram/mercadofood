@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition, type CSSProperties } from "react";
+import Link from "next/link";
 import { CheckCircle2, Clock3, Minus, Plus, Search, ShoppingCart, Trash2, UserRound } from "lucide-react";
-import { closePublicCustomerOrder, getPublicCustomerState, lookupPublicCustomer, previewPublicCoupon, registerPublicCustomer, submitPublicOrder } from "./actions";
+import { closePublicCustomerOrder, createPublicMercadoPagoPix, getPublicCustomerState, previewPublicCoupon, registerPublicCustomer, submitPublicOrder, updatePublicCustomerEmail } from "./actions";
 import { PublicFeedback } from "@/components/feedback/public-feedback";
 
 type Option = { id: string; name: string; price_delta: number; max_quantity?: number };
@@ -29,7 +30,7 @@ type Product = {
   is_featured?: boolean;
   option_groups: Group[];
 };
-type Category = { id: string; name: string; description?: string; products: Product[] };
+type Category = { id: string; name: string; description?: string; image_url?: string; products: Product[] };
 type DeliveryZone = { id:string; name:string; delivery_fee:number; minimum_order:number; estimated_minutes:number };
 type ServiceConfig = { delivery_enabled:boolean; pickup_enabled:boolean; average_delivery_minutes:number };
 type MenuData = {
@@ -38,6 +39,8 @@ type MenuData = {
     slug: string;
     logo_url?: string;
     banner_url?: string;
+    default_product_image_url?: string;
+    default_category_image_url?: string;
     primary_color?: string;
     accent_color?: string;
     menu_theme?: string;
@@ -53,8 +56,8 @@ type Selection = Record<string, Record<string, number>>;
 type CartChoice = { groupId: string; groupName: string; optionId: string; optionName: string; quantity: number; unitPrice: number; chargedQuantity: number; totalPrice: number };
 type CartItem = { key: string; product: Product; quantity: number; choices: CartChoice[]; notes: string; optionUnitTotal: number };
 type CouponPreview = { code: string; name?: string; description?: string; subtotal: number; discount: number; total_after_discount: number };
-type CustomerAddress = { cep?:string|null; street?:string|null; number?:string|null; complement?:string|null; neighborhood?:string|null; city?:string|null; reference?:string|null };
-type Customer = { name: string; phone: string; address?: CustomerAddress | null };
+type Customer = { name: string; phone: string; email?: string | null };
+type PixInfo = { qrCode: string | null; qrCodeBase64: string | null; ticketUrl: string | null; expiresAt: string | null };
 type ActiveOrder = {
   id: string; order_number: string | number; public_code: string; total: number; status: string; service_type: string;
   created_at: string; estimated_preparation_minutes?: number | null; estimated_ready_at?: string | null;
@@ -77,6 +80,7 @@ function calculateChoices(product: Product, selection: Selection): { choices: Ca
       .map(option => ({ option, quantity: quantities[option.id] || 0 }))
       .filter(item => item.quantity > 0);
 
+    // Regra transparente: as unidades grátis são aplicadas primeiro às opções de maior valor.
     let freeRemaining = Math.max(0, Number(group.free_selection || 0));
     const freeByOption = new Map<string, number>();
     for (const item of [...selected].sort((a, b) => Number(b.option.price_delta) - Number(a.option.price_delta))) {
@@ -106,7 +110,7 @@ function calculateChoices(product: Product, selection: Selection): { choices: Ca
   return { choices, optionUnitTotal };
 }
 
-export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConfig }: { menu: MenuData; deliveryZones: DeliveryZone[]; hasCombos: boolean; serviceConfig: ServiceConfig }) {
+export default function MenuClient({ menu, deliveryZones, hasCombos, onlinePixAvailable, serviceConfig }: { menu: MenuData; deliveryZones: DeliveryZone[]; hasCombos: boolean; onlinePixAvailable: boolean; serviceConfig: ServiceConfig }) {
   const [query, setQuery] = useState("");
   const [categoryId, setCategoryId] = useState<string>("all");
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -127,31 +131,24 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
   const [activeOrder, setActiveOrder] = useState<ActiveOrder | null>(null);
   const [customerLoading, setCustomerLoading] = useState(true);
   const [registrationPending, startRegistration] = useTransition();
-  const [lookupPending, startLookup] = useTransition();
   const [closingOrder, startClosingOrder] = useTransition();
   const [registrationName, setRegistrationName] = useState("");
   const [registrationPhone, setRegistrationPhone] = useState("");
-  const [lookupHint, setLookupHint] = useState("");
+  const [registrationEmail, setRegistrationEmail] = useState("");
+  const [pixInfo, setPixInfo] = useState<PixInfo | null>(null);
 
   useEffect(() => {
     let mounted = true;
     const loadCustomer = () => getPublicCustomerState(menu.company.slug).then(state => {
-      if (!mounted) return;
-      setCustomer(state.customer as Customer | null);
-      setActiveOrder(state.order as ActiveOrder | null);
-      setCustomerLoading(false);
-    }).catch(() => mounted && setCustomerLoading(false));
+        if (!mounted) return;
+        setCustomer(state.customer);
+        setActiveOrder(state.order as ActiveOrder | null);
+        setCustomerLoading(false);
+      }).catch(() => mounted && setCustomerLoading(false));
     loadCustomer();
     const timer = window.setInterval(loadCustomer, 10000);
     return () => { mounted = false; window.clearInterval(timer); };
   }, [menu.company.slug]);
-
-  useEffect(() => {
-    const neighborhood = customer?.address?.neighborhood?.trim().toLocaleLowerCase("pt-BR");
-    if (!neighborhood || !deliveryZones.length) return;
-    const matchingZone = deliveryZones.find(zone => zone.name.trim().toLocaleLowerCase("pt-BR") === neighborhood);
-    if (matchingZone) setDeliveryZoneId(matchingZone.id);
-  }, [customer, deliveryZones]);
 
   const products = useMemo(() => menu.categories
     .flatMap(category => category.products.map(product => ({ ...product, categoryId: category.id })))
@@ -249,13 +246,16 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
 
   function submit(formData: FormData) {
     setError("");
+    const requestedPaymentMethod = String(formData.get("payment_method") || "pix");
     const payload = {
       slug: menu.company.slug,
       customer_name: String(formData.get("customer_name") || ""),
       customer_phone: String(formData.get("customer_phone") || ""),
       service_type: serviceType,
       delivery_zone_id: serviceType === 'delivery' ? deliveryZoneId : null,
-      payment_method: String(formData.get("payment_method") || "pix"),
+      // A RPC existente conhece PIX; a intenção online é guardada no servidor
+      // imediatamente após a criação, sem permitir que o navegador a escolha para outra loja.
+      payment_method: requestedPaymentMethod === "online_pix" ? "pix" : requestedPaymentMethod,
       coupon_code: validCouponPreview?.code || "",
       notes: String(formData.get("notes") || ""),
       marketing_consent: formData.get("marketing_consent") === "on",
@@ -281,13 +281,50 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
       if (!result.ok) { setError(result.error); return; }
       const estimatedMinutes = serviceType === "delivery" ? Number(selectedZone?.estimated_minutes || serviceConfig.average_delivery_minutes) : Number(serviceConfig.average_delivery_minutes);
       setActiveOrder({
-        id: result.data.order_id, order_number: result.data.order_number, public_code: result.data.public_code,
-        total: Number(result.data.total), status: "new", service_type: serviceType, created_at: new Date().toISOString(),
+        id: result.data.order_id,
+        order_number: result.data.order_number,
+        public_code: result.data.public_code,
+        total: Number(result.data.total),
+        status: requestedPaymentMethod === "online_pix" ? "awaiting_payment" : "new",
+        service_type: serviceType,
+        created_at: new Date().toISOString(),
         estimated_preparation_minutes: estimatedMinutes,
         estimated_ready_at: new Date(Date.now() + estimatedMinutes * 60000).toISOString(),
       });
+      if (requestedPaymentMethod === "online_pix") {
+        const pix = await createPublicMercadoPagoPix({ slug: menu.company.slug, orderId: result.data.order_id });
+        if (!pix.ok) { setError(pix.error); return; }
+        setPixInfo(pix.pix);
+      }
       setCart([]);
       setCheckoutOpen(false);
+    });
+  }
+
+  function registerCustomer() {
+    setError("");
+    startRegistration(async () => {
+      const result = await registerPublicCustomer({ slug: menu.company.slug, name: registrationName, phone: registrationPhone, email: registrationEmail });
+      if (!result.ok) { setError(result.error); return; }
+      setCustomer(result.customer);
+    });
+  }
+
+  function saveCustomerEmail() {
+    setError("");
+    startRegistration(async () => {
+      const result = await updatePublicCustomerEmail({ slug: menu.company.slug, email: registrationEmail });
+      if (!result.ok) { setError(result.error); return; }
+      setCustomer(current => current ? { ...current, email: result.email } : current);
+    });
+  }
+
+  function closeOrder() {
+    if (!activeOrder) return;
+    startClosingOrder(async () => {
+      const result = await closePublicCustomerOrder({ slug: menu.company.slug, orderId: activeOrder.id });
+      if (!result.ok) { setError(result.error); return; }
+      setActiveOrder(null);
     });
   }
 
@@ -302,37 +339,6 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
       }
       setCouponPreview(result.data as CouponPreview);
       setCouponCode(String(result.data.code || couponCode).toUpperCase());
-    });
-  }
-
-  function checkExistingCustomer() {
-    const name = registrationName.trim();
-    if (name.length < 2) { setLookupHint(""); return; }
-    startLookup(async () => {
-      const result = await lookupPublicCustomer({ slug: menu.company.slug, name });
-      if (!result.ok || !result.found) { setLookupHint(""); return; }
-      setRegistrationName(result.name);
-      setLookupHint(`Cadastro encontrado. Confirme com o WhatsApp final ${result.maskedPhone}.`);
-    });
-  }
-
-  function registerCustomer() {
-    setError("");
-    startRegistration(async () => {
-      const result = await registerPublicCustomer({ slug: menu.company.slug, name: registrationName, phone: registrationPhone });
-      if (!result.ok) { setError(result.error); return; }
-      const state = await getPublicCustomerState(menu.company.slug);
-      setCustomer((state.customer || result.customer) as Customer);
-      setLookupHint("");
-    });
-  }
-
-  function closeOrder() {
-    if (!activeOrder) return;
-    startClosingOrder(async () => {
-      const result = await closePublicCustomerOrder({ slug: menu.company.slug, orderId: activeOrder.id });
-      if (!result.ok) { setError(result.error); return; }
-      setActiveOrder(null);
     });
   }
 
@@ -372,7 +378,7 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
         <div className={`flex items-center gap-2 rounded-2xl border px-4 md:hidden ${surface}`}><Search size={19} className={mutedText}/><input value={query} onChange={event => setQuery(event.target.value)} placeholder="Buscar no cardápio" className="w-full bg-transparent py-3.5 outline-none"/></div>
         <nav className="mt-4 flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none]">
           <button onClick={() => setCategoryId("all")} className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold ${categoryId === "all" ? "bg-[var(--menu-primary)] text-white" : surface}`}>Mais pedidos</button>
-          {menu.categories.map(category => <button key={category.id} onClick={() => setCategoryId(category.id)} className={`whitespace-nowrap rounded-xl border px-4 py-2.5 text-sm font-bold ${categoryId === category.id ? "border-transparent bg-[var(--menu-primary)] text-white" : surface}`}>{category.name}</button>)}
+          {menu.categories.map(category => { const categoryImage = category.image_url || menu.company.default_category_image_url; return <button key={category.id} onClick={() => setCategoryId(category.id)} className={`inline-flex items-center gap-2 whitespace-nowrap rounded-xl border px-3 py-2.5 text-sm font-bold ${categoryId === category.id ? "border-transparent bg-[var(--menu-primary)] text-white" : surface}`}>{categoryImage && <img src={categoryImage} alt="" aria-hidden="true" loading="lazy" className="h-7 w-7 rounded-lg object-cover"/>}{category.name}</button>; })}
         </nav>
 
         {menu.promotions.length > 0 && <div className="mt-5 flex gap-3 overflow-x-auto pb-2">{menu.promotions.map(promotion => <article key={promotion.id} className={`min-w-[260px] overflow-hidden rounded-2xl border ${surface}`}>{promotion.image_url && <img src={promotion.image_url} alt={promotion.title} className="aspect-[16/7] w-full object-cover"/>}<div className="p-4"><strong>{promotion.title}</strong><p className={`text-sm ${mutedText}`}>{promotion.description}</p></div></article>)}</div>}
@@ -381,7 +387,7 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
         <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="grid content-start gap-3 md:grid-cols-2">
             {products.map(product => { const quantityInCart = productQuantities[product.id] || 0; return <article key={product.id} className={`grid min-h-40 grid-cols-[minmax(120px,38%)_1fr] overflow-hidden rounded-2xl border shadow-sm ${surface}`}>
-              <div className="bg-[var(--menu-bg)]">{product.image_url ? <img src={product.image_url} alt={product.name} loading="lazy" className={`h-full min-h-40 w-full ${product.image_fit === "contain" ? "object-contain p-2" : "object-cover"}`} style={{objectPosition:product.image_position||"center"}}/> : <div className="grid h-full min-h-40 place-items-center text-5xl">🍽️</div>}</div>
+              <div className="bg-[var(--menu-bg)]">{product.image_url || menu.company.default_product_image_url ? <img src={product.image_url || menu.company.default_product_image_url} alt={product.name} loading="lazy" className={`h-full min-h-40 w-full ${product.image_fit === "contain" ? "object-contain p-2" : "object-cover"}`} style={{objectPosition:product.image_position||"center"}}/> : <div className="grid h-full min-h-40 place-items-center text-5xl">🍽️</div>}</div>
               <div className="flex min-w-0 flex-col p-4"><h2 className="text-base font-black leading-tight sm:text-lg">{product.name}</h2>{product.description && <><p className={`mt-2 line-clamp-3 text-sm ${mutedText}`}>{product.description}</p><button type="button" onClick={()=>openProduct(product)} className="mt-1 w-fit text-left text-xs font-bold text-[var(--menu-primary)] underline-offset-2 hover:underline">Ver descrição completa</button></>}<div className="mt-auto flex items-end justify-between gap-2 pt-4"><div>{product.original_price && <span className={`block text-xs line-through ${mutedText}`}>{money(Number(product.original_price))}</span>}<strong className="text-lg text-[var(--menu-primary)]">{money(Number(product.price))}</strong></div>{quantityInCart > 0 ? <div className="flex items-center gap-1 rounded-xl border border-green-700 p-1"><button type="button" aria-label={`Diminuir ${product.name}`} onClick={()=>changeProductQuantity(product.id,-1)} className="grid h-8 w-8 place-items-center rounded-lg"><Minus size={16}/></button><strong>{quantityInCart}</strong><button type="button" aria-label={`Aumentar ${product.name}`} onClick={()=>changeProductQuantity(product.id,1)} className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--menu-primary)] text-white"><Plus size={16}/></button></div> : <button type="button" aria-label={`Adicionar ${product.name}`} onClick={()=>openProduct(product)} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[var(--menu-primary)] text-white shadow"><Plus size={21}/></button>}</div>{quantityInCart > 0 && product.option_groups.length > 0 && <button type="button" onClick={()=>openProduct(product)} className="mt-2 text-left text-xs font-bold text-[var(--menu-accent)]">+ Outra opção</button>}</div>
             </article>})}
             {!products.length && <div className={`rounded-2xl border border-dashed p-10 text-center md:col-span-2 ${surface} ${mutedText}`}>Nenhum produto encontrado nesta seleção.</div>}
@@ -397,11 +403,11 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
           const count = groupSelectionCount(selectedOptions, group.id);
           return <div key={group.id} className="mt-6"><div className="flex items-start justify-between gap-3"><div><strong>{group.name}</strong>{group.description && <p className="text-sm text-gray-500">{group.description}</p>}</div><span className="text-right text-xs text-gray-500">{group.min_selection > 0 ? "Obrigatório" : "Opcional"}<br />{count}/{group.max_selection} escolhido(s){Number(group.free_selection || 0) > 0 && <> • {group.free_selection} grátis</>}</span></div>
             <div className="mt-2 space-y-2">{group.options.map(option => {
-              const optionQuantity = selectedOptions[group.id]?.[option.id] || 0;
+              const quantity = selectedOptions[group.id]?.[option.id] || 0;
               const quantityMode = group.group_type === "quantity" || Number(option.max_quantity || 1) > 1;
-              return <div key={option.id} className={`flex items-center justify-between rounded-xl border p-3 ${optionQuantity > 0 ? "border-green-600 bg-green-50" : ""}`}><div><p className="font-medium">{option.name}</p><span className="text-sm text-gray-600">{Number(option.price_delta) > 0 ? `+ ${money(Number(option.price_delta))} por unidade` : "Sem acréscimo"}</span></div>
-                {quantityMode ? <div className="flex items-center gap-2"><button type="button" onClick={() => setOptionQuantity(group, option, optionQuantity - 1)} className="rounded-full border bg-white p-2"><Minus size={15} /></button><strong className="w-5 text-center">{optionQuantity}</strong><button type="button" onClick={() => setOptionQuantity(group, option, optionQuantity + 1)} disabled={count >= group.max_selection || optionQuantity >= Number(option.max_quantity || 1)} className="rounded-full bg-green-700 p-2 text-white disabled:bg-gray-300"><Plus size={15} /></button></div>
-                  : <input type={group.max_selection === 1 ? "radio" : "checkbox"} name={group.id} checked={optionQuantity > 0} onChange={() => setOptionQuantity(group, option, optionQuantity > 0 ? 0 : 1)} className="h-5 w-5" />}
+              return <div key={option.id} className={`flex items-center justify-between rounded-xl border p-3 ${quantity > 0 ? "border-green-600 bg-green-50" : ""}`}><div><p className="font-medium">{option.name}</p><span className="text-sm text-gray-600">{Number(option.price_delta) > 0 ? `+ ${money(Number(option.price_delta))} por unidade` : "Sem acréscimo"}</span></div>
+                {quantityMode ? <div className="flex items-center gap-2"><button type="button" onClick={() => setOptionQuantity(group, option, quantity - 1)} className="rounded-full border bg-white p-2"><Minus size={15} /></button><strong className="w-5 text-center">{quantity}</strong><button type="button" onClick={() => setOptionQuantity(group, option, quantity + 1)} disabled={count >= group.max_selection || quantity >= Number(option.max_quantity || 1)} className="rounded-full bg-green-700 p-2 text-white disabled:bg-gray-300"><Plus size={15} /></button></div>
+                  : <input type={group.max_selection === 1 ? "radio" : "checkbox"} name={group.id} checked={quantity > 0} onChange={() => setOptionQuantity(group, option, quantity > 0 ? 0 : 1)} className="h-5 w-5" />}
               </div>})}</div>
           </div>})}
         <textarea value={itemNotes} onChange={event => setItemNotes(event.target.value)} placeholder="Observação do item" className="mt-5 w-full rounded-xl border p-3" />
@@ -429,18 +435,19 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, serviceConf
           <h3 className="border-b pb-2 text-lg font-black">1. Entrega ou retirada</h3>
           <div className="grid grid-cols-2 gap-2"><button type="button" disabled={!serviceConfig.delivery_enabled} onClick={() => setServiceType("delivery")} className={`rounded-xl border p-3 font-bold disabled:bg-gray-100 disabled:text-gray-400 ${serviceType === "delivery" ? "bg-green-700 text-white" : ""}`}>Entrega</button><button type="button" disabled={!serviceConfig.pickup_enabled} onClick={() => setServiceType("pickup")} className={`rounded-xl border p-3 font-bold disabled:bg-gray-100 disabled:text-gray-400 ${serviceType === "pickup" ? "bg-green-700 text-white" : ""}`}>Retirada</button></div>
           <h3 className="border-b pb-2 pt-2 text-lg font-black">2. Seu cadastro</h3>
-          {customerLoading ? <p className="rounded-xl bg-gray-50 p-4 text-sm text-gray-600">Verificando seu cadastro...</p> : customer ? <div className="flex items-center gap-3 rounded-2xl border border-green-200 bg-green-50 p-4"><span className="grid h-11 w-11 place-items-center rounded-full bg-green-700 text-white"><CheckCircle2 size={22}/></span><div><strong>{customer.name}</strong><p className="text-sm text-green-800">WhatsApp {customer.phone} · Cadastro reconhecido</p></div></div> : <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4"><div className="flex items-center gap-2 font-black text-orange-900"><UserRound size={20}/> Informe seus dados</div><p className="mt-1 text-sm text-orange-800">Se você já é cliente, digite seu nome como foi cadastrado. Por segurança, confirmaremos o WhatsApp antes de carregar seus dados.</p><div className="mt-3 grid gap-3 sm:grid-cols-2"><input value={registrationName} onChange={event=>{setRegistrationName(event.target.value);setLookupHint("")}} onBlur={checkExistingCustomer} placeholder="Seu nome completo" className="rounded-xl border bg-white p-3"/><input value={registrationPhone} onChange={event=>setRegistrationPhone(event.target.value)} inputMode="tel" placeholder="WhatsApp com DDD" className="rounded-xl border bg-white p-3"/></div>{lookupPending&&<p className="mt-2 text-sm text-orange-800">Procurando seu cadastro...</p>}{lookupHint&&<p className="mt-2 rounded-xl bg-green-50 p-3 text-sm font-semibold text-green-800">{lookupHint}</p>}<button type="button" onClick={registerCustomer} disabled={registrationPending} className="mt-3 w-full rounded-xl bg-orange-500 px-4 py-3 font-black text-white disabled:opacity-60">{registrationPending ? "Confirmando..." : lookupHint ? "Confirmar WhatsApp e continuar" : "Cadastrar e continuar"}</button></div>}
-          {serviceType === "delivery" && <><h3 className="border-b pb-2 pt-2 text-lg font-black">3. Endereço de entrega</h3><div key={customer?.phone || "novo-cliente"} className="grid gap-3 sm:grid-cols-2"><input name="cep" inputMode="numeric" defaultValue={customer?.address?.cep||""} placeholder="CEP" className="rounded-xl border p-3" /><input name="street" required defaultValue={customer?.address?.street||""} placeholder="Rua ou avenida" className="rounded-xl border p-3" /><input name="number" required defaultValue={customer?.address?.number||""} placeholder="Número" className="rounded-xl border p-3" /><input name="complement" defaultValue={customer?.address?.complement||""} placeholder="Complemento (opcional)" className="rounded-xl border p-3" />{deliveryZones.length ? <select name="delivery_zone_id" required value={deliveryZoneId} onChange={event=>setDeliveryZoneId(event.target.value)} className="rounded-xl border p-3"><option value="">Selecione o bairro</option>{deliveryZones.map(zone=><option key={zone.id} value={zone.id}>{zone.name} · {money(Number(zone.delivery_fee))} · {zone.estimated_minutes} min</option>)}</select> : <input name="neighborhood" required defaultValue={customer?.address?.neighborhood||""} placeholder="Bairro" className="rounded-xl border p-3" />}<input name="city" required defaultValue={customer?.address?.city||""} placeholder="Cidade" className="rounded-xl border p-3" /><input name="reference" defaultValue={customer?.address?.reference||""} placeholder="Ponto de referência" className="rounded-xl border p-3 sm:col-span-2" />{customer?.address&&<p className="rounded-xl bg-blue-50 p-3 text-sm text-blue-800 sm:col-span-2">Endereço preenchido pelo cadastro. Você pode alterar somente para este pedido sem mudar seus dados permanentes.</p>}{selectedZone && subtotal < Number(selectedZone.minimum_order) && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800 sm:col-span-2">Pedido mínimo para {selectedZone.name}: {money(Number(selectedZone.minimum_order))}</p>}</div></>}
+          {customerLoading ? <p className="rounded-xl bg-gray-50 p-4 text-sm text-gray-600">Verificando seu cadastro...</p> : customer ? <div className="rounded-2xl border border-green-200 bg-green-50 p-4"><div className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-full bg-green-700 text-white"><CheckCircle2 size={22}/></span><div><strong>{customer.name}</strong><p className="text-sm text-green-800">WhatsApp {customer.phone} · Cadastro reconhecido</p></div></div>{!customer.email && onlinePixAvailable && <div className="mt-3"><p className="text-sm text-green-900">Informe seu e-mail para pagar via PIX online.</p><div className="mt-2 flex gap-2"><input value={registrationEmail} onChange={event=>setRegistrationEmail(event.target.value)} inputMode="email" placeholder="Seu e-mail" className="min-w-0 flex-1 rounded-xl border bg-white p-3"/><button type="button" onClick={saveCustomerEmail} disabled={registrationPending} className="rounded-xl bg-green-700 px-4 font-bold text-white disabled:opacity-60">Salvar</button></div></div>}</div> : <div className="rounded-2xl border border-orange-200 bg-orange-50 p-4"><div className="flex items-center gap-2 font-black text-orange-900"><UserRound size={20}/> Cadastre-se antes de pedir</div><p className="mt-1 text-sm text-orange-800">Seus dados ficarão reconhecidos neste aparelho para acompanhar seus pedidos.</p><div className="mt-3 grid gap-3 sm:grid-cols-2"><input value={registrationName} onChange={event=>setRegistrationName(event.target.value)} placeholder="Seu nome completo" className="rounded-xl border bg-white p-3"/><input value={registrationPhone} onChange={event=>setRegistrationPhone(event.target.value)} inputMode="tel" placeholder="WhatsApp com DDD" className="rounded-xl border bg-white p-3"/><input value={registrationEmail} onChange={event=>setRegistrationEmail(event.target.value)} inputMode="email" placeholder="Seu e-mail" className="rounded-xl border bg-white p-3 sm:col-span-2"/></div><button type="button" onClick={registerCustomer} disabled={registrationPending} className="mt-3 w-full rounded-xl bg-orange-500 px-4 py-3 font-black text-white disabled:opacity-60">{registrationPending ? "Cadastrando..." : "Cadastrar e continuar"}</button></div>}
+          {serviceType === "delivery" && <><h3 className="border-b pb-2 pt-2 text-lg font-black">3. Endereço de entrega</h3><div className="grid gap-3 sm:grid-cols-2"><input name="cep" inputMode="numeric" placeholder="CEP" className="rounded-xl border p-3" /><input name="street" required placeholder="Rua ou avenida" className="rounded-xl border p-3" /><input name="number" required placeholder="Número" className="rounded-xl border p-3" /><input name="complement" placeholder="Complemento (opcional)" className="rounded-xl border p-3" />{deliveryZones.length ? <select name="delivery_zone_id" required value={deliveryZoneId} onChange={event=>setDeliveryZoneId(event.target.value)} className="rounded-xl border p-3"><option value="">Selecione o bairro</option>{deliveryZones.map(zone=><option key={zone.id} value={zone.id}>{zone.name} · {money(Number(zone.delivery_fee))} · {zone.estimated_minutes} min</option>)}</select> : <input name="neighborhood" required placeholder="Bairro" className="rounded-xl border p-3" />}<input name="city" required placeholder="Cidade" className="rounded-xl border p-3" /><input name="reference" placeholder="Ponto de referência" className="rounded-xl border p-3 sm:col-span-2" />{selectedZone && subtotal < Number(selectedZone.minimum_order) && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800 sm:col-span-2">Pedido mínimo para {selectedZone.name}: {money(Number(selectedZone.minimum_order))}</p>}</div></>}
           <h3 className="border-b pb-2 pt-2 text-lg font-black">{serviceType === "delivery" ? "4" : "3"}. Pagamento</h3>
-          <label className="text-sm font-bold text-gray-700">Como deseja pagar?<select name="payment_method" className="mt-1 w-full rounded-xl border p-3 font-normal"><option value="pix">PIX</option><option value="cash">Dinheiro na entrega/retirada</option><option value="card_on_delivery">Cartão na entrega/retirada</option></select></label>
-          <textarea name="notes" placeholder="Observação geral" className="w-full rounded-xl border p-3" /><label className="flex gap-2 text-sm"><input type="checkbox" name="marketing_consent" /> Quero receber promoções da loja.</label><label className="flex gap-2 text-sm"><input type="checkbox" required /> Confirmo os dados do pedido e aceito os <a href="/termos" target="_blank" className="font-semibold text-green-700 underline">termos de uso</a>.</label>
+          <label className="text-sm font-bold text-gray-700">Como deseja pagar?<select name="payment_method" className="mt-1 w-full rounded-xl border p-3 font-normal">{onlinePixAvailable && <option value="online_pix">PIX online</option>}<option value="pix">PIX combinado com a loja</option><option value="cash">Dinheiro na entrega/retirada</option><option value="card_on_delivery">Cartão na entrega/retirada</option></select></label>
+          <textarea name="notes" placeholder="Observação geral" className="w-full rounded-xl border p-3" /><label className="flex gap-2 text-sm"><input type="checkbox" name="marketing_consent" /> Quero receber promoções da loja.</label><label className="flex gap-2 text-sm"><input type="checkbox" required /> Confirmo os dados do pedido e aceito os <Link href="/termos" target="_blank" className="font-semibold text-green-700 underline">termos de uso</Link>.</label>
           <div className="rounded-2xl bg-gray-50 p-4"><div className="flex justify-between"><span>Subtotal</span><strong>{money(subtotal)}</strong></div>{promotionSavings > 0 && <div className="mt-1 flex justify-between text-green-700"><span>Economia nas promoções</span><strong>- {money(promotionSavings)}</strong></div>}{couponDiscount > 0 && <div className="mt-1 flex justify-between text-green-700"><span>Desconto do cupom</span><strong>- {money(couponDiscount)}</strong></div>}<div className="mt-1 flex justify-between"><span>Entrega</span><strong>{money(deliveryFee)}</strong></div><div className="mt-3 flex justify-between border-t pt-3 text-lg"><span>Total estimado</span><strong>{money(Math.max(0, subtotal - couponDiscount + deliveryFee))}</strong></div>{promotionSavings + couponDiscount > 0 && <p className="mt-3 rounded-xl bg-green-100 p-2 text-center text-sm font-black text-green-800">Você está economizando {money(promotionSavings + couponDiscount)} neste pedido.</p>}</div>
           {!menu.company.is_open && <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-800">A loja está fechada no momento. Você pode montar e revisar o carrinho, mas o envio será liberado quando ela abrir.</p>}
-          {error && <p className="rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}<button disabled={pending || customerLoading || !customer || !menu.company.is_open || cart.length === 0} className="w-full rounded-xl bg-green-700 py-4 font-black text-white disabled:bg-gray-300 disabled:text-gray-600">{pending ? "Enviando pedido..." : !customer ? "Confirme seus dados para continuar" : menu.company.is_open ? `Confirmar pedido • ${money(Math.max(0, subtotal - couponDiscount + deliveryFee))}` : "Loja fechada"}</button>
+          {error && <p className="rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}<button disabled={pending || customerLoading || !customer || !menu.company.is_open || cart.length === 0} className="w-full rounded-xl bg-green-700 py-4 font-black text-white disabled:bg-gray-300 disabled:text-gray-600">{pending ? "Enviando pedido..." : !customer ? "Cadastre-se para confirmar" : menu.company.is_open ? `Confirmar pedido • ${money(Math.max(0, subtotal - couponDiscount + deliveryFee))}` : "Loja fechada"}</button>
         </form></section></div>}
-      {activeOrder && <div className="fixed inset-0 z-[80] grid place-items-center overflow-y-auto bg-slate-950/75 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="active-order-title"><section className="w-full max-w-lg rounded-3xl bg-white p-6 text-center shadow-2xl sm:p-8"><div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-green-100 text-green-700"><Clock3 size={32}/></div><p className="mt-4 text-sm font-bold uppercase tracking-[.18em] text-green-700">Pedido em acompanhamento</p><h1 id="active-order-title" className="mt-1 text-3xl font-black text-gray-950">Pedido #{activeOrder.order_number}</h1><p className="mt-3 text-3xl font-black text-green-700">{money(Number(activeOrder.total))}</p><div className="mt-5 grid grid-cols-2 gap-3 text-left"><div className="rounded-2xl bg-slate-50 p-4"><p className="text-xs font-bold uppercase text-slate-500">Situação</p><p className="mt-1 font-black text-slate-900">{{new:"Recebido",accepted:"Confirmado",preparing:"Em preparação",ready:"Pronto",out_for_delivery:"Saiu para entrega",delivered:"Entregue",canceled:"Cancelado"}[activeOrder.status] || activeOrder.status}</p></div><div className="rounded-2xl bg-orange-50 p-4"><p className="text-xs font-bold uppercase text-orange-700">Previsão</p><p className="mt-1 font-black text-orange-950">{activeOrder.estimated_preparation_minutes || serviceConfig.average_delivery_minutes} min</p>{activeOrder.estimated_ready_at && <p className="text-xs text-orange-800">aprox. {new Intl.DateTimeFormat("pt-BR",{hour:"2-digit",minute:"2-digit"}).format(new Date(activeOrder.estimated_ready_at))}</p>}</div></div><p className="mt-4 text-sm text-slate-600">O andamento atualiza automaticamente. Esta tela só será dispensada quando você fechar o pedido.</p><button type="button" onClick={closeOrder} disabled={closingOrder} className="mt-5 w-full rounded-xl bg-green-700 px-5 py-3 font-black text-white disabled:opacity-60">{closingOrder ? "Fechando..." : "Fechar pedido"}</button>{error && <p className="mt-3 rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}</section></div>}
+      {pixInfo && <div className="fixed inset-0 z-[90] grid place-items-center overflow-y-auto bg-slate-950/75 p-4 backdrop-blur-sm" role="dialog" aria-modal="true"><section className="w-full max-w-md rounded-3xl bg-white p-6 text-center shadow-2xl"><h2 className="text-2xl font-black">Pague com PIX</h2><p className="mt-2 text-sm text-slate-600">Após a confirmação, seu pedido será liberado automaticamente.</p>{pixInfo.qrCodeBase64 && <img className="mx-auto mt-5 h-56 w-56" src={`data:image/png;base64,${pixInfo.qrCodeBase64}`} alt="QR Code PIX"/>}{pixInfo.qrCode && <><textarea readOnly value={pixInfo.qrCode} className="mt-5 h-20 w-full rounded-xl border p-2 text-xs"/><button type="button" onClick={()=>navigator.clipboard.writeText(pixInfo.qrCode || "")} className="mt-2 rounded-xl border px-4 py-2 font-bold">Copiar código PIX</button></>}{pixInfo.ticketUrl && <a href={pixInfo.ticketUrl} target="_blank" rel="noreferrer" className="mt-3 block font-bold text-green-700 underline">Abrir pagamento</a>}<button type="button" onClick={()=>setPixInfo(null)} className="mt-5 w-full rounded-xl bg-green-700 px-5 py-3 font-black text-white">Acompanhar pedido</button></section></div>}
+      {activeOrder && <div className="fixed inset-0 z-[80] grid place-items-center overflow-y-auto bg-slate-950/75 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="active-order-title"><section className="w-full max-w-lg rounded-3xl bg-white p-6 text-center shadow-2xl sm:p-8"><div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-green-100 text-green-700"><Clock3 size={32}/></div><p className="mt-4 text-sm font-bold uppercase tracking-[.18em] text-green-700">Pedido em acompanhamento</p><h1 id="active-order-title" className="mt-1 text-3xl font-black text-gray-950">Pedido #{activeOrder.order_number}</h1><p className="mt-3 text-3xl font-black text-green-700">{money(Number(activeOrder.total))}</p><div className="mt-5 grid grid-cols-2 gap-3 text-left"><div className="rounded-2xl bg-slate-50 p-4"><p className="text-xs font-bold uppercase text-slate-500">Situação</p><p className="mt-1 font-black text-slate-900">{{awaiting_payment:"Aguardando pagamento",new:"Recebido",accepted:"Confirmado",preparing:"Em preparação",ready:"Pronto",out_for_delivery:"Saiu para entrega",delivered:"Entregue",canceled:"Cancelado"}[activeOrder.status] || activeOrder.status}</p></div><div className="rounded-2xl bg-orange-50 p-4"><p className="text-xs font-bold uppercase text-orange-700">Previsão</p><p className="mt-1 font-black text-orange-950">{activeOrder.estimated_preparation_minutes || serviceConfig.average_delivery_minutes} min</p>{activeOrder.estimated_ready_at && <p className="text-xs text-orange-800">aprox. {new Intl.DateTimeFormat("pt-BR",{hour:"2-digit",minute:"2-digit"}).format(new Date(activeOrder.estimated_ready_at))}</p>}</div></div><p className="mt-4 text-sm text-slate-600">O andamento atualiza automaticamente. Esta tela só será dispensada quando você fechar o pedido.</p><button type="button" onClick={closeOrder} disabled={closingOrder} className="mt-5 w-full rounded-xl bg-green-700 px-5 py-3 font-black text-white disabled:opacity-60">{closingOrder ? "Fechando..." : "Fechar pedido"}</button>{error && <p className="mt-3 rounded-xl bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}</section></div>}
       <PublicFeedback slug={menu.company.slug} companyName={menu.company.name}/>
-      <footer className="mx-auto max-w-6xl px-5 pb-6 text-center text-xs text-gray-500"><a href="/termos" className="underline">Termos de uso</a> · <a href="/privacidade" className="underline">Privacidade</a> · Cardápio por MercadoFood</footer>
+      <footer className="mx-auto max-w-6xl px-5 pb-6 text-center text-xs text-gray-500"><Link href="/termos" className="underline">Termos de uso</Link> · <Link href="/privacidade" className="underline">Privacidade</Link> · Cardápio por MercadoFood</footer>
     </main>
   );
 }
