@@ -204,3 +204,66 @@ export async function createPublicMercadoPagoPix(input: { slug: string; orderId:
     return { ok: false as const, error: "Não foi possível gerar o PIX. Tente novamente." };
   }
 }
+
+/**
+ * Recebe exclusivamente o token de uso único gerado pelo Card Payment Brick.
+ * Número do cartão, validade e CVV não passam pelo MercadoFood.
+ */
+export async function createPublicMercadoPagoCard(input: {
+  slug: string; orderId: string; token: string; paymentMethodId: string;
+  paymentType: "credit_card" | "debit_card"; installments: number;
+}) {
+  const parsed = z.object({
+    slug: z.string().trim().min(1).max(120), orderId: z.string().uuid(),
+    token: z.string().trim().min(8).max(500), paymentMethodId: z.string().trim().min(1).max(80),
+    paymentType: z.enum(["credit_card", "debit_card"]), installments: z.number().int().min(1).max(24),
+  }).safeParse(input);
+  if (!parsed.success) return { ok: false as const, error: "Dados de cartão inválidos. Tente novamente." };
+  const session = await resolveCustomerSession(parsed.data.slug);
+  if (!session) return { ok: false as const, error: "Sua sessão expirou." };
+  if (!session.email) return { ok: false as const, error: "Informe seu e-mail para pagar com cartão." };
+
+  const admin = createAdminClient();
+  const { data: order } = await admin.from("orders").select("id,company_id,customer_id,public_code,total,status")
+    .eq("id", parsed.data.orderId).eq("company_id", session.companyId).eq("customer_id", session.customerId).maybeSingle();
+  if (!order || order.status === "canceled") return { ok: false as const, error: "Pedido não encontrado." };
+  const { data: integration } = await admin.from("company_mercado_pago_integrations")
+    .select("company_id,access_token_encrypted,refresh_token_encrypted,access_token_expires_at,status,card_enabled")
+    .eq("company_id", session.companyId).maybeSingle();
+  if (!integration?.card_enabled || integration.status !== "connected" || !integration.access_token_encrypted) return { ok: false as const, error: "Cartão online não está disponível para esta loja." };
+
+  const idempotencyKey = crypto.randomUUID();
+  const externalReference = `mf_${String(order.public_code || order.id).replace(/[^A-Za-z0-9_-]/g, "").slice(0, 40)}_${idempotencyKey.slice(0, 8)}`;
+  const { data: attempt, error: attemptError } = await admin.from("mercado_pago_payment_attempts").insert({
+    company_id: session.companyId, internal_order_id: order.id, external_reference: externalReference, payment_type: "card",
+    transaction_amount: Number(order.total), installments: parsed.data.installments, payment_method_id: parsed.data.paymentMethodId,
+    idempotency_key: idempotencyKey, order_status: "pending",
+  }).select("id").single();
+  if (attemptError || !attempt) return { ok: false as const, error: "Não foi possível iniciar o pagamento." };
+
+  try {
+    await admin.from("orders").update({ status: "awaiting_payment", payment_method: "online_card", payment_status: "pending", updated_at: new Date().toISOString() })
+      .eq("id", order.id).eq("company_id", session.companyId).eq("customer_id", session.customerId);
+    const mpOrder = await mercadoPagoOrder(await accessTokenForIntegration(integration), "/v1/orders", {
+      method: "POST", headers: { "X-Idempotency-Key": idempotencyKey }, body: JSON.stringify({
+        type: "online", total_amount: Number(order.total).toFixed(2), external_reference: externalReference, processing_mode: "automatic",
+        transactions: { payments: [{ amount: Number(order.total).toFixed(2), payment_method: {
+          id: parsed.data.paymentMethodId, type: parsed.data.paymentType, token: parsed.data.token, installments: parsed.data.installments,
+        } }] }, payer: { email: session.email },
+      }),
+    });
+    const payment = Array.isArray(mpOrder?.transactions?.payments) ? mpOrder.transactions.payments[0] : null;
+    if (!mpOrder?.id || !payment?.id) throw new Error("Resposta Mercado Pago sem identificadores da cobrança.");
+    await admin.from("mercado_pago_payment_attempts").update({
+      mp_order_id: String(mpOrder.id), mp_transaction_id: String(payment.id), order_status: mpOrder.status || "pending", order_status_detail: mpOrder.status_detail || null,
+      transaction_status: payment.status || null, transaction_status_detail: payment.status_detail || null, payment_method_id: payment.payment_method?.id || parsed.data.paymentMethodId,
+      updated_at: new Date().toISOString(),
+    }).eq("id", attempt.id);
+    const approved = mpOrder.status === "processed" && ["approved", "processed"].includes(payment.status);
+    if (approved) await admin.rpc("finalize_mercado_pago_attempt", { p_attempt_id: attempt.id });
+    return { ok: true as const, status: approved ? "approved" : (mpOrder.status || "pending") };
+  } catch (error) {
+    await admin.from("mercado_pago_payment_attempts").update({ order_status: "failed", order_status_detail: error instanceof Error ? error.message.slice(0, 200) : "create_failed", updated_at: new Date().toISOString() }).eq("id", attempt.id);
+    return { ok: false as const, error: "Não foi possível processar o cartão. Verifique os dados e tente novamente." };
+  }
+}
