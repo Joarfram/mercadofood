@@ -9,7 +9,8 @@ export async function GET(request: Request) {
   const admin = createAdminClient(), stateHash = createHash('sha256').update(state).digest('hex');
   const { data: row } = await admin.from('mercado_pago_oauth_states').update({ used_at: new Date().toISOString() }).eq('state_hash', stateHash).is('used_at', null).gt('expires_at', new Date().toISOString()).select('company_id,code_verifier_encrypted').maybeSingle();
   if (!row) return NextResponse.redirect(new URL('/configuracoes/pagamentos?erro=oauth_expirado', url));
-  const response = await fetch('https://api.mercadopago.com/oauth/token', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ client_id:process.env.MERCADO_PAGO_CLIENT_ID, client_secret:process.env.MERCADO_PAGO_CLIENT_SECRET, grant_type:'authorization_code', code, redirect_uri:process.env.MERCADO_PAGO_OAUTH_REDIRECT_URI, code_verifier:decryptMercadoPagoToken(row.code_verifier_encrypted) }) });
+  // The OAuth service expects form-encoded fields, including grant_type.
+  const response = await fetch('https://api.mercadopago.com/oauth/token', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:new URLSearchParams({ client_id:process.env.MERCADO_PAGO_CLIENT_ID || '', client_secret:process.env.MERCADO_PAGO_CLIENT_SECRET || '', grant_type:'authorization_code', code, redirect_uri:process.env.MERCADO_PAGO_OAUTH_REDIRECT_URI || '', code_verifier:decryptMercadoPagoToken(row.code_verifier_encrypted) }).toString() });
   const token = await response.json().catch(() => ({}));
   if (!response.ok || !token.access_token) {
     // Log only Mercado Pago's public error classification; credentials and tokens stay secret.
