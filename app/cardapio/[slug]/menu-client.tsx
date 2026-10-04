@@ -257,7 +257,10 @@ export default function MenuClient({ menu, deliveryZones, hasCombos, onlinePixAv
       delivery_zone_id: serviceType === 'delivery' ? deliveryZoneId : null,
       // A RPC existente conhece PIX; a intenção online é guardada no servidor
       // imediatamente após a criação, sem permitir que o navegador a escolha para outra loja.
-      payment_method: requestedPaymentMethod === "online_pix" ? "pix" : requestedPaymentMethod === "online_card" ? "pix" : requestedPaymentMethod,
+      // A RPC pública legada ainda não reconhece "online_card". Usamos PIX apenas
+      // durante a criação atômica (que não imprime/baixa estoque) e a action de
+      // cartão troca imediatamente para online_card, antes da cobrança.
+      payment_method: requestedPaymentMethod === "online_pix" || requestedPaymentMethod === "online_card" ? "pix" : requestedPaymentMethod,
       coupon_code: validCouponPreview?.code || "",
       notes: String(formData.get("notes") || ""),
       marketing_consent: formData.get("marketing_consent") === "on",
