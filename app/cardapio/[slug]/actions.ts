@@ -247,8 +247,8 @@ export async function createPublicMercadoPagoCard(input: {
     const mpOrder = await mercadoPagoOrder(await accessTokenForIntegration(integration), "/v1/orders", {
       method: "POST", headers: { "X-Idempotency-Key": idempotencyKey }, body: JSON.stringify({
         type: "online", total_amount: Number(order.total).toFixed(2), external_reference: externalReference, processing_mode: "automatic",
-        transactions: { payments: [{ amount: Number(order.total).toFixed(2), payment_method: {
-          id: parsed.data.paymentMethodId, type: parsed.data.paymentType, token: parsed.data.token, installments: parsed.data.installments,
+        transactions: { payments: [{ amount: Number(order.total).toFixed(2), installments: parsed.data.installments, payment_method: {
+          id: parsed.data.paymentMethodId, type: parsed.data.paymentType, token: parsed.data.token,
         } }] }, payer: { email: session.email },
       }),
     });

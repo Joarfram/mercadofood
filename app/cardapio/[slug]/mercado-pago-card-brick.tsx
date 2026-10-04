@@ -40,7 +40,7 @@ export function MercadoPagoCardBrick({ amount, publicKey, onSubmit }: Props) {
             onReady: () => !cancelled && setReady(true),
             onError: () => !cancelled && setError("Não foi possível carregar o pagamento por cartão."),
             onSubmit: (formData: any, additionalData: any) => new Promise<void>((resolve, reject) => {
-              submitRef.current({ token: String(formData.token || ""), paymentMethodId: String(formData.payment_method_id || ""), paymentType: additionalData?.paymentTypeId === "debit_card" ? "debit_card" : "credit_card", installments: Number(formData.installments || 1) })
+              submitRef.current({ token: String(formData.token || ""), paymentMethodId: String(formData.payment_method_id || ""), paymentType: (formData.payment_type_id === "debit_card" || additionalData?.paymentTypeId === "debit_card") ? "debit_card" : "credit_card", installments: Number(formData.installments || 1) })
                 .then(result => result.ok ? resolve() : reject(new Error(result.error || "Pagamento recusado.")))
                 .catch(reject);
             }),
