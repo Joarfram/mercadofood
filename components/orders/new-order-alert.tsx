@@ -23,17 +23,40 @@ export function NewOrderAlert({ companyId, sector, reloadOnOrder = false }: { co
   }, [storageKey]);
 
   const playAlert = useCallback(async (repetitions = 1) => {
-    for (let index = 0; index < repetitions; index += 1) {
-      const audio = new Audio(ALERT_SOUND);
-      audio.volume = 1;
+    const total = Math.max(1, repetitions);
+    const audio = new Audio(ALERT_SOUND);
+    audio.preload = "auto";
+    audio.volume = 1;
+
+    await new Promise<void>((resolve, reject) => {
+      let played = 0;
+
+      const cleanup = () => {
+        audio.removeEventListener("ended", handleEnded);
+        audio.removeEventListener("error", handleError);
+      };
+
+      const handleError = () => {
+        cleanup();
+        reject(new Error("Falha ao reproduzir alerta"));
+      };
+
+      const handleEnded = () => {
+        played += 1;
+        if (played >= total) {
+          cleanup();
+          resolve();
+          return;
+        }
+        audio.currentTime = 0;
+        void audio.play().catch(handleError);
+      };
+
+      audio.addEventListener("ended", handleEnded);
+      audio.addEventListener("error", handleError, { once: true });
       audio.currentTime = 0;
-      await new Promise<void>((resolve, reject) => {
-        const finish = () => resolve();
-        audio.addEventListener("ended", finish, { once: true });
-        audio.addEventListener("error", () => reject(new Error("Falha ao reproduzir alerta")), { once: true });
-        audio.play().catch(reject);
-      });
-    }
+      void audio.play().catch(handleError);
+    });
   }, []);
 
   async function toggleSound() {
@@ -42,7 +65,7 @@ export function NewOrderAlert({ companyId, sector, reloadOnOrder = false }: { co
     window.localStorage.setItem(storageKey, next ? "on" : "off");
     if (next) {
       try {
-        await playAlert();
+        await playAlert(2);
         setUnlocked(true);
         setNotice(`Som da ${labels[sector]} ativado`);
       } catch {
@@ -66,7 +89,7 @@ export function NewOrderAlert({ companyId, sector, reloadOnOrder = false }: { co
         if (enabled) {
           try { await playAlert(2); setUnlocked(true); } catch { setUnlocked(false); }
         }
-        if (reloadOnOrder) window.setTimeout(() => window.location.reload(), 9500);
+        if (reloadOnOrder) window.setTimeout(() => window.location.reload(), 500);
         else router.refresh();
       })
       .subscribe();
