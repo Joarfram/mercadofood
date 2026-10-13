@@ -1,201 +1,24 @@
 import Image from "next/image";
-import { Bell, Bike, Check, ClipboardList, Clock3, CreditCard, Home, MenuSquare, PackageCheck, ShoppingBag, Truck } from "lucide-react";
+import { Bell, Check, ChefHat, ClipboardList, MenuSquare, PackageCheck, Truck } from "lucide-react";
 
 export function HeroDevicePreview() {
-  return (
-    <div className="relative mx-auto w-full max-w-[790px] pb-24 pt-3 lg:max-w-none xl:pb-16">
-      <div className="absolute -right-16 -top-8 h-64 w-64 rounded-full bg-amber-300/20 blur-3xl" />
-      <div className="absolute left-10 top-20 h-56 w-56 rounded-full bg-emerald-300/15 blur-3xl" />
-
-      <div className="relative z-10">
-        <div className="relative rounded-[1.8rem] border-[10px] border-[#171d1b] bg-[#171d1b] p-1.5 shadow-[0_28px_60px_rgba(8,48,35,.22)] sm:rounded-[2.2rem] sm:border-[13px]">
-          <div className="overflow-hidden rounded-[1.1rem] bg-[#f4f7f4] sm:rounded-[1.35rem]">
-            <div className="grid min-h-[390px] grid-cols-[76px_1fr] sm:grid-cols-[158px_1fr]">
-              <aside className="bg-[#073b2d] px-3 py-5 text-white sm:px-4 sm:py-6">
-                <div className="flex items-center gap-2">
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#b7ef52] text-[#073b2d]">
-                    <ShoppingBag size={19} strokeWidth={2.5} />
-                  </span>
-                  <strong className="hidden text-[13px] tracking-tight sm:block">MercadoFood</strong>
-                </div>
-
-                <div className="mt-7 grid gap-1.5 text-[10px] font-bold text-emerald-50/85 sm:text-[11px]">
-                  <MenuItem icon={Home} label="Início" active />
-                  <MenuItem icon={ClipboardList} label="Pedidos" />
-                  <MenuItem icon={MenuSquare} label="Cardápio" />
-                  <MenuItem icon={Bike} label="Entrega" />
-                  <MenuItem icon={CreditCard} label="Pagamentos" />
-                </div>
-              </aside>
-
-              <div className="min-w-0 bg-[#f6f8f5] p-4 sm:p-6">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[9px] font-black uppercase tracking-[.12em] text-emerald-700 sm:text-[10px]">Visão geral</p>
-                    <h2 className="mt-1 text-xl font-black tracking-tight text-slate-950 sm:text-[26px]">Olá, Chef!</h2>
-                    <p className="mt-1 hidden text-xs text-slate-500 sm:block">Aqui está o resumo da sua operação hoje.</p>
-                  </div>
-                  <span className="rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-[8px] font-bold text-slate-500 shadow-sm sm:px-3 sm:text-[10px]">
-                    Hoje, 24 de abr.
-                  </span>
-                </div>
-
-                <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                  <Metric label="Pedidos" value="28" icon={ClipboardList} />
-                  <Metric label="Em preparo" value="6" icon={Clock3} amber />
-                  <Metric label="Em entrega" value="5" icon={Truck} />
-                  <Metric label="Vendas do dia" value="R$ 1.248,90" icon={CreditCard} />
-                </div>
-
-                <div className="mt-4 grid gap-3 lg:grid-cols-[1.25fr_.75fr]">
-                  <div className="rounded-2xl bg-white p-3.5 shadow-sm ring-1 ring-slate-100">
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <p className="text-[13px] font-black text-slate-950">Pedidos recentes</p>
-                        <p className="text-[9px] text-slate-500">Acompanhe os pedidos da loja</p>
-                      </div>
-                      <span className="text-[9px] font-bold text-emerald-700">Ver todos</span>
-                    </div>
-                    <div className="mt-3 space-y-2">
-                      <Order number="#1048" name="Burger Clássico" status="Em preparo" tone="amber" />
-                      <Order number="#1047" name="Pizza Margherita" status="Em entrega" tone="green" />
-                      <Order number="#1046" name="Combo Família" status="Recebido" tone="slate" />
-                      <Order number="#1045" name="Salada Caesar" status="Em preparo" tone="amber" />
-                    </div>
-                  </div>
-
-                  <div className="hidden rounded-2xl bg-white p-3.5 shadow-sm ring-1 ring-slate-100 lg:block">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[12px] font-black text-slate-950">Status da cozinha</p>
-                      <span className="text-[8px] font-bold text-emerald-700">Ver todos</span>
-                    </div>
-                    <div className="mt-4 space-y-3">
-                      <Status icon={Clock3} number="2" text="Em preparo" amber />
-                      <Status icon={ClipboardList} number="3" text="Aguardando" />
-                      <Status icon={PackageCheck} number="1" text="Pronto para retirada" green />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="mx-auto h-4 w-[88%] rounded-b-[70%] bg-gradient-to-b from-[#b8bbb9] to-[#777c79] shadow-[0_12px_18px_rgba(0,0,0,.12)]" />
-        <div className="mx-auto -mt-4 h-4 w-[28%] rounded-b-xl bg-[#8d918f]" />
-      </div>
-
-      <div className="absolute bottom-0 right-0 z-30 hidden sm:block xl:right-1">
-        <MobileOrderPreview />
-      </div>
-
-      <div className="absolute bottom-1 right-[132px] z-40 hidden w-[118px] sm:block md:w-[138px] xl:right-[148px] xl:w-[150px]">
-        <Image
-          src="/mercadinho-mascote.png"
-          alt="Mascote MercadoFood"
-          width={400}
-          height={600}
-          className="h-auto w-full object-contain drop-shadow-[0_16px_16px_rgba(5,45,32,.24)]"
-          priority
-        />
-      </div>
+  return <div className="relative mx-auto w-full max-w-[760px] pt-3 lg:h-[620px] lg:max-w-none">
+    <div className="absolute right-5 top-2 h-56 w-56 rounded-full bg-amber-300/25 blur-3xl" />
+    <div className="absolute left-8 top-24 h-44 w-44 rounded-full bg-emerald-300/20 blur-3xl" />
+    <div className="relative z-10 overflow-hidden rounded-[2rem] border-[9px] border-[#101613] bg-[#101613] p-1.5 shadow-[0_32px_55px_-24px_rgba(6,43,33,.62)] sm:border-[11px] lg:absolute lg:left-8 lg:top-7 lg:w-[calc(100%-72px)]">
+      <div className="overflow-hidden rounded-[1.25rem] bg-[#f3f6f4]"><div className="grid min-h-[350px] grid-cols-[62px_1fr] sm:min-h-[418px] sm:grid-cols-[158px_1fr]">
+        <aside className="bg-[#063a2c] p-3 text-white sm:p-5"><div className="flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-lg bg-lime-300 text-[#063a2c]"><MenuSquare size={18} /></span><strong className="hidden text-sm sm:block">MercadoFood</strong></div><div className="mt-8 grid gap-2 text-[10px] font-bold text-emerald-50/80 sm:text-xs"><span className="rounded-lg bg-white/15 p-2 sm:px-3">Início</span><span className="p-2 sm:px-3">Pedidos</span><span className="p-2 sm:px-3">Cardápio</span><span className="p-2 sm:px-3">Entrega</span><span className="p-2 sm:px-3">Pagamentos</span><span className="hidden p-2 sm:block sm:px-3">Relatórios</span></div></aside>
+        <div className="min-w-0 p-4 sm:p-6"><div className="flex items-start justify-between gap-2"><div><p className="text-[9px] font-bold uppercase tracking-[.14em] text-emerald-700 sm:text-xs">Resumo da operação</p><h2 className="mt-1 text-xl font-black text-slate-900 sm:text-[28px]">Olá, Chef!</h2><p className="hidden text-xs text-slate-500 sm:block">Aqui está o resumo da sua operação hoje.</p></div><span className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[8px] font-bold text-slate-500 sm:px-3 sm:text-xs">Hoje, 24 de abr.</span></div><div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3"><Metric label="Pedidos" value="28" /><Metric label="Em preparo" value="6" amber /><Metric label="Em entrega" value="5" green /><Metric label="Vendas do dia" value="R$ 1.248" /></div><div className="mt-4 grid gap-3 lg:grid-cols-[1.18fr_.82fr]"><div className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-100"><div className="flex justify-between gap-2"><div><p className="text-sm font-black text-slate-900">Pedidos recentes</p><p className="text-[10px] text-slate-500">Acompanhe seus pedidos</p></div><span className="text-[10px] font-bold text-emerald-700">Ver todos</span></div><div className="mt-3 space-y-2"><Order number="#1048" name="Burger Clássico" status="Em preparo" /><Order number="#1047" name="Pizza Margherita" status="Em entrega" /><Order number="#1046" name="Combo Família" status="Recebido" /></div></div><div className="hidden rounded-xl bg-white p-3 shadow-sm ring-1 ring-slate-100 lg:block"><div className="flex justify-between"><p className="text-sm font-black text-slate-900">Status da cozinha</p><ChefHat size={17} className="text-amber-500" /></div><div className="mt-4 space-y-3 text-[10px]"><Status icon={<ChefHat size={15} />} count="2" label="Em preparo" color="amber" /><Status icon={<ClipboardList size={15} />} count="3" label="Aguardando" color="slate" /><Status icon={<PackageCheck size={15} />} count="1" label="Pronto para retirada" color="emerald" /></div></div></div></div>
+      </div></div>
+      <div className="absolute bottom-[-19px] left-[-7%] h-5 w-[114%] rounded-b-[50%] bg-gradient-to-b from-[#222a26] to-[#080c0a] shadow-[0_12px_18px_rgba(0,0,0,.32)]" />
     </div>
-  );
+    <div className="relative z-30 mx-auto mt-[-42px] flex w-[300px] items-end justify-end lg:absolute lg:bottom-5 lg:right-3 lg:mt-0 lg:block lg:w-[190px]"><div className="w-[168px] sm:w-[190px]"><MobileOrderPreview /></div><div className="absolute bottom-1 left-0 z-20 w-[108px] sm:w-[122px] lg:bottom-2 lg:left-[-145px] lg:w-[148px]"><Image src="/mercadinho-mascote.png" alt="Mascote Mercadinho" width={400} height={600} className="h-auto w-full drop-shadow-[0_18px_16px_rgba(6,43,33,.22)]" priority /></div></div>
+  </div>;
 }
 
-function MenuItem({ icon: Icon, label, active = false }: { icon: typeof Home; label: string; active?: boolean }) {
-  return (
-    <span className={`flex items-center gap-2 rounded-lg px-2 py-2 ${active ? "bg-white/14 text-white" : ""}`}>
-      <Icon size={13} />
-      <span className="hidden sm:inline">{label}</span>
-    </span>
-  );
-}
+function Metric({ label, value, amber = false, green = false }: { label: string; value: string; amber?: boolean; green?: boolean }) { return <div className="rounded-xl bg-white p-2.5 shadow-sm ring-1 ring-slate-100 sm:p-3"><p className="text-[8px] font-bold uppercase tracking-wide text-slate-500 sm:text-[10px]">{label}</p><p className={amber ? "mt-1 text-xs font-black text-amber-600 sm:text-lg" : green ? "mt-1 text-xs font-black text-emerald-600 sm:text-lg" : "mt-1 text-xs font-black text-slate-900 sm:text-lg"}>{value}</p></div>; }
+function Order({ number, name, status }: { number: string; name: string; status: string }) { return <div className="flex items-center justify-between gap-2 text-[9px] sm:text-[10px]"><span className="min-w-0 truncate font-bold text-slate-700">{number} <span className="font-medium text-slate-500">{name}</span></span><span className="shrink-0 rounded-full bg-emerald-100 px-2 py-1 font-bold text-emerald-800">{status}</span></div>; }
+function Status({ icon, count, label, color }: { icon: React.ReactNode; count: string; label: string; color: "amber" | "slate" | "emerald" }) { const tone = color === "amber" ? "text-amber-600 bg-amber-50" : color === "emerald" ? "text-emerald-700 bg-emerald-50" : "text-slate-600 bg-slate-100"; return <div className="flex items-center gap-2"><span className={`grid h-7 w-7 place-items-center rounded-lg ${tone}`}>{icon}</span><span><b className="block text-xs text-slate-800">{count}</b><span className="text-slate-500">{label}</span></span></div>; }
+function MobileOrderPreview() { return <div className="relative rounded-[2rem] border-[6px] border-[#151a18] bg-[#151a18] p-1.5 shadow-[0_28px_35px_-14px_rgba(0,0,0,.6)]"><div className="absolute left-1/2 top-1 h-4 w-20 -translate-x-1/2 rounded-full bg-[#151a18]" /><div className="overflow-hidden rounded-[1.45rem] bg-[#f7faf7] px-3 pb-3 pt-5"><div className="-mx-3 -mt-5 flex items-center justify-between bg-[#073b2d] px-3 py-3 text-[9px] font-bold text-white"><span>9:41</span><span className="flex items-center gap-1"><Bell size={11} /> MercadoFood</span></div><div className="mt-3 flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-full bg-emerald-100 text-emerald-700"><ClipboardList size={16} /></span><div><p className="text-[13px] font-black text-slate-900">Novo pedido!</p><p className="text-[9px] font-bold text-slate-500">#1049 · agora há pouco</p></div></div><div className="mt-3 rounded-xl bg-white p-2.5 shadow-sm ring-1 ring-slate-100"><PhoneItem name="X-Bacon" detail="1 un. · R$ 32,90" /><PhoneItem name="Batata frita" detail="1 un. · R$ 18,90" /><PhoneItem name="Refrigerante" detail="1 un. · R$ 8,90" /></div><div className="mt-3 flex items-center gap-1.5 text-[9px] font-bold text-emerald-800"><Truck size={13} /> Entrega para o cliente</div><button className="mt-3 flex w-full items-center justify-center gap-1 rounded-lg bg-[#087942] py-2.5 text-[10px] font-black text-white shadow-md shadow-emerald-900/15"><Check size={13} /> Aceitar pedido</button><p className="mt-2 text-center text-[9px] font-bold text-emerald-700">Ver detalhes</p></div></div>; }
+function PhoneItem({ name, detail }: { name: string; detail: string }) { return <div className="flex items-center justify-between border-b border-slate-100 py-1.5 last:border-0"><span className="text-[10px] font-bold text-slate-800">{name}</span><span className="text-[8px] text-slate-500">{detail}</span></div>; }
 
-function Metric({ label, value, icon: Icon, amber = false }: { label: string; value: string; icon: typeof Home; amber?: boolean }) {
-  return (
-    <div className="rounded-xl bg-white p-2.5 shadow-sm ring-1 ring-slate-100 sm:p-3">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[8px] font-bold uppercase tracking-wide text-slate-500 sm:text-[9px]">{label}</p>
-        <Icon size={13} className={amber ? "text-amber-500" : "text-emerald-600"} />
-      </div>
-      <p className={amber ? "mt-1.5 text-sm font-black text-amber-600 sm:text-base" : "mt-1.5 text-sm font-black text-slate-950 sm:text-base"}>{value}</p>
-    </div>
-  );
-}
-
-function Order({ number, name, status, tone }: { number: string; name: string; status: string; tone: "amber" | "green" | "slate" }) {
-  const toneClass = tone === "amber" ? "bg-amber-100 text-amber-700" : tone === "green" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600";
-  return (
-    <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 text-[9px]">
-      <strong className="text-slate-700">{number}</strong>
-      <span className="truncate text-slate-500">{name}</span>
-      <span className={`rounded-full px-2 py-1 font-bold ${toneClass}`}>{status}</span>
-    </div>
-  );
-}
-
-function Status({ icon: Icon, number, text, amber = false, green = false }: { icon: typeof Home; number: string; text: string; amber?: boolean; green?: boolean }) {
-  return (
-    <div className="flex items-center gap-2.5">
-      <span className={`grid h-8 w-8 place-items-center rounded-full ${amber ? "bg-amber-50 text-amber-600" : green ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-700"}`}>
-        <Icon size={15} />
-      </span>
-      <div>
-        <p className="text-[11px] font-black text-slate-900">{number}</p>
-        <p className="text-[8px] text-slate-500">{text}</p>
-      </div>
-    </div>
-  );
-}
-
-function MobileOrderPreview() {
-  return (
-    <div className="w-[142px] rounded-[2rem] border-[6px] border-[#17201d] bg-[#17201d] p-1 shadow-[0_24px_38px_rgba(8,44,34,.28)] md:w-[158px]">
-      <div className="overflow-hidden rounded-[1.5rem] bg-[#f8fbf8]">
-        <div className="mx-auto mt-1.5 h-1.5 w-12 rounded-full bg-[#2d3431]" />
-        <div className="px-3 pb-4 pt-3">
-          <div className="flex items-center justify-between rounded-lg bg-[#073b2d] px-2 py-2 text-[8px] font-black text-white">
-            <span>MercadoFood</span>
-            <Bell size={11} />
-          </div>
-
-          <div className="mt-3 text-center">
-            <span className="mx-auto grid h-8 w-8 place-items-center rounded-full bg-emerald-100 text-emerald-700">
-              <ClipboardList size={16} />
-            </span>
-            <p className="mt-2 text-[12px] font-black leading-tight text-slate-950">Novo pedido!</p>
-            <p className="mt-0.5 text-[8px] text-slate-500">#1049 · Agora há pouco</p>
-          </div>
-
-          <div className="mt-3 space-y-1.5">
-            <PhoneItem name="X-Bacon" price="R$ 32,90" icon="🍔" />
-            <PhoneItem name="Batata frita" price="R$ 18,90" icon="🍟" />
-            <PhoneItem name="Refrigerante" price="R$ 6,00" icon="🥤" />
-          </div>
-
-          <div className="mt-3 flex items-center gap-1 rounded-lg bg-emerald-50 px-2 py-1.5 text-[8px] font-bold text-emerald-800">
-            <Truck size={10} /> Entrega
-          </div>
-
-          <button className="mt-3 flex w-full items-center justify-center gap-1 rounded-lg bg-emerald-600 py-2.5 text-[8px] font-black text-white shadow-sm">
-            <Check size={11} /> Aceitar pedido
-          </button>
-          <p className="mt-2 text-center text-[8px] font-bold text-emerald-700">Ver detalhes</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PhoneItem({ name, price, icon }: { name: string; price: string; icon: string }) {
-  return (
-    <div className="flex items-center gap-2 rounded-lg bg-white p-1.5 shadow-sm ring-1 ring-slate-100">
-      <span className="grid h-6 w-6 place-items-center rounded-md bg-amber-50 text-sm">{icon}</span>
-      <div className="min-w-0">
-        <p className="truncate text-[8px] font-black text-slate-800">{name}</p>
-        <p className="text-[7px] text-slate-500">1 x {price}</p>
-      </div>
-    </div>
-  );
-}

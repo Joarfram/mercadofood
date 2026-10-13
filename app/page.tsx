@@ -13,30 +13,9 @@ const features = [
 export default function HomePage() {
   return <main className="min-h-screen overflow-hidden bg-[#fffdf8] text-[#062b21]">
     <MarketingHeader />
-    <section className="relative overflow-hidden bg-[radial-gradient(circle_at_62%_8%,#f6e9ca_0,transparent_28%),linear-gradient(112deg,#fffdf8_0%,#fff9ee_54%,#eef1e4_100%)] px-5 pb-10 pt-10 sm:px-8 sm:pt-12 lg:pb-14 lg:pt-14">
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white/45 to-transparent" />
-      <div className="mx-auto grid max-w-[1380px] gap-10 lg:grid-cols-[0.78fr_1.22fr] lg:items-center xl:gap-14">
-        <div className="relative z-20 max-w-[560px]">
-          <p className="inline-flex items-center gap-2 rounded-full border border-emerald-900/10 bg-white/80 px-3.5 py-2 text-sm font-bold text-emerald-800 shadow-sm backdrop-blur">
-            <span className="h-2 w-2 rounded-full bg-emerald-600" />
-            Tecnologia para negócios de alimentação
-          </p>
-          <h1 className="mt-7 text-5xl font-black leading-[.96] tracking-[-.055em] text-[#052e23] sm:text-6xl xl:text-[4.7rem]">
-            Venda mais.<br />Gerencie melhor.
-          </h1>
-          <div className="mt-5 h-1 w-48 rounded-full bg-amber-400 sm:w-64" />
-          <p className="mt-6 max-w-xl text-lg leading-relaxed text-slate-600 sm:text-xl">
-            O sistema completo para o seu delivery. Gerencie cardápio, pedidos, pagamentos e entregas em um só lugar e foque no que realmente importa: o crescimento do seu negócio.
-          </p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Link href="/recursos" className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#f4a928] px-6 py-4 font-black text-[#10261e] shadow-lg shadow-amber-500/15 transition hover:-translate-y-0.5 hover:bg-[#ffba45]">
-              Conhecer o MercadoFood <ArrowRight size={19} />
-            </Link>
-            <Link href="/login" className="inline-flex items-center justify-center rounded-xl border-2 border-[#0a3c2e] bg-white/80 px-6 py-4 font-black text-[#0a3c2e] transition hover:bg-white">
-              Sou cliente
-            </Link>
-          </div>
-        </div>
+    <section className="relative overflow-visible bg-[radial-gradient(circle_at_55%_5%,#f9eed7_0,transparent_32%),linear-gradient(112deg,#fffdf8_0%,#fff8e9_58%,#edf0df_100%)] px-5 pb-14 pt-12 sm:px-8 lg:pb-20 lg:pt-16">
+      <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.86fr_1.14fr] lg:items-center">
+        <div className="relative z-10 max-w-xl"><p className="inline-flex items-center gap-2 rounded-full border border-emerald-900/10 bg-white/75 px-3 py-1.5 text-sm font-bold text-emerald-800"><span className="h-2 w-2 rounded-full bg-emerald-600" /> Tecnologia para negócios de alimentação</p><h1 className="mt-7 text-5xl font-black leading-[.97] tracking-[-.055em] text-[#052e23] sm:text-6xl lg:text-7xl">Venda mais.<br />Gerencie melhor.</h1><div className="mt-4 h-1 w-48 rounded-full bg-amber-400 sm:w-64" /><p className="mt-6 max-w-lg text-lg leading-relaxed text-slate-600 sm:text-xl">O sistema completo para o seu delivery. Gerencie cardápio, pedidos, pagamentos e entregas em um só lugar.</p><div className="mt-8 flex flex-col gap-3 sm:flex-row"><Link href="/recursos" className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#f4a928] px-6 py-4 font-black text-[#10261e] shadow-lg shadow-amber-500/15 transition hover:bg-[#ffba45]">Conhecer o MercadoFood <ArrowRight size={19} /></Link><Link href="/login" className="inline-flex items-center justify-center rounded-xl border-2 border-[#0a3c2e] bg-white/75 px-6 py-4 font-black text-[#0a3c2e] transition hover:bg-white">Sou cliente</Link></div></div>
         <HeroDevicePreview />
       </div>
     </section>
