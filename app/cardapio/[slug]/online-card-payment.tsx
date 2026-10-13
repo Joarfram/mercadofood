@@ -54,9 +54,8 @@ export function OnlineCardPayment({ open, slug, orderId, amount, payerEmail, pub
               }
               const paymentType = rawPaymentType;
               const installments = Number(formData.installments || 1);
-              const issuerId = formData.issuer_id ? String(formData.issuer_id) : undefined;
               startTransition(async () => {
-                const result = await createPublicMercadoPagoCard({ slug, orderId, token, paymentMethodId, paymentType, installments, issuerId });
+                const result = await createPublicMercadoPagoCard({ slug, orderId, token, paymentMethodId, paymentType, installments });
                 if (!result.ok) { setMessage(result.error); reject(new Error(result.error)); return; }
                 onFinished();
                 resolve();
