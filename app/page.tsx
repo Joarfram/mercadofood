@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowRight, Bike, ClipboardList, CreditCard, LockKeyhole, MenuSquare, Store } from "lucide-react";
 import { MarketingFooter, MarketingHeader } from "@/components/marketing/site-shell";
 import { HeroDevicePreview } from "@/components/marketing/hero-device-preview";
@@ -12,8 +13,13 @@ const features = [
 
 export default function HomePage() {
   return <main className="min-h-screen overflow-hidden bg-[#fffdf8] text-[#062b21]">
-    <MarketingHeader />
-    <section className="relative overflow-visible bg-[radial-gradient(circle_at_55%_5%,#f9eed7_0,transparent_32%),linear-gradient(112deg,#fffdf8_0%,#fff8e9_58%,#edf0df_100%)] px-5 pb-14 pt-12 sm:px-8 lg:pb-20 lg:pt-16">
+    <section className="relative hidden aspect-[1600/577] overflow-hidden lg:block" aria-label="Apresentação do MercadoFood">
+      <Image src="/hero-mercadofood-referencia.jpg" alt="MercadoFood: venda mais e gerencie melhor" width={1600} height={1000} className="absolute inset-x-0 -top-[2.25vw] h-auto w-full" priority />
+      <nav className="absolute inset-x-0 top-[8%] mx-auto flex max-w-[84%] items-center justify-between" aria-label="Navegação principal"><span className="sr-only">MercadoFood</span><div className="ml-[25%] flex gap-9"><Link className="h-9 w-20" href="/recursos"><span className="sr-only">Recursos</span></Link><Link className="h-9 w-28" href="/gestao-delivery-simples"><span className="sr-only">Gestão Simples</span></Link><Link className="h-9 w-14" href="/recursos#planos"><span className="sr-only">Planos</span></Link><Link className="h-9 w-20" href="/seguranca"><span className="sr-only">Segurança</span></Link></div><div className="flex gap-3"><Link className="h-11 w-24" href="/login"><span className="sr-only">Sou cliente</span></Link><Link className="h-11 w-28" href="/login"><span className="sr-only">Entrar</span></Link></div></nav>
+      <div className="absolute left-[7.5%] top-[56%] flex gap-3"><Link className="h-14 w-[304px] rounded-xl" href="/recursos"><span className="sr-only">Conhecer o MercadoFood</span></Link><Link className="h-14 w-[176px] rounded-xl" href="/login"><span className="sr-only">Sou cliente</span></Link></div>
+    </section>
+    <div className="lg:hidden"><MarketingHeader /></div>
+    <section className="relative overflow-visible bg-[radial-gradient(circle_at_55%_5%,#f9eed7_0,transparent_32%),linear-gradient(112deg,#fffdf8_0%,#fff8e9_58%,#edf0df_100%)] px-5 pb-14 pt-12 sm:px-8 lg:hidden">
       <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.86fr_1.14fr] lg:items-center">
         <div className="relative z-10 max-w-xl"><p className="inline-flex items-center gap-2 rounded-full border border-emerald-900/10 bg-white/75 px-3 py-1.5 text-sm font-bold text-emerald-800"><span className="h-2 w-2 rounded-full bg-emerald-600" /> Tecnologia para negócios de alimentação</p><h1 className="mt-7 text-5xl font-black leading-[.97] tracking-[-.055em] text-[#052e23] sm:text-6xl lg:text-7xl">Venda mais.<br />Gerencie melhor.</h1><div className="mt-4 h-1 w-48 rounded-full bg-amber-400 sm:w-64" /><p className="mt-6 max-w-lg text-lg leading-relaxed text-slate-600 sm:text-xl">O sistema completo para o seu delivery. Gerencie cardápio, pedidos, pagamentos e entregas em um só lugar.</p><div className="mt-8 flex flex-col gap-3 sm:flex-row"><Link href="/recursos" className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#f4a928] px-6 py-4 font-black text-[#10261e] shadow-lg shadow-amber-500/15 transition hover:bg-[#ffba45]">Conhecer o MercadoFood <ArrowRight size={19} /></Link><Link href="/login" className="inline-flex items-center justify-center rounded-xl border-2 border-[#0a3c2e] bg-white/75 px-6 py-4 font-black text-[#0a3c2e] transition hover:bg-white">Sou cliente</Link></div></div>
         <HeroDevicePreview />
