@@ -9,9 +9,7 @@ type MercadoPagoConstructor = new (publicKey: string, options?: Record<string, u
   bricks: () => { create: (type: string, container: string, settings: Record<string, unknown>) => Promise<BrickController> };
 };
 
-declare global {
-  interface Window { MercadoPago?: MercadoPagoConstructor }
-}
+type MercadoPagoWindow = Window & { MercadoPago?: MercadoPagoConstructor };
 
 type Props = {
   open: boolean;
@@ -31,8 +29,8 @@ export function OnlineCardPayment({ open, slug, orderId, amount, payerEmail, pub
   const [sending, startTransition] = useTransition();
 
   useEffect(() => {
-    if (!open || !sdkLoaded || !publicKey || !window.MercadoPago) return;
-    const MercadoPago = window.MercadoPago;
+    const MercadoPago = (window as MercadoPagoWindow).MercadoPago;
+    if (!open || !sdkLoaded || !publicKey || !MercadoPago) return;
     let active = true;
     let controller: BrickController | null = null;
     const mount = async () => {
