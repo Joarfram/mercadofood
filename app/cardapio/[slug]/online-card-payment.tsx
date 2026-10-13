@@ -45,7 +45,14 @@ export function OnlineCardPayment({ open, slug, orderId, amount, payerEmail, pub
             onSubmit: (formData: Record<string, unknown>) => new Promise<void>((resolve, reject) => {
               const token = String(formData.token || "");
               const paymentMethodId = String(formData.payment_method_id || "");
-              const paymentType = String(formData.payment_type_id || "");
+              const rawPaymentType = String(formData.payment_type_id || "");
+              if (rawPaymentType !== "credit_card" && rawPaymentType !== "debit_card") {
+                const error = "Forma de pagamento inválida. Tente novamente.";
+                setMessage(error);
+                reject(new Error(error));
+                return;
+              }
+              const paymentType = rawPaymentType;
               const installments = Number(formData.installments || 1);
               const issuerId = formData.issuer_id ? String(formData.issuer_id) : undefined;
               startTransition(async () => {

@@ -2,7 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://mercadofood.com.br"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://meumercadofood.com"),
   title: { default: "MercadoFood | Venda mais. Gerencie melhor.", template: "%s | MercadoFood" },
   description: "MercadoFood é uma plataforma para cardápio digital, pedidos, delivery, pagamentos e gestão de negócios de alimentação.",
   keywords: ["cardápio digital", "gestão de delivery", "sistema para restaurante", "pedidos online", "MercadoFood"],
