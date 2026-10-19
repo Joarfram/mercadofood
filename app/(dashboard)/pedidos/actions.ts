@@ -71,7 +71,7 @@ export async function updateOrderStatus(formData: FormData) {
   if (!allowed.includes(status)) return;
   const cancellationReason = String(formData.get("cancellationReason") || "").trim();
   const { supabase, company, user } = await requirePlanModule("orders");
-  const timestamps: Record<string, string> = { accepted: "accepted_at", preparing: "started_at", ready: "ready_at", delivered: "delivered_at", canceled: "canceled_at" };
+  const timestamps: Record<string, string> = { accepted: "accepted_at", preparing: "started_at", ready: "ready_at", out_for_delivery: "out_for_delivery_at", delivered: "delivered_at", canceled: "canceled_at" };
   const payload: Record<string, string> = { status };
   if (timestamps[status]) payload[timestamps[status]] = new Date().toISOString();
   if (status === "canceled") {
