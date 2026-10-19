@@ -72,11 +72,16 @@ export async function getPublicCustomerState(slug: string) {
   const session = await resolveCustomerSession(slug);
   if (!session) return { registered: false as const, customer: null, order: null };
   const admin = createAdminClient();
-  const { data: order } = await admin.from("orders")
-    .select("id,order_number,public_code,total,status,service_type,created_at,estimated_preparation_minutes,estimated_ready_at,ready_at,delivered_at,canceled_at")
-    .eq("company_id", session.companyId).eq("customer_id", session.customerId).is("customer_closed_at", null)
-    .order("created_at", { ascending: false }).limit(1).maybeSingle();
-  return { registered: true as const, customer: { name: session.name, phone: session.phone, email: session.email }, order: order || null };
+  const orderFields = "id,order_number,public_code,total,status,service_type,created_at,updated_at,estimated_preparation_minutes,estimated_ready_at,accepted_at,started_at,ready_at,out_for_delivery_at,delivery_assigned_at,delivered_at,canceled_at,payment_status,payment_method,customer_closed_at";
+  const [{ data: activeOrder }, { data: orders }] = await Promise.all([
+    admin.from("orders").select(orderFields)
+      .eq("company_id", session.companyId).eq("customer_id", session.customerId).is("customer_closed_at", null)
+      .order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    admin.from("orders").select(orderFields)
+      .eq("company_id", session.companyId).eq("customer_id", session.customerId)
+      .order("created_at", { ascending: false }).limit(50),
+  ]);
+  return { registered: true as const, customer: { name: session.name, phone: session.phone, email: session.email }, order: activeOrder || null, orders: orders || [] };
 }
 
 /** Atualiza somente o e-mail do cliente autenticado neste aparelho. */
