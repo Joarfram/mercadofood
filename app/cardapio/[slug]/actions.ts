@@ -72,7 +72,7 @@ export async function getPublicCustomerState(slug: string) {
   const session = await resolveCustomerSession(slug);
   if (!session) return { registered: false as const, customer: null, order: null };
   const admin = createAdminClient();
-  const orderFields = "id,order_number,public_code,total,status,service_type,created_at,updated_at,estimated_preparation_minutes,estimated_ready_at,accepted_at,started_at,ready_at,delivery_assigned_at,delivered_at,canceled_at,payment_status,payment_method,customer_closed_at";
+  const orderFields = "id,order_number,public_code,total,status,service_type,created_at,updated_at,estimated_preparation_minutes,estimated_ready_at,accepted_at,started_at,ready_at,out_for_delivery_at,delivery_assigned_at,delivered_at,canceled_at,payment_status,payment_method,customer_closed_at";
   const [{ data: activeOrder }, { data: orders }] = await Promise.all([
     admin.from("orders").select(orderFields)
       .eq("company_id", session.companyId).eq("customer_id", session.customerId).is("customer_closed_at", null)
